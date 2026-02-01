@@ -1,0 +1,226 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.simcop:simcop-backend >----------------------
+[INFO] Building simcop-backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.3.2:clean (default-clean) @ simcop-backend ---
+[INFO] Deleting C:\Users\Personal\Documents\desarrollos\simcop 3.0\backend\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ simcop-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ simcop-backend ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 17 source files with javac [debug release 17] to target\classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,3] reached end of file while parsing
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,13] unmappable character (0xAD) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,14] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,12] illegal character: '\u000b'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,13] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,14] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,17] unmappable character (0xA8) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,19] unmappable character (0xE9) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,22] unmappable character (0xDE) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,17] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,19] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,22] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,3] reached end of file while parsing
+[INFO] 95 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.521 s
+[INFO] Finished at: 2025-11-21T21:15:12-05:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile (default-compile) on project simcop-backend: Compilation failure: Compilation failure: 
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/RoutePoint.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/CommanderInfo.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/GeoLocation.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/SimcopApplication.java:[1,3] reached end of file while parsing
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,13] unmappable character (0xAD) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,14] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,12] illegal character: '\u000b'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,13] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/util/JwtTokenUtil.java:[1,14] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/dto/AuthResponse.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/MilitaryUnit.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,6] unmappable character (0x9C) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,7] unmappable character (0xA2) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,8] unmappable character (0x8A) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,11] unmappable character (0xA4) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,17] unmappable character (0xA8) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,19] unmappable character (0xE9) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,22] unmappable character (0xDE) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,6] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,7] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,8] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,11] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,17] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,19] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/model/embeddable/PersonnelBreakdown.java:[1,22] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,1] unmappable character (0xA5) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,2] unmappable character (0xA7) for encoding UTF-8
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,1] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,2] illegal character: '\ufffd'
+[ERROR] /C:/Users/Personal/Documents/desarrollos/simcop 3.0/backend/src/main/java/com/simcop/repository/MilitaryUnitRepository.java:[1,3] reached end of file while parsing
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

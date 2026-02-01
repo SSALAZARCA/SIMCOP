@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=${DATABASE_USER:-root}
+      - SPRING_DATASOURCE_PASSWORD=${DATABASE_PASSWORD:-password}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - simcop-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - simcop-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=simcop
+      - MYSQL_ROOT_PASSWORD=${DATABASE_PASSWORD:-password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - simcop-network
+
+networks:
+  simcop-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

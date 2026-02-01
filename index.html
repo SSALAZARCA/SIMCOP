@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIMCOP - Plataforma de Mando y Análisis</title>
+  <script>
+    if (typeof global === 'undefined') {
+      window.global = window;
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    html,
+    body,
+    #root {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      /* Prevent body scroll when mobile nav is open */
+    }
+
+    /* Scrollbar styling for webkit browsers */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #111827;
+      /* bg-gray-900 for main content, or sidebar's bg-gray-800 */
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      /* bg-gray-600 */
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+      /* bg-gray-500 */
+    }
+
+    #map-container {
+      height: 100%;
+      width: 100%;
+      background-color: #374151;
+      /* bg-gray-700 for map background before tiles load */
+    }
+
+    /* Custom Leaflet DivIcon styles for milsymbol */
+    .custom-leaflet-icon-wrapper {
+      background-color: transparent !important;
+      border: none !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .unit-name-label {
+      font-size: 9px;
+      color: #e5e7eb;
+      /* text-gray-200 */
+      background-color: rgba(17, 24, 39, 0.6);
+      /* bg-gray-900 with opacity */
+      padding: 0px 3px;
+      border-radius: 2px;
+      margin-top: 1px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .custom-leaflet-icon-wrapper.selected .unit-name-label {
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .custom-leaflet-icon-wrapper.selected svg {
+      /* Example: slightly larger or different outline for selected symbol */
+      /* stroke: #fff !important; /* This might override milsymbol's own outline */
+    }
+
+    .pulse-ring {
+      stroke-width: 2px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(0.9);
+        opacity: 0.7;
+      }
+
+      50% {
+        transform: scale(1.2);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(0.9);
+        opacity: 0.7;
+      }
+    }
+
+    .distance-tooltip {
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: 1px solid #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .map-elevation-display {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 1000;
+      /* Above Leaflet controls but below critical popups */
+      background-color: rgba(17, 24, 39, 0.8);
+      /* bg-gray-900 with opacity */
+      color: #e5e7eb;
+      /* text-gray-200 */
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      /* So it doesn't interfere with map interactions */
+    }
+
+    .picc-label {
+      background-color: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      border: 1px solid white;
+      /* Added border for better visibility */
+      white-space: nowrap;
+    }
+
+    .leaflet-control-layers {
+      /* For Leaflet layers control on mobile */
+      font-size: 12px;
+    }
+
+    .leaflet-control-layers-expanded {
+      padding: 5px;
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom": "https://esm.sh/react-dom@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "leaflet": "https://esm.sh/leaflet@1.9.4",
+    "leaflet.draw": "https://esm.sh/leaflet-draw@1.0.4",
+    "leaflet.markercluster": "https://esm.sh/leaflet.markercluster@1.5.3",
+    "leaflet-polylinedecorator": "https://esm.sh/leaflet-polylinedecorator@1.6.0",
+    "@turf/turf": "https://esm.sh/@turf/turf@6.5.0",
+    "@turf/helpers": "https://esm.sh/@turf/helpers@^7.2.0",
+    "milsymbol": "https://esm.sh/milsymbol@2.0.0",
+    "geojson": "https://esm.sh/geojson@^0.5.0"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+
+<body class="bg-gray-900 antialiased">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

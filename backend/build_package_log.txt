@@ -1,0 +1,40 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.simcop:simcop-backend >----------------------
+[INFO] Building simcop-backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ simcop-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ simcop-backend ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ simcop-backend ---
+[INFO] skip non existing resourceDirectory D:\desarrollos 2\simcop 3.0\backend\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ simcop-backend ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.1.2:test (default-test) @ simcop-backend ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.3.0:jar (default-jar) @ simcop-backend ---
+[INFO] Building jar: D:\desarrollos 2\simcop 3.0\backend\target\simcop-backend-0.0.1-SNAPSHOT.jar
+[INFO] 
+[INFO] --- spring-boot:3.2.5:repackage (repackage) @ simcop-backend ---
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  3.004 s
+[INFO] Finished at: 2026-01-31T20:05:34-05:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.5:repackage (repackage) on project simcop-backend: Execution repackage of goal org.springframework.boot:spring-boot-maven-plugin:3.2.5:repackage failed: Unable to rename 'D:\desarrollos 2\simcop 3.0\backend\target\simcop-backend-0.0.1-SNAPSHOT.jar' to 'D:\desarrollos 2\simcop 3.0\backend\target\simcop-backend-0.0.1-SNAPSHOT.jar.original' -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/PluginExecutionException

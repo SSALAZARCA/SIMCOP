@@ -1,0 +1,54 @@
+﻿App.tsx(509,69): error TS2367: This comparison appears to be unintentional because the types 'UserRole.COMANDANTE_EJERCITO | UserRole.COMANDANTE_DIVISION | UserRole.COMANDANTE_BRIGADA | UserRole.COMANDANTE_BATALLON | UserRole.COMANDANTE_COMPANIA | UserRole.COMANDANTE_PELOTON | UserRole.OFICIAL_INTELIGENCIA | UserRole.OFICIAL_LOGISTICA | UserRole.GESTOR_REPORTES | ... 8 more ... | UserRole.DIRECTOR_TIRO_MLRS' and '"ADMINISTRATOR"' have no overlap.
+App.tsx(637,11): error TS2322: Type '(userData: NewUserData) => { success: boolean; message?: string; }' is not assignable to type '(userData: NewUserData) => Promise<{ success: boolean; message?: string; }>'.
+  Type '{ success: boolean; message?: string; }' is missing the following properties from type 'Promise<{ success: boolean; message?: string; }>': then, catch, finally, [Symbol.toStringTag]
+App.tsx(638,11): error TS2322: Type '(userId: string, userData: UpdateUserData) => { success: boolean; message?: string; }' is not assignable to type '(userId: string, userData: UpdateUserData) => Promise<{ success: boolean; message?: string; }>'.
+  Type '{ success: boolean; message?: string; }' is missing the following properties from type 'Promise<{ success: boolean; message?: string; }>': then, catch, finally, [Symbol.toStringTag]
+App.tsx(639,11): error TS2322: Type '(userId: string, currentAdminUserId: string) => { success: boolean; message?: string; }' is not assignable to type '(userId: string, currentAdminUserId: string) => Promise<{ success: boolean; message?: string; }>'.
+  Type '{ success: boolean; message?: string; }' is missing the following properties from type 'Promise<{ success: boolean; message?: string; }>': then, catch, finally, [Symbol.toStringTag]
+App.tsx(671,68): error TS2322: Type '(username: string, passwordAttempt: string) => User' is not assignable to type '(username: string, passwordAttempt: string) => Promise<User>'.
+  Type 'User' is missing the following properties from type 'Promise<User>': then, catch, finally, [Symbol.toStringTag]
+App.tsx(734,9): error TS2322: Type '{ isMobile: boolean; onToggleMobileNav: () => void; currentUser: User; onLogout: () => void; onAiCommand: (command: string) => Promise<void>; onToggleVoiceCommand: () => Promise<void>; isVoiceCommandActive: boolean; isConnectingVoice: boolean; currentView: ViewType; }' is not assignable to type 'IntrinsicAttributes & HeaderProps'.
+  Property 'currentView' does not exist on type 'IntrinsicAttributes & HeaderProps'.
+components/CommunicationsView.tsx(51,55): error TS2339: Property 'chatId' does not exist on type 'UserTelegramConfig'.
+components/company/CompanyCommanderView.tsx(145,18): error TS2739: Type '{ units: MilitaryUnit[]; artilleryPieces: any[]; intelligenceReports: any[]; forwardObservers: any[]; activeFireMissions: any[]; selectedEntity: SelectedEntity; ... 8 more ...; activeTemplateContext: any; }' is missing the following properties from type 'MapDisplayProps': eventBus, entityToPanTo
+components/MapDisplayComponent.tsx(807,41): error TS2345: Argument of type 'Map' is not assignable to parameter of type 'DrawMap'.
+  Type 'Map' is missing the following properties from type 'DrawMap': mergeOptions, addInitHook
+components/platoon/PlatoonCommanderView.tsx(180,18): error TS2739: Type '{ units: MilitaryUnit[]; artilleryPieces: ArtilleryPiece[]; intelligenceReports: any[]; forwardObservers: any[]; activeFireMissions: ActiveFireMission[]; ... 9 more ...; activeTemplateContext: any; }' is missing the following properties from type 'MapDisplayProps': eventBus, entityToPanTo
+components/SidebarComponent.tsx(66,68): error TS2367: This comparison appears to be unintentional because the types 'UserRole.COMANDANTE_EJERCITO | UserRole.COMANDANTE_DIVISION | UserRole.COMANDANTE_BRIGADA | UserRole.COMANDANTE_BATALLON | UserRole.COMANDANTE_COMPANIA | UserRole.COMANDANTE_PELOTON | UserRole.OFICIAL_INTELIGENCIA | UserRole.OFICIAL_LOGISTICA | UserRole.GESTOR_REPORTES | ... 8 more ... | UserRole.DIRECTOR_TIRO_MLRS' and '"ADMINISTRATOR"' have no overlap.
+components/UserFormModal.tsx(113,7): error TS2322: Type '("INSITOP" | "ORDOP" | "DASHBOARD" | "UNITS" | "INTEL" | "ALERTS" | "ANALYSIS" | "COMMUNICATIONS" | "ARTILLERY_OBSERVATION" | "HISTORICAL" | "Q5_REPORT" | "RETRAINING_AREA" | ... 7 more ... | "SETTINGS")[]' is not assignable to type 'ViewType[]'.
+  Type '"INSITOP" | "ORDOP" | "DASHBOARD" | "UNITS" | "INTEL" | "ALERTS" | "ANALYSIS" | "COMMUNICATIONS" | "ARTILLERY_OBSERVATION" | "HISTORICAL" | "Q5_REPORT" | "RETRAINING_AREA" | ... 7 more ... | "SETTINGS"' is not assignable to type 'ViewType'.
+    Type '"INSITOP"' is not assignable to type 'ViewType'.
+hooks/useBackendData.ts(1766,5): error TS2322: Type '(username: string, passwordAttempt: string) => Promise<User | null>' is not assignable to type '(username: string, passwordAttempt: string) => User'.
+  Type 'Promise<User>' is missing the following properties from type 'User': id, username, displayName, role, and 2 more.
+hooks/useBackendData.ts(1767,5): error TS2322: Type '(userData: NewUserData) => Promise<{ success: boolean; message?: string; }>' is not assignable to type '(userData: NewUserData) => { success: boolean; message?: string; }'.
+  Property 'success' is missing in type 'Promise<{ success: boolean; message?: string; }>' but required in type '{ success: boolean; message?: string; }'.
+hooks/useBackendData.ts(1768,5): error TS2322: Type '(userId: string, userData: UpdateUserData) => Promise<{ success: boolean; message?: string; }>' is not assignable to type '(userId: string, userData: UpdateUserData) => { success: boolean; message?: string; }'.
+  Property 'success' is missing in type 'Promise<{ success: boolean; message?: string; }>' but required in type '{ success: boolean; message?: string; }'.
+hooks/useBackendData.ts(1769,5): error TS2322: Type '(userIdToDelete: string, currentAdminUserId: string) => Promise<{ success: boolean; message?: string; }>' is not assignable to type '(userId: string, currentAdminUserId: string) => { success: boolean; message?: string; }'.
+  Property 'success' is missing in type 'Promise<{ success: boolean; message?: string; }>' but required in type '{ success: boolean; message?: string; }'.
+index.tsx(3,8): error TS1192: Module '"C:/Users/Personal/Documents/desarrollos/simcop 3.0/App"' has no default export.
+LoginViewComponent.tsx(2,27): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(2,83): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(3,40): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(4,27): error TS2307: Cannot find module './icons/TruckIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(5,31): error TS2307: Cannot find module './icons/LightBulbIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(6,47): error TS2307: Cannot find module './LogisticsRequestCardComponent' or its corresponding type declarations.
+LogisticsViewComponent.tsx(8,48): error TS2307: Cannot find module '../utils/geminiService' or its corresponding type declarations.
+MapDisplayComponent.tsx(12,263): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(13,209): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(14,517): error TS2307: Cannot find module '../constants' or its corresponding type declarations.
+MapDisplayComponent.tsx(15,30): error TS2307: Cannot find module '../utils/coordinateUtils' or its corresponding type declarations.
+MapDisplayComponent.tsx(16,37): error TS2307: Cannot find module '../utils/piccConfig' or its corresponding type declarations.
+MapDisplayComponent.tsx(17,43): error TS2307: Cannot find module './icons/AdjustmentsHorizontalIcon' or its corresponding type declarations.
+MapDisplayComponent.tsx(324,41): error TS2538: Type 'unknown' cannot be used as an index type.
+MapDisplayComponent.tsx(741,43): error TS2345: Argument of type 'Map' is not assignable to parameter of type 'DrawMap'.
+  Type 'Map' is missing the following properties from type 'DrawMap': mergeOptions, addInitHook
+MapDisplayComponent.tsx(1079,78): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1079,91): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1079,106): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+MapDisplayComponent.tsx(1088,78): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1088,89): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1088,102): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+MapDisplayComponent.tsx(1097,85): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1097,95): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1097,107): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.

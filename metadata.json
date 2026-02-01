@@ -1,0 +1,8 @@
+{
+  "name": "Copy of SIMCOP - Sistema Integrado de Mando y Control Operacional",
+  "description": "A tactical command and control interface simulating unit tracking, intelligence gathering, and alert management for operational overview. It provides a dashboard, unit roster, intelligence feed, and alert log, along with a map display for visualizing entities.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "prompt": ""
+}
