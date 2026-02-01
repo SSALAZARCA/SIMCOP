@@ -2,7 +2,8 @@ import { API_BASE_URL } from '../utils/apiConfig';
 import { apiClient } from '../utils/apiClient';
 // Service for managing application configuration via backend API
 
-const API_BASE_URL = `${API_BASE_URL}/api/config`;
+// Rename local variable to avoid conflict with imported constant
+const API_CONFIG_URL = `${API_BASE_URL}/api/config`;
 
 export interface GeminiApiKeyStatus {
     configured: boolean;
@@ -28,7 +29,7 @@ export const configService = {
      */
     async getGeminiApiKeyStatus(): Promise<boolean> {
         try {
-            const response = await apiClient.fetch(`${API_BASE_URL}/gemini-api-key/status`);
+            const response = await apiClient.fetch(`${API_CONFIG_URL}/gemini-api-key/status`);
             if (!response.ok) {
                 throw new Error('Failed to check API key status');
             }
@@ -45,7 +46,7 @@ export const configService = {
      */
     async getGeminiApiKey(): Promise<string | null> {
         try {
-            const response = await apiClient.fetch(`${API_BASE_URL}/gemini-api-key`);
+            const response = await apiClient.fetch(`${API_CONFIG_URL}/gemini-api-key`);
             if (response.status === 404) {
                 return null;
             }
@@ -72,10 +73,10 @@ export const configService = {
      */
     async saveGeminiApiKey(apiKey: string, username: string = 'admin'): Promise<void> {
         try {
-            console.log('📡 Enviando solicitud POST a:', `${API_BASE_URL}/gemini-api-key`);
+            console.log('📡 Enviando solicitud POST a:', `${API_CONFIG_URL}/gemini-api-key`);
             console.log('📦 Payload:', { apiKey: apiKey.substring(0, 10) + '...', username });
 
-            const response = await apiClient.fetch(`${API_BASE_URL}/gemini-api-key`, {
+            const response = await apiClient.fetch(`${API_CONFIG_URL}/gemini-api-key`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -121,7 +122,7 @@ export const configService = {
      */
     async deleteGeminiApiKey(): Promise<void> {
         try {
-            const response = await apiClient.fetch(`${API_BASE_URL}/gemini-api-key`, {
+            const response = await apiClient.fetch(`${API_CONFIG_URL}/gemini-api-key`, {
                 method: 'DELETE',
             });
 
