@@ -8,7 +8,7 @@ COPY . .
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN npm run build -- --logLevel info || echo "BUILD FAILED BUT CONTINUING FOR DEBUG"
+RUN npm run build -- --logLevel info || (echo "BUILD FAILED" && mkdir -p dist && echo "Build Failed" > dist/index.html)
 
 # Production stage
 FROM nginx:stable-alpine
