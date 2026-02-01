@@ -13,7 +13,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
     ports:
-      - "8080:8080"
+      - "5005:8080"
     depends_on:
       - mysql
     networks:
@@ -24,9 +24,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:5005}
     ports:
-      - "3000:80"
+      - "5006:80"
     depends_on:
       - backend
     networks:
@@ -39,6 +39,8 @@ services:
       - MYSQL_ROOT_PASSWORD=${DATABASE_PASSWORD:-password}
     volumes:
       - mysql_data:/var/lib/mysql
+    ports:
+      - "5007:3306"
     networks:
       - simcop-network
 
