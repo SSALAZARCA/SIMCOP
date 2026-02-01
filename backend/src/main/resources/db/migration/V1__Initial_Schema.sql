@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name VARCHAR(255),
     hashed_password VARCHAR(255) NOT NULL,
     role VARCHAR(50),
-    permissions TEXT[],
+    permissions JSON,
     assigned_unit_id VARCHAR(36)
 );
 
