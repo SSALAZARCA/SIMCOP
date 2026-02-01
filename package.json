@@ -21,9 +21,6 @@
     "leaflet.markercluster": "1.5.3",
     "lucide-react": "^0.554.0",
     "milsymbol": "2.0.0",
-    "mysql2": "^3.15.3",
-    "net": "^1.0.2",
-    "node-fetch": "^3.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sockjs-client": "^1.6.1"
