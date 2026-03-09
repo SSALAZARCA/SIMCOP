@@ -187,7 +187,6 @@ const App: React.FC = () => {
   };
 
   const [contentWidth, setContentWidth] = useState<number>(calculateInitialContentWidth);
-  // FIX: Initialize useRef with null to prevent using the variable before declaration.
   const mainContainerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
