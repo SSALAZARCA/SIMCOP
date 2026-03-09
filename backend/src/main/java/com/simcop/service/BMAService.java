@@ -234,31 +234,39 @@ public class BMAService {
                 String description = "Concentración detectada de " + cluster.size()
                         + " reportes. Área de riesgo elevado.";
                 hotspots.add(new HotspotDTO(new GeoLocation(avgLat, avgLon), 5.0, cluster.size(), description));
+            }
+        }
 
-                // Proactive Alerting: Check if any operational unit is within this hotspot
-                checkAndAlertUnitsInHotspot(avgLat, avgLon, cluster.size());
+        if (!hotspots.isEmpty()) {
+            List<MilitaryUnit> operationalUnits = unitRepository.findAll().stream()
+                    .filter(u -> u.getStatus() == UnitStatus.OPERATIONAL || u.getStatus() == UnitStatus.ENGAGED)
+                    .collect(Collectors.toList());
+
+            long todayStart = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000);
+            List<Alert> todaysAlerts = alertRepository.findAll().stream()
+                    .filter(a -> a.getType() == AlertType.BMA_HOTSPOT_THREAT
+                            && a.getTimestamp() > todayStart
+                            && !a.isAcknowledged())
+                    .collect(Collectors.toList());
+
+            for (HotspotDTO hotspot : hotspots) {
+                checkAndAlertUnitsInHotspot(hotspot.getLocation().getLat(), hotspot.getLocation().getLon(),
+                        hotspot.getIntensity(), operationalUnits, todaysAlerts);
             }
         }
 
         return hotspots;
     }
 
-    private void checkAndAlertUnitsInHotspot(double hotspotLat, double hotspotLon, int intensity) {
-        List<MilitaryUnit> units = unitRepository.findAll().stream()
-                .filter(u -> u.getStatus() == UnitStatus.OPERATIONAL || u.getStatus() == UnitStatus.ENGAGED)
-                .collect(Collectors.toList());
-
+    private void checkAndAlertUnitsInHotspot(double hotspotLat, double hotspotLon, int intensity,
+            List<MilitaryUnit> units, List<Alert> todaysAlerts) {
         for (MilitaryUnit unit : units) {
             double dist = calculateDistance(unit.getLocation().getLat(), unit.getLocation().getLon(), hotspotLat,
                     hotspotLon);
             if (dist < 5.0) { // Same as cluster radius
                 // Check if an alert already exists for this unit and type today to avoid spam
-                long todayStart = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000);
-                boolean exists = alertRepository.findAll().stream()
-                        .anyMatch(a -> a.getUnitId() != null && a.getUnitId().equals(unit.getId())
-                                && a.getType() == AlertType.BMA_HOTSPOT_THREAT
-                                && a.getTimestamp() > todayStart
-                                && !a.isAcknowledged());
+                boolean exists = todaysAlerts.stream()
+                        .anyMatch(a -> a.getUnitId() != null && a.getUnitId().equals(unit.getId()));
 
                 if (!exists) {
                     Alert alert = new Alert();
@@ -272,6 +280,10 @@ public class BMAService {
                             + " se encuentra en un Punto Crítico de alta intensidad (" + intensity
                             + " reportes). Incrementar alerta.");
                     alertRepository.save(alert);
+
+                    // Add to the local list to prevent multiple alerts for the same unit in different
+                    // hotspots in the same run
+                    todaysAlerts.add(alert);
                 }
             }
         }
