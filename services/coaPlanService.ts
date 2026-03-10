@@ -2,15 +2,7 @@ import { API_BASE_URL } from '../utils/apiConfig';
 import { COAPlan } from '../types';
 import { apiClient } from '../utils/apiClient';
 
-const getBaseUrl = () => {
-    if (typeof window !== 'undefined') {
-        const host = window.location.hostname;
-        return `http://${host}:8080/api/coa-plans`;
-    }
-    return `${API_BASE_URL}/api/coa-plans`;
-};
-
-const API_URL = getBaseUrl();
+const API_URL = `${API_BASE_URL}/api/coa-plans`;
 
 /**
  * Transform backend COA plan response to frontend format

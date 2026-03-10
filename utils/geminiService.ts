@@ -9,8 +9,8 @@ let ai: GoogleGenAI | null = null;
 // Initialize API key from backend
 export const initializeApiKey = async (): Promise<void> => {
   try {
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const response = await fetch(`http://${host}:8080/api/config/gemini-api-key`, {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+    const response = await fetch(`${baseUrl}/api/config/gemini-api-key`, {
       method: 'GET',
       credentials: 'omit',
       headers: {

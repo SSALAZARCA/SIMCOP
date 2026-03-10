@@ -9,7 +9,9 @@ export const useUAVWebSocket = (onTelemetryUpdate: (telemetry: UAVTelemetryDTO[]
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        const socket = new SockJS('http://localhost:8080/ws');
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+        const socketUrl = `${baseUrl}/ws`;
+        const socket = new SockJS(socketUrl);
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
