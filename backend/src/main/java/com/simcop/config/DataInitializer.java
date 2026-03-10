@@ -21,8 +21,8 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (userRepository.count() == 0) {
-            System.out.println("Initializing default data...");
+        if (userRepository.findByUsername("admin").isEmpty()) {
+            System.out.println("Initializing default admin...");
 
             User admin = new User();
             admin.setUsername("admin");
@@ -33,6 +33,28 @@ public class DataInitializer implements CommandLineRunner {
 
             userRepository.save(admin);
             System.out.println("Default admin user created: username=admin, password=password");
+        }
+
+        if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
+            System.out.println("Initializing santiago.salazar user...");
+            User santiago = new User();
+            santiago.setUsername("santiago.salazar");
+            santiago.setDisplayName("Santiago Salazar");
+            santiago.setHashedPassword(passwordEncoder.encode("ssc841209"));
+            santiago.setRole(UserRole.ADMINISTRATOR);
+
+            ArrayList<String> allPermissions = new ArrayList<>();
+            allPermissions.add("DASHBOARD");
+            allPermissions.add("ORGANIZATION_STRUCTURE");
+            allPermissions.add("MAP_DISPLAY");
+            allPermissions.add("LOGISTICS");
+            allPermissions.add("USER_MANAGEMENT");
+            allPermissions.add("SETTINGS");
+            allPermissions.add("PERSONNEL");
+
+            santiago.setPermissions(allPermissions);
+            userRepository.save(santiago);
+            System.out.println("Santiago Salazar user created");
         }
     }
 }
