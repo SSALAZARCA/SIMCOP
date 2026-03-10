@@ -16,7 +16,6 @@ public class User {
     private String id;
 
     @Transient
-    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_WRITE)
     private String token;
 
     // @Column(unique = true)

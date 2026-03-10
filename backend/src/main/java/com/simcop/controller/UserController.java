@@ -29,7 +29,7 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<User> getMe(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> getMe(@RequestHeader("Authorization") String token) {
         try {
             if (token != null && token.startsWith("Bearer ")) {
                 token = token.substring(7);
@@ -37,8 +37,16 @@ public class UserController {
                 var userOpt = repository.findByUsername(username);
                 if (userOpt.isPresent()) {
                     User u = userOpt.get();
-                    u.setToken(token);
-                    return ResponseEntity.ok(u);
+                    java.util.Map<String, Object> response = new java.util.HashMap<>();
+                    response.put("id", u.getId());
+                    response.put("username", u.getUsername());
+                    response.put("displayName", u.getDisplayName());
+                    response.put("role", u.getRole());
+                    response.put("permissions", u.getPermissions());
+                    response.put("assignedUnitId", u.getAssignedUnitId());
+                    response.put("telegramChatId", u.getTelegramChatId());
+                    response.put("token", token);
+                    return ResponseEntity.ok(response);
                 }
             }
             return ResponseEntity.status(401).build();
@@ -60,14 +68,22 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<User> login(@RequestBody User loginRequest) {
+    public ResponseEntity<?> login(@RequestBody User loginRequest) {
         var userOpt = repository.findByUsername(loginRequest.getUsername());
         if (userOpt.isPresent()) {
             User u = userOpt.get();
             if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
                 String token = jwtUtil.generateToken(u.getUsername());
-                u.setToken(token);
-                return ResponseEntity.ok(u);
+                java.util.Map<String, Object> response = new java.util.HashMap<>();
+                response.put("id", u.getId());
+                response.put("username", u.getUsername());
+                response.put("displayName", u.getDisplayName());
+                response.put("role", u.getRole());
+                response.put("permissions", u.getPermissions());
+                response.put("assignedUnitId", u.getAssignedUnitId());
+                response.put("telegramChatId", u.getTelegramChatId());
+                response.put("token", token);
+                return ResponseEntity.ok(response);
             }
         }
         return ResponseEntity.status(403).build();
