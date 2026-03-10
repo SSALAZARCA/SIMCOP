@@ -250,7 +250,7 @@ public class BMAService {
                     .collect(Collectors.toList());
 
             for (HotspotDTO hotspot : hotspots) {
-                checkAndAlertUnitsInHotspot(hotspot.getCenter().getLat(), hotspot.getCenter().getLon(),
+                checkAndAlertUnitsInHotspot(hotspot.getLocation().getLat(), hotspot.getLocation().getLon(),
                         hotspot.getIntensity(), operationalUnits, todaysAlerts);
             }
         }
