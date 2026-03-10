@@ -165,6 +165,21 @@ export interface IntelligenceReport {
   relatedReportIds?: string[];
 }
 
+export interface OsintEvent {
+  id: string;
+  title: string;
+  summary: string;
+  sourceUrl: string;
+  sourceName: string;
+  locationName: string;
+  location: GeoLocation;
+  eventTimestamp: string; // ISO string from backend
+  processedTimestamp: string;
+  confidenceScore: number;
+  eventType: string;
+  verified: boolean;
+}
+
 export enum AlertType {
   NO_MOVEMENT = 'Sin Movimiento',
   DANGEROUS_ROUTINE = 'Rutina Peligrosa',
@@ -949,6 +964,9 @@ export interface UseSimulatedDataReturn {
   q5GeneratingStatus: { [aarId: string]: boolean };
   q5SendingStatus: { [q5Id: string]: boolean };
   unitHistoryLog: UnitHistoryEvent[];
+  osintEvents: OsintEvent[];
+  refreshOsint: () => Promise<void>;
+  verifyOsintEvent: (id: string, verified: boolean) => Promise<void>;
   acknowledgeAlert: (alertId: string) => Promise<void>;
   addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => Promise<void>;
   addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => Promise<void>;
@@ -1180,6 +1198,7 @@ export interface MapDisplayProps {
   forwardObservers: ForwardObserver[];
   activeFireMissions: FireMission[];
   afterActionReports?: AfterActionReport[];
+  osintEvents?: OsintEvent[];
   selectedEntity: SelectedEntity | null;
   onSelectEntityOnMap?: (entity: SelectedEntity) => void;
   distanceToolActive?: boolean;

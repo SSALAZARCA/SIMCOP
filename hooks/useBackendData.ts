@@ -5,7 +5,7 @@ import type {
   MilitaryUnit, IntelligenceReport, Alert, GeoLocation, AfterActionReport, Q5Report, UnitHistoryEvent, UseSimulatedDataReturn,
   User, OperationsOrder, ArtilleryPiece, ForwardObserver,
   ActiveFireMission, PendingFireMission, LogisticsRequest, UserTelegramConfig,
-  ProjectileType, FiringSolution, NewUnitData, NewHierarchyUnitData, UpdateHierarchyUnitData, UpdateOperationsOrderData, NewOperationsOrderData, UAVAsset
+  ProjectileType, FiringSolution, NewUnitData, NewHierarchyUnitData, UpdateHierarchyUnitData, UpdateOperationsOrderData, NewOperationsOrderData, UAVAsset, OsintEvent
 } from '../types';
 import {
   UnitStatus, AlertType, AlertSeverity, UnitSituationINSITOP
@@ -22,6 +22,7 @@ import { aarService } from '../services/aarService';
 import { q5Service } from '../services/q5Service';
 import { logisticsService } from '../services/logisticsService';
 import { historyService } from '../services/historyService';
+import { osintService } from '../services/osintService';
 
 import { useHistoryManagement } from './modules/useHistoryManagement';
 import { useIntelligenceManagement } from './modules/useIntelligenceManagement';
@@ -39,6 +40,7 @@ export const generateRandomId = () => Math.random().toString(36).substring(2, 15
 export const useBackendData = (): UseSimulatedDataReturn => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [userTelegramConfigs, setUserTelegramConfigsInternal] = useState<UserTelegramConfig[]>([]);
+  const [osintEvents, setOsintEventsInternal] = useState<OsintEvent[]>([]);
 
   const { unitHistoryLog, setUnitHistoryLogInternal, addUnitHistoryEvent } = useHistoryManagement();
   const { alerts, setAlertsInternal, acknowledgeAlert } = useAlertsManagement();
@@ -56,7 +58,7 @@ export const useBackendData = (): UseSimulatedDataReturn => {
       const [
         fetchedUnits, fetchedIntel, fetchedAlerts, fetchedUsers,
         fetchedArtillery, fetchedObservers, fetchedOrders,
-        fetchedAARs, fetchedQ5s, fetchedLogistics, fetchedHistory
+        fetchedAARs, fetchedQ5s, fetchedLogistics, fetchedHistory, fetchedOsint
       ] = await Promise.all([
         unitService.getAllUnits().catch(e => []),
         intelService.getAllReports().catch(e => []),
@@ -68,7 +70,8 @@ export const useBackendData = (): UseSimulatedDataReturn => {
         aarService.getAllReports().catch(e => []),
         q5Service.getAllReports().catch(e => []),
         logisticsService.getAllRequests().catch(e => []),
-        historyService.getAllEvents().catch(e => [])
+        historyService.getAllEvents().catch(e => []),
+        osintService.getAllEvents().catch(e => [])
       ]);
 
       setUnitsInternal(fetchedUnits);
@@ -82,10 +85,30 @@ export const useBackendData = (): UseSimulatedDataReturn => {
       setQ5ReportsInternal(fetchedQ5s);
       setLogisticsRequestsInternal(fetchedLogistics);
       setUnitHistoryLogInternal(fetchedHistory);
+      setOsintEventsInternal(fetchedOsint);
       setIsInitialized(true);
     } catch (error) {
       console.error("Error loading data:", error);
       setIsInitialized(true);
+    }
+  };
+
+  const refreshOsint = async () => {
+    try {
+      await osintService.refreshEvents();
+      const events = await osintService.getAllEvents();
+      setOsintEventsInternal(events);
+    } catch (error) {
+      console.error("Error refreshing OSINT:", error);
+    }
+  };
+
+  const verifyOsintEvent = async (id: string, verified: boolean) => {
+    try {
+      const updated = await osintService.verifyEvent(id, verified);
+      setOsintEventsInternal(prev => prev.map(e => e.id === id ? updated : e));
+    } catch (error) {
+      console.error("Error verifying OSINT event:", error);
     }
   };
 
@@ -111,6 +134,9 @@ export const useBackendData = (): UseSimulatedDataReturn => {
     userTelegramConfigs,
     q5GeneratingStatus,
     q5SendingStatus,
+    osintEvents,
+    refreshOsint,
+    verifyOsintEvent,
 
     login,
     addUser,

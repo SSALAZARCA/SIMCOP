@@ -14,8 +14,8 @@ import { MilitaryUnit, UAVAsset, UnitType, UnitStatus, NewUnitData } from '../ty
 
 interface UAVManagementViewProps {
     units: MilitaryUnit[];
-    onAssignUAV: (unitId: string, asset: UAVAsset) => void;
-    onDeleteUAV: (unitId: string, assetId: string) => void;
+    onAssignUAV: (unitId: string, asset: UAVAsset) => Promise<{ success: boolean; message?: string; }>;
+    onDeleteUAV: (unitId: string, assetId: string) => Promise<{ success: boolean; message?: string; }>;
     addUnit: (unitData: NewUnitData) => void;
 }
 
@@ -109,7 +109,9 @@ export const UAVManagementView: React.FC<UAVManagementViewProps> = ({ units, onA
             capabilities: ['ISR', 'Target Acquisition'],
             ammoLevel: 100,
             daysOfSupply: 30,
-            fuelLevel: 100
+            fuelLevel: 100,
+            currentMission: 'ISR - Vigilancia UAV',
+            unitSituationType: UnitSituationINSITOP.ORGANICA
         };
         addUnit(newData);
     };

@@ -65,6 +65,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   entityToPanTo,
   hotspots = [],
   historicalHotspots = [],
+  osintEvents = [],
   isMaximized = false,
   onToggleMaximize
 }) => {
@@ -86,6 +87,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const hotspotsLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const historicalHotspotsLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const linkGraphLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
+  const osintLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const uavLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const coaLayerRef = useRef<L.LayerGroup[]>([]);
   const [currentCOAPlan, setCurrentCOAPlan] = useState<COAPlan | null>(null);
@@ -112,6 +114,10 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const [showWindyWeather, setShowWindyWeather] = useState<boolean>(false);
   const [showWeatherMarkers, setShowWeatherMarkers] = useState<boolean>(false);
   const [timeOffsetHours, setTimeOffsetHours] = useState<number>(0); // 0h to 72h
+  const [showOsintLayer, setShowOsintLayer] = useState<boolean>(true);
+  const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(true);
+  const [showHistoricalHotspotsLayer, setShowHistoricalHotspotsLayer] = useState<boolean>(false);
+  const [showUavLayer, setShowUavLayer] = useState<boolean>(true);
 
   const filteredUnits = useMemo(() => {
     return units.filter(unit => {
@@ -190,6 +196,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         "Etiquetas de Lugares": cartoLabelsLayer,
         "Análisis de Hotspots (BMA)": hotspotsLayerRef.current,
         "Histórico Hotspots (48h)": historicalHotspotsLayerRef.current,
+        "OSINT: Noticias Seg. (IA)": osintLayerRef.current,
         "Activos UAV (Tiempo Real)": uavLayerRef.current,
       };
 
@@ -312,9 +319,6 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         layerControlRef.current.addOverlay(weatherAlertLayerRef.current, "⚠️ Alertas de Tormenta");
       }
       enemyInfluencePolygonsRef.current.addTo(mapInstance);
-      hotspotsLayerRef.current.addTo(mapInstance);
-      historicalHotspotsLayerRef.current.addTo(mapInstance);
-      uavLayerRef.current.addTo(mapInstance);
 
       const colombiaBounds = L.latLngBounds(
         [MAP_BOUNDS.MIN_LAT, MAP_BOUNDS.MIN_LON],
@@ -334,6 +338,24 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       }
     }
   }, []);
+
+  // Synchronize Intelligence Layers Visibility
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    if (showOsintLayer) osintLayerRef.current.addTo(map);
+    else osintLayerRef.current.remove();
+
+    if (showHotspotsLayer) hotspotsLayerRef.current.addTo(map);
+    else hotspotsLayerRef.current.remove();
+
+    if (showHistoricalHotspotsLayer) historicalHotspotsLayerRef.current.addTo(map);
+    else historicalHotspotsLayerRef.current.remove();
+
+    if (showUavLayer) uavLayerRef.current.addTo(map);
+    else uavLayerRef.current.remove();
+  }, [showOsintLayer, showHotspotsLayer, showHistoricalHotspotsLayer, showUavLayer]);
 
   // Load saved PICC graphics from database
   useEffect(() => {
@@ -485,6 +507,52 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       layer.addLayer(marker);
     });
   }, [filteredIntel, selectedEntity, onSelectEntityOnMap, distanceToolActive, aoiDrawingModeActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive]);
+
+  // OSINT Layer Rendering
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const layer = osintLayerRef.current;
+    layer.clearLayers();
+
+    osintEvents.forEach(event => {
+      const isSelected = selectedEntity?.type === MapEntityType.INTEL && selectedEntity.id === event.id;
+
+      let iconColor = '#06b6d4'; // Cyan default
+      let iconPath = 'M12 2L2 12l10 10 10-10L12 2z'; // Diamond
+
+      if (event.eventType === 'ATTACK') {
+        iconColor = '#ef4444'; // Red
+        iconPath = 'M13 2L3 14h9l-1 8 10-12h-9l1-8z'; // Lightning
+      } else if (event.eventType === 'CLASH') {
+        iconColor = '#f97316'; // Orange
+        iconPath = 'M12 2L2 22h20L12 2z'; // Triangle
+      }
+
+      const marker = L.marker([event.location.lat, event.location.lon], {
+        icon: L.divIcon({
+          html: `<svg viewBox="0 0 24 24" class="w-6 h-6" fill="${iconColor}" stroke="white" stroke-width="1.5"><path d="${iconPath}"></path></svg>`,
+          className: 'custom-leaflet-icon-wrapper',
+          iconSize: L.point(isSelected ? 32 : 26, isSelected ? 32 : 26),
+          iconAnchor: L.point(isSelected ? 16 : 13, isSelected ? 16 : 13),
+        }),
+        zIndexOffset: isSelected ? 150 : 50
+      }).bindTooltip(`
+        <div class="p-1">
+          <div class="font-bold border-b border-cyan-500 mb-1">OSINT: ${event.eventType}</div>
+          <div class="text-xs">${event.title}</div>
+          <div class="text-[10px] opacity-75 mt-1">Fuente: ${event.sourceName} | Confianza: ${(event.confidenceScore * 100).toFixed(0)}%</div>
+        </div>
+      `);
+
+      marker.on('click', (e) => {
+        // We can treat OSINT as INTEL for selection purposes if we want, 
+        // or just show a custom popup
+        L.DomEvent.stopPropagation(e);
+      });
+
+      layer.addLayer(marker);
+    });
+  }, [osintEvents, selectedEntity]);
 
   // Tactical Link Graph Rendering
   useEffect(() => {
@@ -1493,31 +1561,75 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
             <div className="absolute top-full right-0 mt-2 bg-gray-800 bg-opacity-90 p-3 rounded-lg shadow-lg w-60 space-y-3">
               <h4 className="text-sm font-semibold text-gray-200 border-b border-gray-600 pb-1">Filtros de Capa</h4>
 
-              <div>
-                <label htmlFor="unitStatusFilter" className="block text-xs font-medium text-gray-400">Estado de Unidad</label>
-                <select id="unitStatusFilter" value={unitStatusFilter} onChange={e => setUnitStatusFilter(e.target.value as UnitStatus | 'ALL')}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
-                  <option value="ALL">Todos los Estados</option>
-                  {(Object.values(UnitStatus) as string[]).map(status => <option key={status} value={status}>{status}</option>)}
-                </select>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Capas de Inteligencia</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-300">Hotspots (BMA)</span>
+                  <button
+                    onClick={() => setShowHotspotsLayer(!showHotspotsLayer)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${showHotspotsLayer ? 'bg-orange-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showHotspotsLayer ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-300">Histórico Hotspots</span>
+                  <button
+                    onClick={() => setShowHistoricalHotspotsLayer(!showHistoricalHotspotsLayer)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${showHistoricalHotspotsLayer ? 'bg-yellow-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showHistoricalHotspotsLayer ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-300">OSINT: Noticias Seg. (IA)</span>
+                  <button
+                    onClick={() => setShowOsintLayer(!showOsintLayer)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${showOsintLayer ? 'bg-pink-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showOsintLayer ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-300">Activos UAV</span>
+                  <button
+                    onClick={() => setShowUavLayer(!showUavLayer)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${showUavLayer ? 'bg-cyan-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showUavLayer ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="unitTypeFilter" className="block text-xs font-medium text-gray-400">Tipo de Unidad</label>
-                <select id="unitTypeFilter" value={unitTypeFilter} onChange={e => setUnitTypeFilter(e.target.value as UnitType | 'ALL')}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
-                  <option value="ALL">Todos los Tipos</option>
-                  {(Object.values(UnitType) as string[]).map(type => <option key={type} value={type}>{type}</option>)}
-                </select>
-              </div>
+              <div className="border-t border-gray-700 pt-2">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Filtros de Atributos</p>
 
-              <div>
-                <label htmlFor="intelReliabilityFilter" className="block text-xs font-medium text-gray-400">Fiabilidad de Inteligencia</label>
-                <select id="intelReliabilityFilter" value={intelReliabilityFilter} onChange={e => setIntelReliabilityFilter(e.target.value as IntelligenceReliability | 'ALL')}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
-                  <option value="ALL">Todas las Fiabilidades</option>
-                  {(Object.values(IntelligenceReliability) as string[]).map(rel => <option key={rel} value={rel}>{rel}</option>)}
-                </select>
+                <div>
+                  <label htmlFor="unitStatusFilter" className="block text-xs font-medium text-gray-400">Estado de Unidad</label>
+                  <select id="unitStatusFilter" value={unitStatusFilter} onChange={e => setUnitStatusFilter(e.target.value as UnitStatus | 'ALL')}
+                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
+                    <option value="ALL">Todos los Estados</option>
+                    {(Object.values(UnitStatus) as string[]).map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="unitTypeFilter" className="block text-xs font-medium text-gray-400">Tipo de Unidad</label>
+                  <select id="unitTypeFilter" value={unitTypeFilter} onChange={e => setUnitTypeFilter(e.target.value as UnitType | 'ALL')}
+                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
+                    <option value="ALL">Todos los Tipos</option>
+                    {(Object.values(UnitType) as string[]).map(type => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="intelReliabilityFilter" className="block text-xs font-medium text-gray-400">Fiabilidad de Inteligencia</label>
+                  <select id="intelReliabilityFilter" value={intelReliabilityFilter} onChange={e => setIntelReliabilityFilter(e.target.value as IntelligenceReliability | 'ALL')}
+                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-xs text-white">
+                    <option value="ALL">Todas las Fiabilidades</option>
+                    {(Object.values(IntelligenceReliability) as string[]).map(rel => <option key={rel} value={rel}>{rel}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           )}

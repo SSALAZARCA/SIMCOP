@@ -11,9 +11,10 @@ interface IntelViewProps {
     intelReports: IntelligenceReport[];
     onSelectIntel: (report: IntelligenceReport) => void;
     addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => void;
+    onRefreshOsint?: () => Promise<void>;
 }
 
-export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectIntel, addIntelReport }) => {
+export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectIntel, addIntelReport, onRefreshOsint }) => {
     const [selectedIntelForPanel, setSelectedIntelForPanel] = useState<IntelligenceReport | null>(null);
     const [showAddIntelForm, setShowAddIntelForm] = useState(false);
 
@@ -179,12 +180,24 @@ export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectInte
         <div className="flex flex-col space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 pb-2 gap-2">
                 <h2 className="text-xl md:text-2xl font-semibold text-gray-200">Fuente de Inteligencia</h2>
-                <button
-                    onClick={() => setShowAddIntelForm(!showAddIntelForm)}
-                    className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                >
-                    {showAddIntelForm ? 'Cancelar Entrada' : 'Añadir Informe Intel.'}
-                </button>
+                <div className="flex gap-2">
+                    {onRefreshOsint && (
+                        <button
+                            onClick={() => {
+                                onRefreshOsint().then(() => alert("Noticias OSINT actualizadas.")).catch(e => alert("Error al actualizar OSINT."));
+                            }}
+                            className="px-3 py-1.5 md:px-4 md:py-2 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                        >
+                            Procesar OSINT (IA)
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowAddIntelForm(!showAddIntelForm)}
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    >
+                        {showAddIntelForm ? 'Cancelar Entrada' : 'Añadir Informe Intel.'}
+                    </button>
+                </div>
             </div>
 
             {showAddIntelForm && (

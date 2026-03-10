@@ -108,7 +108,7 @@ const App: React.FC = () => {
     fulfillLogisticsRequest, addForwardObserver, confirmShotFired,
     requestFireMission, acceptFireMission, updateUserTelegramConfig,
     rejectFireMission, dismissPendingMission, addLogisticsRequest,
-    assignUAVAsset, removeUAVAsset, refreshData
+    assignUAVAsset, removeUAVAsset, refreshData, refreshOsint, verifyOsintEvent, osintEvents
   } = data;
 
 
@@ -577,6 +577,7 @@ const App: React.FC = () => {
     entityToPanTo: entityToPanTo,
     hotspots: hotspots,
     historicalHotspots: historicalHotspots,
+    osintEvents: osintEvents,
     isMaximized: isMapMaximized,
     onToggleMaximize: handleToggleMapMaximize,
   };
@@ -651,7 +652,12 @@ const App: React.FC = () => {
           dismissPendingMission={dismissPendingMission}
         />;
       case ViewType.INTEL:
-        return <IntelView intelReports={intelligenceReports} onSelectIntel={(intel) => handleSelectEntity({ type: MapEntityType.INTEL, id: intel.id })} addIntelReport={addIntelReport} />;
+        return <IntelView
+          intelReports={intelligenceReports}
+          onSelectIntel={(intel) => handleSelectEntity({ type: MapEntityType.INTEL, id: intel.id })}
+          addIntelReport={addIntelReport}
+          onRefreshOsint={refreshOsint}
+        />;
       case ViewType.ALERTS:
         return <AlertsView alerts={alerts} acknowledgeAlert={acknowledgeAlert} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} />;
       case ViewType.ANALYSIS:
@@ -701,6 +707,7 @@ const App: React.FC = () => {
           rejectFireMission={rejectFireMission}
           dismissPendingMission={dismissPendingMission}
           confirmShotFired={confirmShotFired}
+          deleteArtilleryPiece={async (id) => alert("Funcionalidad de borrado no implementada.")}
         />;
       case ViewType.UAV_MANAGEMENT:
         return <UAVManagementView
@@ -709,11 +716,13 @@ const App: React.FC = () => {
             const result = await assignUAVAsset(unitId, asset);
             if (result.success) alert("Activo UAV asignado correctamente.");
             else alert("Error al asignar activo UAV: " + result.message);
+            return result;
           }}
           onDeleteUAV={async (unitId, assetId) => {
             const result = await removeUAVAsset(unitId, assetId);
             if (result.success) alert("Activo UAV eliminado correctamente.");
             else alert("Error al eliminar activo UAV: " + result.message);
+            return result;
           }}
           addUnit={addUnit}
         />;
