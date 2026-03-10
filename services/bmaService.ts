@@ -2,15 +2,7 @@ import { API_BASE_URL } from '../utils/apiConfig';
 import { apiClient } from '../utils/apiClient';
 import { BMARecommendation, LogisticsPrediction, Hotspot } from '../types';
 
-const getBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    return `http://${host}:8080/api/bma`;
-  }
-  return `${API_BASE_URL}/api/bma`;
-};
-
-const API_BMA_URL = getBaseUrl();
+const API_BMA_URL = `${API_BASE_URL}/api/bma`;
 
 export const bmaService = {
   getRecommendations: async (threatId: string): Promise<BMARecommendation[]> => {

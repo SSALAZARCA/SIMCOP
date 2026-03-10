@@ -9,7 +9,15 @@ export const getApiBaseUrl = () => {
 
     if (typeof window !== 'undefined') {
         const host = window.location.hostname;
-        return `http://${host}:8080`;
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        
+        // If we are on a production domain like simcop.site but without VITE_API_BASE_URL
+        // we should probably try the api. subdomain or the same host with SSL
+        if (host === 'simcop.site') {
+            return `https://api.simcop.site`;
+        }
+        
+        return `${protocol}//${host}:8080`;
     }
 
     return 'http://localhost:8080';

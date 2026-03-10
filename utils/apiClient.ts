@@ -24,16 +24,17 @@ export const apiClient = {
             headers,
         });
 
-        if (response.status === 403 || response.status === 401) {
-            // Token might be expired or invalid
-            console.warn(`Access denied (${response.status}) for ${url}. Clearing session.`);
-
-            // Only clear if we actually had a token (to avoid loops on public endpoints failing)
+        if (response.status === 401) {
+            // Token is expired or unauthorized
+            console.warn(`Unauthorized (${response.status}) for ${url}. Clearing session.`);
             if (token) {
                 localStorage.removeItem(SIMCOP_TOKEN_KEY);
-                // Dispatch event to notify App to logout
                 window.dispatchEvent(new Event('simcop-logout'));
             }
+        } else if (response.status === 403) {
+            // Forbidden: Token is valid but user lacks specific permissions for this resource
+            // DO NOT clear session to avoid infinite login/logout loops
+            console.error(`Access denied (403 Forbidden) for ${url}. Session preserved.`);
         }
 
         return response;
@@ -51,9 +52,11 @@ export const apiClient = {
         // Nota: NO establecer 'Content-Type': 'multipart/form-data' manualmente,
         // fetch lo hace automáticamente con el boundary correcto.
 
-        // Determinar URL base (asumiendo backend en puerto 8080)
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        const uploadUrl = `http://${host}:8080/api/files/upload`;
+        // Usar la URL base centralizada
+        const uploadUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/files/upload`;
+        // Si no hay VITE_API_BASE_URL, el fallback de fetch manejará la URL relativa si se desea, 
+        // pero mejor usar una lógica similar a apiConfig o importar API_BASE_URL
+        // Sin embargo, para no crear dependencias circulares complejas, usamos una lógica directa o el env.
 
         const response = await fetch(uploadUrl, {
             method: 'POST',
