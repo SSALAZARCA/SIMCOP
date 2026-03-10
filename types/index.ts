@@ -160,7 +160,9 @@ export interface IntelligenceReport {
   eventTimestamp: number;
   reportTimestamp: number;
   details: string;
-  attachments?: { name: string; type: string; url?: string }[];
+  reportingUnitId?: string; // ID of the unit that filed the report
+  attachments?: { name: string; type: string; url: string }[];
+  relatedReportIds?: string[];
 }
 
 export enum AlertType {

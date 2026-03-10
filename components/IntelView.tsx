@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import type { IntelligenceReport, SelectedEntity } from '../types';
-import { IntelligenceSourceType, IntelligenceReliability, IntelligenceCredibility, MapEntityType } from '../types';
+import type { IntelligenceReport } from '../types';
+import { IntelligenceSourceType, IntelligenceReliability, IntelligenceCredibility, MapEntityType, SelectedEntity } from '../types';
 import { IntelListComponent } from './IntelListComponent';
 import { IntelDetailsPanel } from './IntelDetailsPanel';
 import { dmsToDecimal } from '../utils/coordinateUtils';
 import { apiClient } from '../utils/apiClient';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 interface IntelViewProps {
     intelReports: IntelligenceReport[];
@@ -20,6 +21,26 @@ export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectInte
         setSelectedIntelForPanel(report);
         onSelectIntel(report);
     }, [onSelectIntel]);
+
+    const handleLinkReports = async (targetId: string) => {
+        if (!selectedIntelForPanel) return;
+        try {
+            await apiClient.put(`${API_BASE_URL}/api/intel/${selectedIntelForPanel.id}/link/${targetId}`, {});
+            alert("Vínculo creado correctamente.");
+        } catch (error) {
+            console.error("Link failed", error);
+        }
+    };
+
+    const handleUnlinkReports = async (targetId: string) => {
+        if (!selectedIntelForPanel) return;
+        try {
+            await apiClient.delete(`${API_BASE_URL}/api/intel/${selectedIntelForPanel.id}/link/${targetId}`);
+            alert("Vínculo eliminado.");
+        } catch (error) {
+            console.error("Unlink failed", error);
+        }
+    };
 
     const listSelectedEntity: SelectedEntity | null = selectedIntelForPanel
         ? { type: MapEntityType.INTEL, id: selectedIntelForPanel.id }
@@ -272,7 +293,12 @@ export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectInte
                 </div>
                 <div className="w-full md:w-3/5 bg-gray-800 p-3 md:p-4 rounded-lg shadow-inner">
                     {selectedIntelForPanel ? (
-                        <IntelDetailsPanel report={selectedIntelForPanel} />
+                        <IntelDetailsPanel
+                            report={selectedIntelForPanel}
+                            allReports={intelReports}
+                            onLink={handleLinkReports}
+                            onUnlink={handleUnlinkReports}
+                        />
                     ) : (
                         <div className="flex items-center justify-center h-full">
                             <p className="text-gray-400 text-center">{showAddIntelForm ? 'Completando nuevo informe...' : 'Seleccione un informe de inteligencia para ver detalles.'}</p>

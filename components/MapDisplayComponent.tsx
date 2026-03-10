@@ -85,6 +85,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const fireMissionLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const hotspotsLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const historicalHotspotsLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
+  const linkGraphLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const uavLayerRef = useRef<L.FeatureGroup>(L.featureGroup());
   const coaLayerRef = useRef<L.LayerGroup[]>([]);
   const [currentCOAPlan, setCurrentCOAPlan] = useState<COAPlan | null>(null);
@@ -110,6 +111,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [showWindyWeather, setShowWindyWeather] = useState<boolean>(false);
   const [showWeatherMarkers, setShowWeatherMarkers] = useState<boolean>(false);
+  const [timeOffsetHours, setTimeOffsetHours] = useState<number>(0); // 0h to 72h
 
   const filteredUnits = useMemo(() => {
     return units.filter(unit => {
@@ -122,9 +124,11 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const filteredIntel = useMemo(() => {
     return intelligenceReports.filter(report => {
       const reliabilityMatch = intelReliabilityFilter === 'ALL' || report.reliability === intelReliabilityFilter;
-      return reliabilityMatch;
+      const timeLimitAdjusted = Date.now() - (timeOffsetHours * 60 * 60 * 1000);
+      const timeMatch = report.eventTimestamp >= timeLimitAdjusted;
+      return reliabilityMatch && timeMatch;
     });
-  }, [intelligenceReports, intelReliabilityFilter]);
+  }, [intelligenceReports, intelReliabilityFilter, timeOffsetHours]);
 
 
   useEffect(() => {
@@ -301,6 +305,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       aoiLayerRef.current.addTo(mapInstance);
       elevationProfileLayerRef.current.addTo(mapInstance);
       searchResultMarkerLayerRef.current.addTo(mapInstance);
+      linkGraphLayerRef.current.addTo(mapInstance);
       weatherAlertLayerRef.current.addTo(mapInstance);
 
       if (layerControlRef.current) {
@@ -480,6 +485,38 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       layer.addLayer(marker);
     });
   }, [filteredIntel, selectedEntity, onSelectEntityOnMap, distanceToolActive, aoiDrawingModeActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive]);
+
+  // Tactical Link Graph Rendering
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const layer = linkGraphLayerRef.current;
+    layer.clearLayers();
+
+    const processedLinks = new Set<string>();
+
+    filteredIntel.forEach(report => {
+      if (!report.relatedReportIds) return;
+
+      report.relatedReportIds.forEach(targetId => {
+        const targetReport = filteredIntel.find(r => r.id === targetId);
+        if (targetReport) {
+          const linkKey = [report.id, targetId].sort().join('-');
+          if (!processedLinks.has(linkKey)) {
+            L.polyline(
+              [[report.location.lat, report.location.lon], [targetReport.location.lat, targetReport.location.lon]],
+              {
+                color: '#facc15', // Yellow link lines
+                weight: 1.5,
+                dashArray: '5, 5',
+                opacity: 0.7
+              }
+            ).addTo(layer);
+            processedLinks.add(linkKey);
+          }
+        }
+      });
+    });
+  }, [filteredIntel]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -1400,7 +1437,12 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     if (!layer || !mapRef.current) return;
     layer.clearLayers();
 
+    const timeLimitAdjusted = Date.now() - (timeOffsetHours * 60 * 60 * 1000);
+
     historicalHotspots.forEach(hotspot => {
+      // Historical hotspots in BMA normally don't have individual timestamps in the DTO, 
+      // but the service filters them. We'll show them as ghosts if the slider is moved.
+      if (timeOffsetHours > 48) return; // Hide if we're looking older than the historical window
       const circle = L.circle([hotspot.center.lat, hotspot.center.lon], {
         radius: hotspot.radius * 1000,
         color: '#4B5563', // Gray
@@ -1485,6 +1527,31 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       <div id="map-container" className="w-full h-full" />
       <div className="map-elevation-display">
         {elevationDisplay}
+      </div>
+
+      {/* Temporal Pattern Analysis - Time Slider */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-[1000] w-[80%] max-w-lg bg-gray-900 bg-opacity-80 border border-gray-700 p-3 rounded-xl shadow-2xl backdrop-blur-md">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] uppercase tracking-wider font-bold text-teal-400">Análisis Temporal (Patrones)</span>
+          <span className="text-xs font-mono text-white bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
+            {timeOffsetHours === 0 ? 'TIEMPO REAL (AHORA)' : `HACE -${timeOffsetHours} HORAS`}
+          </span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="72"
+          step="1"
+          value={timeOffsetHours}
+          onChange={(e) => setTimeOffsetHours(parseInt(e.target.value))}
+          className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+        />
+        <div className="flex justify-between mt-1 text-[9px] text-gray-400 font-medium">
+          <span>AHORA</span>
+          <span>24H</span>
+          <span>48H</span>
+          <span>72H</span>
+        </div>
       </div>
     </div>
   );

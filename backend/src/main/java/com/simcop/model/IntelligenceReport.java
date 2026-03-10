@@ -40,6 +40,11 @@ public class IntelligenceReport {
     @Column(name = "reporting_unit_id")
     private String reportingUnitId;
 
+    @ElementCollection
+    @CollectionTable(name = "report_links", joinColumns = @JoinColumn(name = "report_id"))
+    @Column(name = "related_report_id")
+    private List<String> relatedReportIds = new ArrayList<>();
+
     // Attachments can be complex, skipping for now or storing as JSON string if
     // needed.
     // For simplicity, we'll omit attachments in this initial version or add a
@@ -143,5 +148,13 @@ public class IntelligenceReport {
 
     public void setReportingUnitId(String reportingUnitId) {
         this.reportingUnitId = reportingUnitId;
+    }
+
+    public List<String> getRelatedReportIds() {
+        return relatedReportIds;
+    }
+
+    public void setRelatedReportIds(List<String> relatedReportIds) {
+        this.relatedReportIds = relatedReportIds;
     }
 }

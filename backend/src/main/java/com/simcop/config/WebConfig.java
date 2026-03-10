@@ -21,10 +21,10 @@ public class WebConfig {
         config.setAllowedOriginPatterns(Arrays.asList(
                 "https://simcop.site",
                 "http://simcop.site",
-                "https://api.simcop.site",
-                "http://api.simcop.site",
+                "https://*.simcop.site",
+                "http://*.simcop.site",
                 "http://localhost:*",
-                "https://*.simcop.site"));
+                "http://127.0.0.1:*"));
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         config.setMaxAge(3600L);

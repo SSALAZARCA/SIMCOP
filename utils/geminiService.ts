@@ -1,6 +1,7 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
 import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo } from '../types';
 import { decimalToDMS } from './coordinateUtils';
+import { API_BASE_URL } from './apiConfig';
 
 // Get API key from backend API
 let API_KEY: string | undefined = undefined;
@@ -9,8 +10,7 @@ let ai: GoogleGenAI | null = null;
 // Initialize API key from backend
 export const initializeApiKey = async (): Promise<void> => {
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
-    const response = await fetch(`${baseUrl}/api/config/gemini-api-key`, {
+    const response = await fetch(`${API_BASE_URL}/api/config/gemini-api-key`, {
       method: 'GET',
       credentials: 'omit',
       headers: {

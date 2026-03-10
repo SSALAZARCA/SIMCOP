@@ -65,4 +65,42 @@ public class IntelligenceReportController {
 
         return ResponseEntity.ok(repository.save(report));
     }
+
+    @PutMapping("/{id}/link/{otherId}")
+    public ResponseEntity<Void> linkReports(@PathVariable String id, @PathVariable String otherId) {
+        IntelligenceReport reportA = repository.findById(id).orElse(null);
+        IntelligenceReport reportB = repository.findById(otherId).orElse(null);
+
+        if (reportA == null || reportB == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (!reportA.getRelatedReportIds().contains(otherId)) {
+            reportA.getRelatedReportIds().add(otherId);
+        }
+        if (!reportB.getRelatedReportIds().contains(id)) {
+            reportB.getRelatedReportIds().add(id);
+        }
+
+        repository.save(reportA);
+        repository.save(reportB);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}/link/{otherId}")
+    public ResponseEntity<Void> unlinkReports(@PathVariable String id, @PathVariable String otherId) {
+        IntelligenceReport reportA = repository.findById(id).orElse(null);
+        IntelligenceReport reportB = repository.findById(otherId).orElse(null);
+
+        if (reportA == null || reportB == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        reportA.getRelatedReportIds().remove(otherId);
+        reportB.getRelatedReportIds().remove(id);
+
+        repository.save(reportA);
+        repository.save(reportB);
+        return ResponseEntity.ok().build();
+    }
 }

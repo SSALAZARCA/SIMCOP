@@ -1,22 +1,22 @@
 export const getApiBaseUrl = () => {
-    // If we're in a browser, we can also detect the host if needed
-    // But VITE_API_BASE_URL is the preferred way to configure it for production
+    // VITE_API_BASE_URL is the preferred way via environment variables (Docker/Deploy)
     const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-    if (envBaseUrl) {
+    if (envBaseUrl && envBaseUrl.trim() !== "") {
         return envBaseUrl;
     }
 
     if (typeof window !== 'undefined') {
         const host = window.location.hostname;
-        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        
-        // If we are on a production domain like simcop.site but without VITE_API_BASE_URL
-        // we should probably try the api. subdomain or the same host with SSL
-        if (host === 'simcop.site') {
+        const protocol = window.location.protocol;
+
+        // Handle production domain automatically if VITE_API_BASE_URL is missing
+        if (host === 'simcop.site' || host.endsWith('.simcop.site')) {
+            // Force HTTPS for production subdomains
             return `https://api.simcop.site`;
         }
-        
+
+        // Default for local development or custom network IPs
         return `${protocol}//${host}:8080`;
     }
 

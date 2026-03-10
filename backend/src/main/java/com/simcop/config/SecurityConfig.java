@@ -52,14 +52,13 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         // Explicitly allow important origins for HTTPS and development
-        config.setAllowedOrigins(Arrays.asList(
+        config.setAllowedOriginPatterns(Arrays.asList(
                 "https://simcop.site",
                 "http://simcop.site",
-                "http://api.simcop.site",
-                "https://api.simcop.site",
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://localhost:8080"));
+                "https://*.simcop.site",
+                "http://*.simcop.site",
+                "http://localhost:*",
+                "http://127.0.0.1:*"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
                 "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
