@@ -30,6 +30,7 @@ import { addCenterSymbolToArea, applyFillPattern, enhanceAttackAxis } from '../u
 import { coaPlanToLayers, getCOAPlanBounds } from '../utils/coaVisualization';
 import { useUnitLayer } from '../hooks/useUnitLayer';
 import { ArrowsPointingOutIcon, ArrowsPointingInIcon, AdjustmentsHorizontalIcon } from './icons';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 interface EventEmitter {
   subscribe(event: string, callback: (...args: any[]) => void): string;
@@ -202,10 +203,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       });
       layerControlRef.current.addTo(mapInstance);
 
-      const BACKEND_HOST = window.location.hostname;
-      const BACKEND_TILE_URL = `http://${BACKEND_HOST}:8080/api/weather/tiles`;
+      const BACKEND_TILE_URL = `${API_BASE_URL}/api/weather/tiles`;
 
-      fetch(`http://${BACKEND_HOST}:8080/api/weather/radar-path`)
+      fetch(`${API_BASE_URL}/api/weather/radar-path`)
         .then(res => res.json())
         .then(data => {
           const radarPath = data.path;
