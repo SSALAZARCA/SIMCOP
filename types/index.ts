@@ -1237,4 +1237,5 @@ export interface WeatherInfo {
   windSpeed: number;
   condition: string;
   operationalImpact: boolean;
+  isThunderstorm: boolean;
 }

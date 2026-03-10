@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheckIcon, TruckIcon, ExclamationTriangleIcon, CloudIcon, ClipboardDocumentCheckIcon, SparklesIcon, CrosshairsIcon, LightBulbIcon, ShieldExclamationIcon, ClockIcon, MapPinIcon, ArrowPathIcon } from './icons';
+import { ShieldCheckIcon, TruckIcon, ExclamationTriangleIcon, CloudIcon, ClipboardDocumentCheckIcon, SparklesIcon, CrosshairsIcon, LightBulbIcon, ShieldExclamationIcon, ClockIcon, MapPinIcon, ArrowPathIcon, BoltIcon } from './icons';
 import { bmaService } from '../services/bmaService';
 import { weatherService } from '../services/weatherService';
 import { BMARecommendation, LogisticsPrediction, IntelligenceReport, MapEntityType, SelectedEntity, Hotspot, WeatherInfo, MilitaryUnit } from '../types';
@@ -382,13 +382,24 @@ export const BMAPanel: React.FC<BMAPanelProps> = ({
                             <p className="text-[8px] text-gray-500 uppercase font-black mb-1">Humedad</p>
                             <p className="text-xs font-bold text-white">{Math.round(weather.humidity)}%</p>
                         </div>
-                        {weather.operationalImpact && (
+                        {weather.isThunderstorm && (
+                            <div className="col-span-2 mt-2 p-3 bg-yellow-950/60 border border-yellow-500/50 rounded-xl flex items-start gap-3 animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                                <BoltIcon className="w-6 h-6 text-yellow-400 shrink-0" />
+                                <div className="space-y-1">
+                                    <p className="text-[11px] font-black text-yellow-300 uppercase tracking-wider">¡TORMENTA ELÉCTRICA DETECTADA!</p>
+                                    <p className="text-[10px] text-yellow-100 leading-snug">
+                                        Actividad eléctrica intensa en el área. Riesgo extremo para comunicaciones, drones y personal. Se recomienda refugio inmediato.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {weather.operationalImpact && !weather.isThunderstorm && (
                             <div className="col-span-2 mt-2 p-3 bg-red-900/30 border border-red-500/30 rounded-xl flex items-start gap-3">
                                 <ExclamationTriangleIcon className="w-5 h-5 text-red-500 shrink-0" />
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-red-400 uppercase tracking-wider">Restricción Operacional</p>
+                                    <p className="text-[10px] font-black text-red-400 uppercase tracking-wider">Alerta Meteorológica</p>
                                     <p className="text-[10px] text-red-100 leading-snug">
-                                        Degradación crítica en activos aéreos y visibilidad de drones. Se recomienda extremar precauciones en reconocimiento.
+                                        Condiciones adversas detectadas (Viento/Humedad). Degradación en visibilidad y estabilidad de vuelo.
                                     </p>
                                 </div>
                             </div>

@@ -10,7 +10,7 @@ import ms from 'milsymbol';
 import type { PathOptions } from 'leaflet';
 
 import { MapEntityType, UnitType, ViewType, UserRole, PlantillaType, IntelligenceReliability, IntelligenceCredibility, AssessedThreatLevel, UnitStatus } from '../types';
-import type { MilitaryUnit, MapDisplayProps, SelectedEntity, GeoLocation, PICCDrawingConfig, PICCElement, PICCDrawingOptions, PICCDrawingToolType, IntelligenceReport, ArtilleryPiece, ForwardObserver, FireMission, AfterActionReport, LeafletDrawEvent, SIDCGenerationOptions, Hotspot, COAPlan } from '../types';
+import type { MilitaryUnit, MapDisplayProps, SelectedEntity, GeoLocation, PICCDrawingConfig, PICCElement, PICCDrawingOptions, PICCDrawingToolType, IntelligenceReport, ArtilleryPiece, ForwardObserver, FireMission, AfterActionReport, LeafletDrawEvent, SIDCGenerationOptions, Hotspot, COAPlan, WeatherInfo } from '../types';
 import {
   MAP_BOUNDS, MAP_CENTER, MAP_ZOOM_DEFAULT, MAP_ZOOM_MIN, MAP_ZOOM_MAX,
   UNIT_ICONS, UNIT_COLORS, PICC_COLORS, PICC_PATH_OPTIONS_NEUTRAL, PICC_PATH_OPTIONS_FRIENDLY, PICC_PATH_OPTIONS_HOSTILE,
@@ -29,7 +29,8 @@ import { operationalGraphicToLayer, layerToOperationalGraphic } from '../utils/p
 import { addCenterSymbolToArea, applyFillPattern, enhanceAttackAxis } from '../utils/piccSymbology';
 import { coaPlanToLayers, getCOAPlanBounds } from '../utils/coaVisualization';
 import { useUnitLayer } from '../hooks/useUnitLayer';
-import { ArrowsPointingOutIcon, ArrowsPointingInIcon, AdjustmentsHorizontalIcon } from './icons';
+import { ArrowsPointingOutIcon, ArrowsPointingInIcon, AdjustmentsHorizontalIcon, BoltIcon } from './icons';
+import { weatherService } from '../services/weatherService';
 import { API_BASE_URL } from '../utils/apiConfig';
 
 interface EventEmitter {
@@ -91,6 +92,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const piccTemplateLayersRef = useRef<Record<PlantillaType, L.FeatureGroup>>({} as Record<PlantillaType, L.FeatureGroup>);
   const layerControlRef = useRef<L.Control.Layers | null>(null);
   const weatherLayerRef = useRef<L.TileLayer | null>(null);
+  const weatherAlertLayerRef = useRef<L.LayerGroup>(L.layerGroup());
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
   const weatherMarkersLayerRef = useRef<L.LayerGroup | null>(null);
 
   const activeDrawControlRef = useRef<any | null>(null);
@@ -220,7 +223,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
             );
 
             if (mapInstance && layerControlRef.current) {
-              layerControlRef.current.addOverlay(newWeatherLayer, "Radar Meteorológico (RainViewer)");
+              layerControlRef.current.addOverlay(newWeatherLayer, "Radar Precipitación y Tormentas <br/><small>(Intensidad: 1=débil, 7=extrema)</small>");
               weatherLayerRef.current = newWeatherLayer;
               newWeatherLayer.addTo(mapInstance); // Active by default
             }
@@ -298,6 +301,11 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       aoiLayerRef.current.addTo(mapInstance);
       elevationProfileLayerRef.current.addTo(mapInstance);
       searchResultMarkerLayerRef.current.addTo(mapInstance);
+      weatherAlertLayerRef.current.addTo(mapInstance);
+
+      if (layerControlRef.current) {
+        layerControlRef.current.addOverlay(weatherAlertLayerRef.current, "⚠️ Alertas de Tormenta");
+      }
       enemyInfluencePolygonsRef.current.addTo(mapInstance);
       hotspotsLayerRef.current.addTo(mapInstance);
       historicalHotspotsLayerRef.current.addTo(mapInstance);
@@ -1335,6 +1343,57 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       circle.addTo(layer);
     });
   }, [hotspots]);
+
+  useEffect(() => {
+    const layer = weatherAlertLayerRef.current;
+    if (!layer || !mapRef.current) return;
+    layer.clearLayers();
+
+    if (weatherInfo?.isThunderstorm) {
+      const center = mapRef.current.getCenter();
+      const stormIcon = L.divIcon({
+        html: `
+          <div class="relative flex items-center justify-center animate-pulse">
+            <div class="absolute w-12 h-12 bg-yellow-500/20 rounded-full animate-ping"></div>
+            <svg viewBox="0 0 24 24" class="w-10 h-10 text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]" fill="currentColor">
+              <path d="M14.615 1.595a.75.75 0 01.359.852L12.972 9.5h5.528a.75.75 0 01.592 1.21l-8.122 10.83a.75.75 0 01-1.297-.741l1.625-7.3H5.75a.75.75 0 01-.592-1.21L13.28 1.83a.75.75 0 011.335-.235z"/>
+            </svg>
+          </div>
+        `,
+        className: 'custom-storm-icon',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      L.marker([center.lat, center.lng], { icon: stormIcon, interactive: true })
+        .addTo(layer)
+        .bindTooltip("<b>¡ALERTA DE TORMENTA!</b><br/>Actividad eléctrica detectada en la zona.", {
+          permanent: true,
+          direction: 'top',
+          className: 'bg-yellow-900 border-yellow-500 text-yellow-100 text-[10px] font-bold p-1 rounded font-sans shadow-lg'
+        });
+    }
+  }, [weatherInfo]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const fetchCurrentMapWeather = async () => {
+      const center = map.getCenter();
+      try {
+        const info = await weatherService.getCurrentWeather(center.lat, center.lng);
+        setWeatherInfo(info);
+      } catch (e) {
+        console.error("Error fetching map center weather:", e);
+      }
+    };
+
+    fetchCurrentMapWeather();
+    const interval = setInterval(fetchCurrentMapWeather, 300000); // Check every 5 mins
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const layer = historicalHotspotsLayerRef.current;

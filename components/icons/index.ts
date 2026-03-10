@@ -55,3 +55,4 @@ export * from './WifiIcon';
 export * from './VideoCameraIcon';
 export * from './ArrowsPointingOutIcon';
 export * from './ArrowsPointingInIcon';
+export * from './BoltIcon';

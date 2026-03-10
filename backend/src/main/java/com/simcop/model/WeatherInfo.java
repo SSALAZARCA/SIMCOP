@@ -7,19 +7,30 @@ public class WeatherInfo {
     private String condition; // e.g., "Soleado", "Lluvia Fuerte", "Niebla"
     private boolean operationalImpact; // true if weather affects operations
 
+    private boolean thunderstorm;
+
     public WeatherInfo() {
     }
 
     public WeatherInfo(double temperature, double humidity, double windSpeed, String condition,
-            boolean operationalImpact) {
+            boolean operationalImpact, boolean thunderstorm) {
         this.temperature = temperature;
         this.humidity = humidity;
         this.windSpeed = windSpeed;
         this.condition = condition;
         this.operationalImpact = operationalImpact;
+        this.thunderstorm = thunderstorm;
     }
 
     // Getters and Setters
+    public boolean isThunderstorm() {
+        return thunderstorm;
+    }
+
+    public void setThunderstorm(boolean thunderstorm) {
+        this.thunderstorm = thunderstorm;
+    }
+
     public double getTemperature() {
         return temperature;
     }

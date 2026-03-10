@@ -43,24 +43,28 @@ public class WeatherService {
             double windSpeed = ((Number) wind.get("speed")).doubleValue() * 3.6; // m/s to km/h
 
             String condition = "Despejado";
+            boolean isThunderstorm = false;
             if (weatherList != null && !weatherList.isEmpty()) {
-                condition = (String) weatherList.get(0).get("description");
+                Map<String, Object> weather = weatherList.get(0);
+                condition = (String) weather.get("description");
+                int weatherId = ((Number) weather.get("id")).intValue();
+                isThunderstorm = (weatherId >= 200 && weatherId < 300);
             }
             condition = condition.substring(0, 1).toUpperCase() + condition.substring(1);
 
             return new WeatherInfo(temperature, humidity, windSpeed, condition,
-                    calculateImpact(temperature, humidity, windSpeed));
+                    calculateImpact(temperature, humidity, windSpeed, isThunderstorm), isThunderstorm);
         } catch (Exception e) {
             return getDefaultWeather();
         }
     }
 
-    private boolean calculateImpact(double temp, double humidity, double windSpeed) {
-        return humidity > 85 || windSpeed > 30 || temp > 35 || temp < 0;
+    private boolean calculateImpact(double temp, double humidity, double windSpeed, boolean isThunderstorm) {
+        return humidity > 85 || windSpeed > 30 || temp > 35 || temp < 0 || isThunderstorm;
     }
 
     private WeatherInfo getDefaultWeather() {
-        return new WeatherInfo(20, 50, 10, "Información no disponible", false);
+        return new WeatherInfo(20, 50, 10, "Información no disponible", false, false);
     }
 
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
