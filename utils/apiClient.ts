@@ -1,3 +1,4 @@
+import { API_BASE_URL } from './apiConfig';
 
 const SIMCOP_TOKEN_KEY = 'simcop_auth_token';
 
@@ -81,7 +82,7 @@ export const apiClient = {
         // fetch lo hace automáticamente con el boundary correcto.
 
         // Usar la URL base centralizada
-        const uploadUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/files/upload`;
+        const uploadUrl = `${API_BASE_URL}/api/files/upload`;
         // Si no hay VITE_API_BASE_URL, el fallback de fetch manejará la URL relativa si se desea, 
         // pero mejor usar una lógica similar a apiConfig o importar API_BASE_URL
         // Sin embargo, para no crear dependencias circulares complejas, usamos una lógica directa o el env.

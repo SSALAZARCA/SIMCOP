@@ -5,11 +5,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SIMCOP - Plataforma de Mando y Análisis</title>
+  <!-- Meta tags to disable problematic browser features that conflict with standard scripts -->
+  <meta name="google" content="notranslate">
+  <meta name="msapplication-tap-highlight" content="no">
+  <!-- Disable Edge Editor to avoid "A custom element ... has already been defined" errors -->
+  <meta name="ms-editor" content="false">
+
   <script>
     if (typeof global === 'undefined') {
       window.global = window;
     }
+    // Diagnostic logging for startup
+    console.log("🚀 SIMCOP Index initialized");
   </script>
+
+  <link rel="icon" href="data:,"> <!-- Explicit empty favicon to avoid 504 on fallback -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
