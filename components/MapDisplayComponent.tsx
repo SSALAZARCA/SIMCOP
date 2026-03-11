@@ -252,14 +252,23 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
               }
             );
 
-            if (mapInstance && layerControlRef.current && mapInstance.getContainer()) {
+            // GUARD: Verify map and pane still exist (race condition catch)
+            if (mapInstance && mapRef.current === mapInstance && mapInstance.getPane('weatherPane') && layerControlRef.current) {
               layerControlRef.current.addOverlay(newWeatherLayer, "Radar Precipitación y Tormentas <br/><small>(Intensidad: 1=débil, 7=extrema)</small>");
               weatherLayerRef.current = newWeatherLayer;
               newWeatherLayer.addTo(mapInstance); // Active by default
+            } else {
+              console.warn("[Map] Skipping weather layer addition: Map or weatherPane no longer valid.");
             }
           }
         })
-        .catch(error => console.warn("Optional: Weather radar path not available:", error));
+        .catch(error => {
+            if (error instanceof TypeError && error.message.includes('appendChild')) {
+                console.error("Critical Leaflet Append Error prevented:", error);
+            } else {
+                console.warn("Optional: Weather radar path not available:", error);
+            }
+        });
 
       // Capas de OpenWeatherMap como overlays opcionales
       const createWeatherLayer = (layerName: string, attribution: string) => {
@@ -276,7 +285,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       const temperatureLayer = createWeatherLayer('temp', 'Temp © OpenWeatherMap');
       const windLayer = createWeatherLayer('wind', 'Viento © OpenWeatherMap');
 
-      if (layerControlRef.current && mapInstance.getContainer()) {
+      // GUARD: Final check before adding OWM overlays
+      if (mapInstance && mapRef.current === mapInstance && mapInstance.getPane('weatherPane') && layerControlRef.current) {
         layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar Precipitación");
         layerControlRef.current.addOverlay(cloudsLayer, "☁️ Cobertura de Nubes");
         layerControlRef.current.addOverlay(temperatureLayer, "🌡️ Temperatura");
