@@ -1116,13 +1116,24 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const map = mapRef.current;
     if (!map) return;
 
+    // Ref for callback to avoid re-triggering effect on reference change
+    const onAoFinishDrawingRef = useRef(onAoFinishDrawing);
+    useEffect(() => {
+      onAoFinishDrawingRef.current = onAoFinishDrawing;
+    }, [onAoFinishDrawing]);
+
+    const onPiccDrawingCompleteRef = useRef(onPiccDrawingComplete);
+    useEffect(() => {
+      onPiccDrawingCompleteRef.current = onPiccDrawingComplete;
+    }, [onPiccDrawingComplete]);
+
     const handleDrawCreated = (e: LeafletDrawEvent) => {
       const layerType = e.layerType as string;
       const layer = e.layer as L.Layer & { options: any; setStyle?: (options: L.PathOptions) => void, getLatLngs?: () => L.LatLng[] | L.LatLng[][], getLatLng?: () => L.LatLng, getCenter?: () => L.LatLng, getBounds?: () => L.LatLngBounds, bindTooltip: (content: string | HTMLElement | L.Tooltip | Function, options?: L.TooltipOptions) => L.Layer, _latlngs?: L.LatLng[] | L.LatLng[][], _latlng?: L.LatLng, toGeoJSON: () => any };
 
-      if (aoiDrawingModeActive && aoDrawingUnitId && onAoFinishDrawing && layerType === 'polygon') {
+      if (aoiDrawingModeActive && aoDrawingUnitId && layerType === 'polygon') {
         const geoJson = JSON.stringify(layer.toGeoJSON().geometry);
-        onAoFinishDrawing(aoDrawingUnitId, geoJson);
+        if (onAoFinishDrawingRef.current) onAoFinishDrawingRef.current(aoDrawingUnitId, geoJson);
         return;
       }
 
@@ -1277,7 +1288,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     if ((piccDrawingConfig && activeTemplateContext) || (aoiDrawingModeActive && aoDrawingUnitId)) {
       if (typeof L === 'undefined' || !(L as any).Draw || !((L as any).Draw).Polyline || !((L as any).Draw).Polygon || !((L as any).Draw).Marker) {
         console.error("Leaflet.Draw components are not available. Cannot activate drawing tool.");
-        if (onPiccDrawingComplete) onPiccDrawingComplete();
+        if (onPiccDrawingCompleteRef.current) onPiccDrawingCompleteRef.current();
         return;
       }
 
@@ -1286,8 +1297,6 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         map.removeControl(activeDrawControlRef.current);
         activeDrawControlRef.current = null;
       }
-
-      if (currentPICCDrawingToolRef.current) currentPICCDrawingToolRef.current.disable();
 
       if (aoiDrawingModeActive) {
         const polygonDrawTool = new (L as any).Draw.Polygon(map, {
@@ -1343,7 +1352,10 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         currentPICCDrawingToolRef.current?.enable();
       }
     } else {
-      if (currentPICCDrawingToolRef.current) { currentPICCDrawingToolRef.current.disable(); currentPICCDrawingToolRef.current = null; }
+      if (currentPICCDrawingToolRef.current) { 
+        currentPICCDrawingToolRef.current.disable(); 
+        currentPICCDrawingToolRef.current = null; 
+      }
       if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = '';
     }
 
@@ -1354,7 +1366,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         currentPICCDrawingToolRef.current = null;
       }
     };
-  }, [piccDrawingConfig, activeTemplateContext, onPiccDrawingComplete, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, onAoFinishDrawing, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
+  }, [piccDrawingConfig, activeTemplateContext, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
 
 
   useEffect(() => {
