@@ -25,8 +25,9 @@ public class WebConfig {
                 "http://*.simcop.site",
                 "http://localhost:*",
                 "http://127.0.0.1:*"));
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
+                "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setMaxAge(3600L);
         source.registerCorsConfiguration("/**", config);
 

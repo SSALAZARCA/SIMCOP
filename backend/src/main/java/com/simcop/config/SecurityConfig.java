@@ -34,7 +34,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Managed by WebConfig Filter
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         (request, response, authException) -> response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")
                 ))

@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/config")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ConfigurationController {
 
     @Autowired
