@@ -10,6 +10,6 @@ public class HealthController {
 
     @GetMapping
     public String healthCheck() {
-        return "SIMCOP Backend is running";
+        return "SIMCOP Backend is running - Version 2.0.1 (CORS & Auth Fixes)";
     }
 }
