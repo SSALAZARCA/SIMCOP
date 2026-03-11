@@ -256,6 +256,8 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
             existingUnit={editingUnit}
             parentUnit={parentUnitForNew}
             allUnits={organizationalUnits}
+            onStartAoDrawing={onStartAoDrawing}
+            onClearAo={onClearAo}
           />
         )
       }

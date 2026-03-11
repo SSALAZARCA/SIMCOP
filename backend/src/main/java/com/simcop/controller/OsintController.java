@@ -28,8 +28,10 @@ public class OsintController {
         if (user == null)
             return List.of();
 
+        String preloadedAo = visibilityService.getPreloadedAoForUser(user);
+
         return osintService.getAllEvents().stream()
-                .filter(e -> visibilityService.isLocationVisibleToUser(e.getLocation(), user))
+                .filter(e -> visibilityService.isLocationVisibleWithPreloadedAo(e.getLocation(), user, preloadedAo))
                 .toList();
     }
 

@@ -171,6 +171,21 @@ const App: React.FC = () => {
     }, ...prev]);
   }, []);
 
+  const handleAoFinishDrawing = useCallback(async (unitId: string, geoJson: string) => {
+    try {
+      const result = await updateUnitAo(unitId, geoJson);
+      if (result.success) {
+        setAoiDrawingModeActive(false);
+        setAoDrawingUnitId(null);
+      } else {
+        alert("Error al guardar el Área de Operaciones: " + result.message);
+      }
+    } catch (error) {
+      console.error("Error in handleAoFinishDrawing:", error);
+      alert("Error inesperado al guardar el AO.");
+    }
+  }, [updateUnitAo]);
+
   const handleClearAo = useCallback(async (unitId: string) => {
     if (confirm("¿Está seguro de que desea eliminar el Área de Operaciones de esta unidad?")) {
       await updateUnitAo(unitId, "");
@@ -187,6 +202,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleAoiFinalized = (geoJsonPolygon: any) => {
+      if (aoDrawingUnitId === 'NEW_UNIT_DRAFT') {
+        eventBus.publish('newUnitAoFinalized', JSON.stringify(geoJsonPolygon));
+        setAoDrawingUnitId(null);
+        setAoiDrawingModeActive(false);
+        return;
+      }
       if (aoDrawingUnitId) {
         updateUnitAo(aoDrawingUnitId, JSON.stringify(geoJsonPolygon))
           .then(res => {
@@ -638,6 +659,8 @@ const App: React.FC = () => {
     osintLayerActive: osintLayerActive,
     isMaximized: isMapMaximized,
     onToggleMaximize: handleToggleMapMaximize,
+    aoDrawingUnitId: aoDrawingUnitId,
+    onAoFinishDrawing: handleAoFinishDrawing,
   };
 
   const analysisViewProps = {

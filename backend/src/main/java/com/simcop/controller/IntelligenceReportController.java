@@ -34,13 +34,14 @@ public class IntelligenceReportController {
             return repository.findAll();
         }
 
-        // Others see only reports from units they can see
+        // Optimized check
+        String preloadedAo = visibilityService.getPreloadedAoForUser(user);
         List<com.simcop.model.MilitaryUnit> visibleUnits = visibilityService.getVisibleUnits(user);
         List<String> visibleUnitIds = visibleUnits.stream().map(u -> u.getId()).toList();
 
         return repository.findAll().stream()
                 .filter(r -> r.getReportingUnitId() == null || visibleUnitIds.contains(r.getReportingUnitId()))
-                .filter(r -> visibilityService.isLocationVisibleToUser(r.getLocation(), user))
+                .filter(r -> visibilityService.isLocationVisibleWithPreloadedAo(r.getLocation(), user, preloadedAo))
                 .toList();
     }
 

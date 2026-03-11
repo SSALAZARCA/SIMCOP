@@ -424,6 +424,7 @@ export interface NewHierarchyUnitData {
   toe: TOEInformation;
   currentMission: string;
   unitSituationType: UnitSituationINSITOP;
+  areaOfOperations?: string; // GeoJSON string
 }
 
 export interface UpdateHierarchyUnitData {
@@ -432,6 +433,7 @@ export interface UpdateHierarchyUnitData {
   toe?: TOEInformation;
   currentMission?: string;
   unitSituationType?: UnitSituationINSITOP;
+  areaOfOperations?: string; // GeoJSON string
 }
 
 
@@ -1229,6 +1231,8 @@ export interface MapDisplayProps {
   entityToPanTo: SelectedEntity | null;
   hotspots?: Hotspot[];
   historicalHotspots?: Hotspot[];
+  aoDrawingUnitId?: string | null;
+  onAoFinishDrawing?: (unitId: string, geoJson: string) => void;
   approvePlatoonNovelty?: (noveltyId: string) => void;
   rejectPlatoonNovelty?: (noveltyId: string) => void;
   approveAmmoReport?: (reportId: string) => void;

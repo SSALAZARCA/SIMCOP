@@ -95,10 +95,11 @@ public class VisibilityService {
             return true;
         }
 
-        if (user.getAssignedUnitId() == null)
+        String assignedId = user.getAssignedUnitId();
+        if (assignedId == null)
             return false;
 
-        Optional<MilitaryUnit> unitOpt = unitRepository.findById(user.getAssignedUnitId());
+        Optional<MilitaryUnit> unitOpt = unitRepository.findById(assignedId);
         if (unitOpt.isPresent()) {
             MilitaryUnit unit = unitOpt.get();
             String aoValue = unit.getAreaOfOperations();
@@ -109,5 +110,46 @@ public class VisibilityService {
         }
 
         return false;
+    }
+
+    /**
+     * Optimized visibility check for high-volume streams.
+     */
+    public boolean isLocationVisibleWithPreloadedAo(GeoLocation location, User user, String preloadedAo) {
+        if (user == null || location == null)
+            return false;
+
+        if (user.getRole() == UserRole.ADMINISTRATOR || user.getRole() == UserRole.COMANDANTE_EJERCITO) {
+            return true;
+        }
+
+        if (user.getPermissions() != null && user.getPermissions().contains("NATIONAL_VIEW")) {
+            return true;
+        }
+
+        // If not national view, must have a unit assigned.
+        if (user.getAssignedUnitId() == null) {
+            return false;
+        }
+
+        // If they have a unit but no specific AO defines, they see everything (legacy
+        // behavior).
+        if (preloadedAo == null || preloadedAo.isEmpty()) {
+            return true;
+        }
+
+        return GeoUtils.isPointInPolygon(location, preloadedAo);
+    }
+
+    public String getPreloadedAoForUser(User user) {
+        if (user == null)
+            return null;
+        String assignedId = user.getAssignedUnitId();
+        if (assignedId == null)
+            return null;
+
+        return unitRepository.findById(assignedId)
+                .map(MilitaryUnit::getAreaOfOperations)
+                .orElse(null);
     }
 }

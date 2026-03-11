@@ -68,7 +68,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   osintEvents = [],
   osintLayerActive = false,
   isMaximized = false,
-  onToggleMaximize
+  onToggleMaximize,
+  aoDrawingUnitId,
+  onAoFinishDrawing
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const unitLayerRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -917,7 +919,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const updateToken = eventBus.subscribe('updateAoiDrawingLayer', updateAoiDrawingLayer);
     const finalizeToken = eventBus.subscribe('finalizeAoiLayer', finalizeAoiLayer);
 
-    if (aoiDrawingModeActive) {
+    if (aoiDrawingModeActive && !aoDrawingUnitId) {
       map.on('click', handleMapClickForAoi);
       map.getContainer().style.cursor = 'crosshair';
       selectionHighlightLayerRef.current.clearLayers();
@@ -926,7 +928,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       enemyInfluencePolygonsRef.current.clearLayers();
       (Object.values(piccTemplateLayersRef.current) as L.FeatureGroup[]).forEach(fg => fg.clearLayers());
     }
-    else { map.off('click', handleMapClickForAoi); if (!distanceToolActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = ''; }
+    else { map.off('click', handleMapClickForAoi); if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = ''; }
 
     return () => {
       map.off('click', handleMapClickForAoi);
@@ -935,7 +937,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       eventBus.unsubscribe(updateToken);
       eventBus.unsubscribe(finalizeToken);
     };
-  }, [aoiDrawingModeActive, distanceToolActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive, eventBus]);
+  }, [aoiDrawingModeActive, aoDrawingUnitId, distanceToolActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive, eventBus]);
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
@@ -1116,7 +1118,13 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
     const handleDrawCreated = (e: LeafletDrawEvent) => {
       const layerType = e.layerType as string;
-      const layer = e.layer as L.Layer & { options: any; setStyle?: (options: L.PathOptions) => void, getLatLngs?: () => L.LatLng[] | L.LatLng[][], getLatLng?: () => L.LatLng, getCenter?: () => L.LatLng, getBounds?: () => L.LatLngBounds, bindTooltip: (content: string | HTMLElement | L.Tooltip | Function, options?: L.TooltipOptions) => L.Layer, _latlngs?: L.LatLng[] | L.LatLng[][], _latlng?: L.LatLng };
+      const layer = e.layer as L.Layer & { options: any; setStyle?: (options: L.PathOptions) => void, getLatLngs?: () => L.LatLng[] | L.LatLng[][], getLatLng?: () => L.LatLng, getCenter?: () => L.LatLng, getBounds?: () => L.LatLngBounds, bindTooltip: (content: string | HTMLElement | L.Tooltip | Function, options?: L.TooltipOptions) => L.Layer, _latlngs?: L.LatLng[] | L.LatLng[][], _latlng?: L.LatLng, toGeoJSON: () => any };
+
+      if (aoiDrawingModeActive && aoDrawingUnitId && onAoFinishDrawing && layerType === 'polygon') {
+        const geoJson = JSON.stringify(layer.toGeoJSON().geometry);
+        onAoFinishDrawing(aoDrawingUnitId, geoJson);
+        return;
+      }
 
       if (!piccDrawingConfig || !activeTemplateContext) return;
 
@@ -1202,8 +1210,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
             createLabelMarker(startPoint, labelContent);
             createLabelMarker(endPoint, labelContent);
           }
-        } else if (labelText && layer.bindTooltip) {
-          (layer as L.Path).bindTooltip(labelText, { permanent: true, direction: 'center', className: 'picc-label' }).openTooltip();
+        } else if (labelText && (layer as any).bindTooltip) {
+          (layer as any).bindTooltip(labelText, { permanent: true, direction: 'center', className: 'picc-label' }).openTooltip();
         }
 
         // Enhanced symbology for attack axes
@@ -1266,9 +1274,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     map.on('draw:created', handleDrawCreated as any);
 
 
-    if (piccDrawingConfig && activeTemplateContext) {
+    if ((piccDrawingConfig && activeTemplateContext) || (aoiDrawingModeActive && aoDrawingUnitId)) {
       if (typeof L === 'undefined' || !(L as any).Draw || !((L as any).Draw).Polyline || !((L as any).Draw).Polygon || !((L as any).Draw).Marker) {
-        console.error("Leaflet.Draw components are not available. Cannot activate PICC drawing tool.");
+        console.error("Leaflet.Draw components are not available. Cannot activate drawing tool.");
         if (onPiccDrawingComplete) onPiccDrawingComplete();
         return;
       }
@@ -1278,45 +1286,62 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         map.removeControl(activeDrawControlRef.current);
         activeDrawControlRef.current = null;
       }
-      (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
-      (aoiLayerRef.current as L.FeatureGroup).clearLayers();
-      (searchResultMarkerLayerRef.current as L.FeatureGroup).clearLayers();
-      enemyInfluencePolygonsRef.current.clearLayers();
-      selectionHighlightLayerRef.current.clearLayers();
 
       if (currentPICCDrawingToolRef.current) currentPICCDrawingToolRef.current.disable();
 
-      const defaultPathOptionsForDrawing = piccDrawingConfig.options?.pathOptions || PICC_PATH_OPTIONS_NEUTRAL;
-      const toolType = piccDrawingConfig.type;
-      const upperToolType = toolType.toUpperCase();
-
-      const isPICCPointSymbolType = [
-        PICCElementType.ENEMY_UNIT_POINT_SIT, PICCElementType.FRIENDLY_UNIT_POINT_SIT,
-        PICCElementType.NEUTRAL_POINT_SIT, PICCElementType.CIVILIAN_POINT_SIT,
-        PICCElementType.NAI_POINT, PICCElementType.TARGET_REFERENCE_POINT,
-        PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED
-      ].includes(toolType);
-
-      let leafletDrawTool: any;
-      const shapeOptions = { shapeOptions: defaultPathOptionsForDrawing };
-
-      if (upperToolType.includes('LINE') || upperToolType.includes('AXIS')) {
-        leafletDrawTool = new ((L as any).Draw).Polyline(map, shapeOptions);
-      } else if (upperToolType.includes('AREA')) {
-        leafletDrawTool = new ((L as any).Draw).Polygon(map, shapeOptions);
-      } else if (isPICCPointSymbolType) {
-        leafletDrawTool = new ((L as any).Draw).Marker(map, {
-          icon: L.divIcon({
-            className: 'leaflet-draw-marker-icon',
-            html: `<div style="background-color: ${defaultPathOptionsForDrawing?.color || 'gray'}; width: 10px; height: 10px; border-radius: 50%; border: 1px solid white; box-shadow: 0 0 3px black;"></div>`,
-            iconSize: [12, 12], iconAnchor: [6, 6]
-          }),
+      if (aoiDrawingModeActive) {
+        const polygonDrawTool = new (L as any).Draw.Polygon(map, {
+          shapeOptions: {
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.2,
+            weight: 3,
+            dashArray: '5, 5'
+          },
+          showArea: true,
+          allowIntersection: false
         });
-      } else {
-        leafletDrawTool = new ((L as any).Draw).Marker(map as any, { /* default icon */ });
+        polygonDrawTool.enable();
+        currentPICCDrawingToolRef.current = polygonDrawTool;
+      } else if (piccDrawingConfig && activeTemplateContext) {
+        (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
+        (aoiLayerRef.current as L.FeatureGroup).clearLayers();
+        (searchResultMarkerLayerRef.current as L.FeatureGroup).clearLayers();
+        enemyInfluencePolygonsRef.current.clearLayers();
+        selectionHighlightLayerRef.current.clearLayers();
+
+        const defaultPathOptionsForDrawing = piccDrawingConfig.options?.pathOptions || PICC_PATH_OPTIONS_NEUTRAL;
+        const toolType = piccDrawingConfig.type;
+        const upperToolType = toolType.toUpperCase();
+
+        const isPICCPointSymbolType = [
+          PICCElementType.ENEMY_UNIT_POINT_SIT, PICCElementType.FRIENDLY_UNIT_POINT_SIT,
+          PICCElementType.NEUTRAL_POINT_SIT, PICCElementType.CIVILIAN_POINT_SIT,
+          PICCElementType.NAI_POINT, PICCElementType.TARGET_REFERENCE_POINT,
+          PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED
+        ].includes(toolType);
+
+        let leafletDrawTool: any;
+        const shapeOptions = { shapeOptions: defaultPathOptionsForDrawing };
+
+        if (upperToolType.includes('LINE') || upperToolType.includes('AXIS')) {
+          leafletDrawTool = new ((L as any).Draw).Polyline(map, shapeOptions);
+        } else if (upperToolType.includes('AREA')) {
+          leafletDrawTool = new ((L as any).Draw).Polygon(map, shapeOptions);
+        } else if (isPICCPointSymbolType) {
+          leafletDrawTool = new ((L as any).Draw).Marker(map, {
+            icon: L.divIcon({
+              className: 'leaflet-draw-marker-icon',
+              html: `<div style="background-color: ${defaultPathOptionsForDrawing?.color || 'gray'}; width: 10px; height: 10px; border-radius: 50%; border: 1px solid white; box-shadow: 0 0 3px black;"></div>`,
+              iconSize: [12, 12], iconAnchor: [6, 6]
+            }),
+          });
+        } else {
+          leafletDrawTool = new ((L as any).Draw).Marker(map as any, { /* default icon */ });
+        }
+        currentPICCDrawingToolRef.current = leafletDrawTool;
+        currentPICCDrawingToolRef.current?.enable();
       }
-      currentPICCDrawingToolRef.current = leafletDrawTool;
-      currentPICCDrawingToolRef.current?.enable();
     } else {
       if (currentPICCDrawingToolRef.current) { currentPICCDrawingToolRef.current.disable(); currentPICCDrawingToolRef.current = null; }
       if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = '';
@@ -1329,7 +1354,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         currentPICCDrawingToolRef.current = null;
       }
     };
-  }, [piccDrawingConfig, activeTemplateContext, onPiccDrawingComplete, distanceToolActive, aoiDrawingModeActive, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
+  }, [piccDrawingConfig, activeTemplateContext, onPiccDrawingComplete, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
 
 
   useEffect(() => {

@@ -5,7 +5,8 @@ import type { MilitaryUnit, UnitType as UnitTypeEnum, NewHierarchyUnitData, Upda
 import { UnitType, UnitSituationINSITOP } from '../types';
 import { SpecialtySelector } from './SpecialtySelector';
 import { MISSION_TYPES } from '../constants';
-import { Plus, Trash2, Loader2, Flag, Briefcase } from 'lucide-react';
+import { eventBus } from '../utils/eventEmitter';
+import { MapPin, Plus, Trash2, Loader2, Flag, Briefcase } from 'lucide-react';
 
 interface OrganizationUnitFormModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface OrganizationUnitFormModalProps {
   existingUnit: MilitaryUnit | null;
   parentUnit: MilitaryUnit | null;
   allUnits: MilitaryUnit[];
+  onStartAoDrawing?: (unitId: string) => void;
+  onClearAo?: (unitId: string) => void;
 }
 
 const hierarchyRules: Record<UnitTypeEnum, UnitTypeEnum | null> = {
@@ -55,14 +58,18 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
   onSubmit,
   existingUnit,
   parentUnit,
-  allUnits
+  allUnits,
+  onStartAoDrawing,
+  onClearAo
 }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<UnitTypeEnum>(UnitType.DIVISION);
   const [currentMission, setCurrentMission] = useState<string>(MISSION_TYPES.find(m => m.sigla === "PATCTRL")?.sigla || MISSION_TYPES[0].sigla);
   const [unitSituationType, setUnitSituationType] = useState<UnitSituationINSITOP>(UnitSituationINSITOP.ORGANICA);
+  const [areaOfOperations, setAreaOfOperations] = useState<string | undefined>(undefined);
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   // TOE - Authorized Personnel State
   const [officers, setOfficers] = useState<number>(0);
@@ -113,6 +120,7 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
           setProSoldierSpecialties(toe.specialties?.professionalSoldiers || []);
           setRegularSoldierSpecialties(toe.specialties?.regularSoldiers || []);
           setCivilianSpecialties(toe.specialties?.civilians || []);
+          setAreaOfOperations(existingUnit.areaOfOperations);
         } else {
           setOfficers(existingUnit.personnelBreakdown?.officers || 0);
           setNcos(existingUnit.personnelBreakdown?.ncos || 0);
@@ -125,6 +133,7 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
           setProSoldierSpecialties([]);
           setRegularSoldierSpecialties([]);
           setCivilianSpecialties([]);
+          setAreaOfOperations(existingUnit.areaOfOperations);
         }
       } else {
         setName('');
@@ -134,9 +143,26 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
         setUnitSituationType(UnitSituationINSITOP.ORGANICA);
         setOfficers(0); setNcos(0); setProfessionalSoldiers(0); setRegularSoldiers(0); setCivilians(0);
         setOfficerSpecialties([]); setNcoSpecialties([]); setProSoldierSpecialties([]); setRegularSoldierSpecialties([]); setCivilianSpecialties([]);
+        setAreaOfOperations(undefined);
       }
     }
   }, [isOpen, existingUnit, parentUnit]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const token = eventBus.subscribe('newUnitAoFinalized', (_msg: string, geoJson: string) => {
+      setAreaOfOperations(geoJson);
+      setIsDrawingMode(false);
+    });
+    return () => eventBus.unsubscribe(token);
+  }, [isOpen]);
+
+  const handleStartAoDrawing = () => {
+    if (onStartAoDrawing) {
+      onStartAoDrawing(existingUnit ? existingUnit.id : 'NEW_UNIT_DRAFT');
+      setIsDrawingMode(true);
+    }
+  };
 
   const handleAddSpecialty = (category: string, specialty: SpecialtyCatalogEntry) => {
     const newSpecialty: MilitarySpecialty = {
@@ -192,6 +218,7 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
           name: name.trim(),
           currentMission,
           unitSituationType,
+          areaOfOperations,
           toe: {
             authorizedPersonnel: { officers, ncos, professionalSoldiers, regularSoldiers, civilians },
             specialties: { officers: officerSpecialties, ncos: ncoSpecialties, professionalSoldiers: proSoldierSpecialties, regularSoldiers: regularSoldierSpecialties, civilians: civilianSpecialties },
@@ -214,6 +241,7 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
           parentId: parentUnit ? parentUnit.id : null,
           currentMission,
           unitSituationType,
+          areaOfOperations,
           toe: {
             authorizedPersonnel: { officers, ncos, professionalSoldiers, regularSoldiers, civilians },
             specialties: { officers: officerSpecialties, ncos: ncoSpecialties, professionalSoldiers: proSoldierSpecialties, regularSoldiers: regularSoldierSpecialties, civilians: civilianSpecialties },
@@ -239,7 +267,16 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
   ];
 
   return createPortal(
-    <div className="fixed inset-0 bg-gray-950/95 flex items-start justify-center z-[5000] p-4 overflow-y-auto backdrop-blur-md custom-scrollbar" style={{ isolation: 'isolate' }}>
+    <div className={`fixed inset-0 bg-gray-950/95 flex items-start justify-center z-[5000] p-4 overflow-y-auto backdrop-blur-md custom-scrollbar transition-all duration-500 ${isDrawingMode ? 'opacity-20 pointer-events-none' : ''}`} style={{ isolation: 'isolate' }}>
+      {isDrawingMode && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center pointer-events-auto">
+          <div className="bg-blue-600 px-8 py-4 rounded-full shadow-2xl animate-pulse text-white font-black uppercase tracking-widest text-sm flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Dibujando AO en el Mapa...
+            <button onClick={() => setIsDrawingMode(false)} className="ml-4 px-4 py-1 bg-white/20 hover:bg-white/40 rounded-full text-[10px] transition-colors">Volver</button>
+          </div>
+        </div>
+      )}
       <div className="bg-gray-900 my-8 p-6 md:p-10 rounded-[32px] shadow-2xl w-full max-w-5xl border border-white/10 relative">
         <div className="flex justify-between items-start mb-10">
           <div className="flex flex-col gap-3">
@@ -286,6 +323,38 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
               >
                 {selectableTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
+            </div>
+            <div className="md:col-span-2 mt-4">
+              <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-teal-500/5 rounded-2xl border border-teal-500/20">
+                <div className="flex-1">
+                  <h4 className="text-white font-black uppercase text-sm mb-1 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-teal-400" />
+                    Área de Operaciones (AO)
+                  </h4>
+                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-tight">
+                    {areaOfOperations ? 'Perímetro delimitado correctamente' : 'Sin área asignada. Es altamente recomendado delimitar el sector de responsabilidad.'}
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  {areaOfOperations && (
+                    <button
+                      type="button"
+                      onClick={() => setAreaOfOperations(undefined)}
+                      className="px-6 py-3 bg-red-900/20 hover:bg-red-500 text-red-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20"
+                    >
+                      Borrar AO
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleStartAoDrawing}
+                    className="px-8 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg hover:shadow-teal-500/20 flex items-center gap-2"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {areaOfOperations ? 'Redefinir en Mapa' : 'Delimitar en Mapa'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -52,7 +52,8 @@ export const useUnitsManagement = (
             ammoLevel: 100,
             daysOfSupply: 30,
             lastResupplyDate: now,
-            toe: unitData.toe
+            toe: unitData.toe,
+            areaOfOperations: unitData.areaOfOperations
         };
 
         try {
