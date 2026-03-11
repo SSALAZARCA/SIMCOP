@@ -1,4 +1,5 @@
 package com.simcop.model;
+// Model for OSINT events fetched from news sources
 
 import com.simcop.model.embeddable.GeoLocation;
 import jakarta.persistence.*;

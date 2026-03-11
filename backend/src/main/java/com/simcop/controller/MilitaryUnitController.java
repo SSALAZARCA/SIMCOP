@@ -81,6 +81,7 @@ public class MilitaryUnitController {
                     unit.setLeaveDurationDays(unitDetails.getLeaveDurationDays());
                     unit.setRetrainingStartDate(unitDetails.getRetrainingStartDate());
                     unit.setToe(unitDetails.getToe());
+                    unit.setAreaOfOperations(unitDetails.getAreaOfOperations());
 
                     // Fields for Route
                     if (unitDetails.getRouteHistory() != null) {

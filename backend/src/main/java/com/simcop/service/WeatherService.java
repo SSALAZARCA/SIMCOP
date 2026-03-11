@@ -25,7 +25,7 @@ public class WeatherService {
             String url = String.format("%s?lat=%f&lon=%f&appid=%s&units=metric&lang=es",
                     apiUrl != null ? apiUrl : "", lat, lon, apiKey != null ? apiKey : "");
 
-            @SuppressWarnings("unchecked")
+            @SuppressWarnings({ "unchecked", "null" })
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
 
             if (response == null)

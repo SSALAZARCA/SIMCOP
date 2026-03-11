@@ -40,8 +40,9 @@ public class GeminiService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
+            @SuppressWarnings("null")
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(url,
-                    org.springframework.http.HttpMethod.POST, entity,
+                    HttpMethod.POST, entity,
                     new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
                     });
             Map<String, Object> body = response.getBody();

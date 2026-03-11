@@ -25,6 +25,7 @@ public class VisibilityService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @SuppressWarnings("null")
     public User getUserFromToken(String token) {
         if (token != null && token.startsWith("Bearer ")) {
             String jwt = token.substring(7);

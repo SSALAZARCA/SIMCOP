@@ -45,6 +45,7 @@ public class OsintController {
     @PatchMapping("/events/{id}/verify")
     public ResponseEntity<OsintEvent> verifyEvent(@PathVariable String id, @RequestBody Map<String, Boolean> request) {
         boolean verified = request.getOrDefault("verified", true);
+        @SuppressWarnings("null")
         OsintEvent updated = osintService.setVerified(id, verified);
         return ResponseEntity.ok(updated);
     }

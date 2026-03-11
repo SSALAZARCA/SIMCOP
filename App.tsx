@@ -595,9 +595,16 @@ const App: React.FC = () => {
 
 
 
+  const isAdmin = currentUser?.role === (UserRole as any).ADMINISTRATOR || currentUser?.role === ('ADMINISTRATOR' as any);
+  const isArmyCommander = currentUser?.role === UserRole.COMANDANTE_EJERCITO;
+  const hasNationalView = currentUser?.permissions?.includes('NATIONAL_VIEW' as any) || currentUser?.permissions?.includes(ViewType.NATIONAL_VIEW as any);
+
+  const showAllTypes = isAdmin || isArmyCommander || hasNationalView;
+
   const operationalUnitsForMap = units.filter(u =>
     u.status !== UnitStatus.ON_LEAVE_RETRAINING &&
     (
+      showAllTypes ||
       u.type === UnitTypeEnum.PLATOON ||
       u.type === UnitTypeEnum.TEAM ||
       u.type === UnitTypeEnum.SQUAD
@@ -684,9 +691,19 @@ const App: React.FC = () => {
       case ViewType.DASHBOARD:
         return <DashboardView units={units} alerts={alerts} intelCount={intelligenceReports.length} onSelectEntity={handleSelectEntity} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} intelligenceReports={intelligenceReports} allUnits={units} />;
       case ViewType.UNITS:
+        const isAdminUnits = currentUser?.role === (UserRole as any).ADMINISTRATOR || currentUser?.role === ('ADMINISTRATOR' as any);
+        const isArmyCommanderUnits = currentUser?.role === UserRole.COMANDANTE_EJERCITO;
+        const hasNationalViewUnits = currentUser?.permissions?.includes('NATIONAL_VIEW' as any) || currentUser?.permissions?.includes(ViewType.NATIONAL_VIEW as any);
+        const showAllTypesUnits = isAdminUnits || isArmyCommanderUnits || hasNationalViewUnits;
+
         return <UnitsView
           allUnits={units}
-          units={units.filter(u => u.type === UnitTypeEnum.PLATOON || u.type === UnitTypeEnum.TEAM || u.type === UnitTypeEnum.SQUAD)}
+          units={units.filter(u =>
+            showAllTypesUnits ||
+            u.type === UnitTypeEnum.PLATOON ||
+            u.type === UnitTypeEnum.TEAM ||
+            u.type === UnitTypeEnum.SQUAD
+          )}
           onSelectUnit={(unit) => handleSelectEntity({ type: MapEntityType.UNIT, id: unit.id })}
           addManualRoutePoint={addManualRoutePoint}
           updateUnitLogistics={updateUnitLogistics}
