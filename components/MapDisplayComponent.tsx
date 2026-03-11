@@ -252,67 +252,35 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
               }
             );
 
-            if (mapInstance && layerControlRef.current) {
+            if (mapInstance && layerControlRef.current && mapInstance.getContainer()) {
               layerControlRef.current.addOverlay(newWeatherLayer, "Radar Precipitación y Tormentas <br/><small>(Intensidad: 1=débil, 7=extrema)</small>");
               weatherLayerRef.current = newWeatherLayer;
               newWeatherLayer.addTo(mapInstance); // Active by default
             }
           }
         })
-        .catch(error => console.error("Error fetching weather radar path from backend:", error));
+        .catch(error => console.warn("Optional: Weather radar path not available:", error));
 
-      // Capa de Precipitación
-      const precipitationLayer = L.tileLayer(
-        `${BACKEND_TILE_URL}/precipitation/{z}/{x}/{y}`,
-        {
-          attribution: 'Radar © <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-          opacity: 0.6,
-          pane: 'weatherPane',
-          maxZoom: 19
-        }
-      );
+      // Capas de OpenWeatherMap como overlays opcionales
+      const createWeatherLayer = (layerName: string, attribution: string) => {
+          return L.tileLayer(`${BACKEND_TILE_URL}/${layerName}/{z}/{x}/{y}`, {
+              attribution,
+              opacity: 0.5,
+              pane: 'weatherPane',
+              maxZoom: 19
+          });
+      };
 
-      // Capa de Nubes
-      const cloudsLayer = L.tileLayer(
-        `${BACKEND_TILE_URL}/clouds/{z}/{x}/{y}`,
-        {
-          attribution: 'Nubes © <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-          opacity: 0.5,
-          pane: 'weatherPane',
-          maxZoom: 19
-        }
-      );
+      const precipitationLayer = createWeatherLayer('precipitation', 'Radar © OpenWeatherMap');
+      const cloudsLayer = createWeatherLayer('clouds', 'Nubes © OpenWeatherMap');
+      const temperatureLayer = createWeatherLayer('temp', 'Temp © OpenWeatherMap');
+      const windLayer = createWeatherLayer('wind', 'Viento © OpenWeatherMap');
 
-      // Capa de Temperatura
-      const temperatureLayer = L.tileLayer(
-        `${BACKEND_TILE_URL}/temp/{z}/{x}/{y}`,
-        {
-          attribution: 'Temperatura © <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-          opacity: 0.5,
-          pane: 'weatherPane',
-          maxZoom: 19
-        }
-      );
-
-      // Capa de Viento
-      const windLayer = L.tileLayer(
-        `${BACKEND_TILE_URL}/wind/{z}/{x}/{y}`,
-        {
-          attribution: 'Viento © <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-          opacity: 0.5,
-          pane: 'weatherPane',
-          maxZoom: 19
-        }
-      );
-
-      if (layerControlRef.current) {
+      if (layerControlRef.current && mapInstance.getContainer()) {
         layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar Precipitación");
         layerControlRef.current.addOverlay(cloudsLayer, "☁️ Cobertura de Nubes");
         layerControlRef.current.addOverlay(temperatureLayer, "🌡️ Temperatura");
         layerControlRef.current.addOverlay(windLayer, "💨 Viento");
-
-        // Let's add precipitation by default too
-        precipitationLayer.addTo(mapInstance);
       }
 
 

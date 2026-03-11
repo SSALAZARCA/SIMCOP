@@ -17,13 +17,20 @@ export const apiClient = {
         const headers = new Headers(options.headers || {});
 
         if (token) {
+            console.log(`📡 [apiClient] Request to ${url} - Token: ${token.substring(0, 10)}...`);
             headers.set('Authorization', `Bearer ${token}`);
+        } else {
+            console.warn(`📡 [apiClient] Request to ${url} - No token found in localStorage`);
         }
 
+        const startTime = Date.now();
         const response = await fetch(url, {
             ...options,
             headers,
         });
+        const duration = Date.now() - startTime;
+        
+        console.log(`📨 [apiClient] Response from ${url} - Status: ${response.status} (${duration}ms)`);
 
         if (response.status === 401) {
             // Token is expired or unauthorized
