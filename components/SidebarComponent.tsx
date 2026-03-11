@@ -30,7 +30,6 @@ interface SidebarProps {
 
 const navItemsConfig = [
   { view: ViewType.DASHBOARD, icon: Squares2X2Icon },
-  { view: ViewType.MAP, icon: MapPinIcon },
   { view: ViewType.UNITS, icon: ShieldCheckIcon },
   { view: ViewType.ORGANIZATION_STRUCTURE, icon: SitemapIcon },
   { view: ViewType.INTEL, icon: EyeIcon },

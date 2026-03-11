@@ -157,10 +157,20 @@ const App: React.FC = () => {
   const [osintLayerActive, setOsintLayerActive] = useState<boolean>(false);
   const [aoDrawingUnitId, setAoDrawingUnitId] = useState<string | null>(null);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMapMaximized, setIsMapMaximized] = useState<boolean>(false);
+
+  const [piccDrawingConfig, setPiccDrawingConfig] = useState<PICCDrawConfig | null>(null);
+  const [activePICCPlantillaContext, setActivePICCPlantillaContext] = useState<PlantillaType | null>(null);
+  const [targetSelectionRequest, setTargetSelectionRequest] = useState<TargetSelectionRequest | null>(null);
+
   const handleStartAoDrawing = useCallback((unitId: string) => {
     setAoDrawingUnitId(unitId);
     setAoiDrawingModeActive(true);
-    setCurrentView(ViewType.MAP);
+    if (isMobile) {
+      setCurrentView(ViewType.MAP);
+    }
     setAlertsInternal(prev => [{
       id: generateRandomId(),
       type: AlertType.INFO as any,
@@ -169,7 +179,7 @@ const App: React.FC = () => {
       severity: AlertSeverity.INFO,
       acknowledged: false
     }, ...prev]);
-  }, []);
+  }, [isMobile, setCurrentView]);
 
   const handleAoFinishDrawing = useCallback(async (unitId: string, geoJson: string) => {
     try {
@@ -222,13 +232,6 @@ const App: React.FC = () => {
     const token = eventBus.subscribe('finalizeAoiLayer', (_msg: string, data: any) => handleAoiFinalized(data));
     return () => eventBus.unsubscribe(token);
   }, [aoDrawingUnitId, updateUnitAo]);
-  const [piccDrawingConfig, setPiccDrawingConfig] = useState<PICCDrawConfig | null>(null);
-  const [activePICCPlantillaContext, setActivePICCPlantillaContext] = useState<PlantillaType | null>(null);
-  const [targetSelectionRequest, setTargetSelectionRequest] = useState<TargetSelectionRequest | null>(null);
-
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isMapMaximized, setIsMapMaximized] = useState<boolean>(false);
 
   // Voice Command State
   const [isVoiceCommandActive, setIsVoiceCommandActive] = useState(false);
