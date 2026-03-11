@@ -38,7 +38,9 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         (request, response, authException) -> {
                             System.err.println("DEBUG SECURITY: Unauthorized access to " + request.getRequestURI() + ": " + authException.getMessage());
-                            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\", \"path\": \"" + request.getRequestURI() + "\"}");
                         }
                 ))
                 .authorizeHttpRequests(auth -> auth

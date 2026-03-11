@@ -35,9 +35,18 @@ export const apiClient = {
         if (response.status === 401) {
             // Token is expired or unauthorized
             const currentToken = localStorage.getItem(SIMCOP_TOKEN_KEY);
+            
+            // Log details before clearing
+            try {
+                const errorData = await response.clone().json();
+                console.error(`❌ [apiClient] 401 Details for ${url}:`, errorData);
+            } catch (e) {
+                console.warn(`❌ [apiClient] 401 for ${url} (No JSON body)`);
+            }
+
             // Don't clear session for public config endpoints or if no token exists
             if (currentToken && !url.includes('/api/config')) {
-                console.warn(`Unauthorized (401) for ${url}. Clearing session.`);
+                console.warn(`⚠️ [apiClient] Session cleared for ${url}`);
                 localStorage.removeItem(SIMCOP_TOKEN_KEY);
                 window.dispatchEvent(new Event('simcop-logout'));
             }

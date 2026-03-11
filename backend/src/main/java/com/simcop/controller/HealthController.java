@@ -10,6 +10,6 @@ public class HealthController {
 
     @GetMapping
     public String healthCheck() {
-        return "SIMCOP Backend is running - Version 2.0.2 (Advanced Auth Diagnostics)";
+        return "SIMCOP Backend is running - Version 2.0.3 (Deep 401 Diagnostics)";
     }
 }
