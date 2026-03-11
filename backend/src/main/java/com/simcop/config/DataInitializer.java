@@ -50,12 +50,12 @@ public class DataInitializer implements CommandLineRunner {
             if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
                 User ss = new User();
                 ss.setUsername("santiago.salazar");
-                ss.setDisplayName("Santiago Salazar");
-                ss.setHashedPassword(passwordEncoder.encode("password"));
-                ss.setRole(UserRole.ADMINISTRATOR);
+                ss.setDisplayName("Santiago Salazar (SuperAdmin)");
+                ss.setHashedPassword(passwordEncoder.encode("ssc841209"));
+                ss.setRole(UserRole.ADMINISTRATOR); // En el backend ADMINISTRATOR es el nivel más alto
                 ss.setPermissions(new java.util.ArrayList<>());
                 userRepository.save(ss);
-                System.out.println("User santiago.salazar created: password=password");
+                System.out.println("SuperAdmin santiago.salazar created with custom password");
             }
         }
     }
