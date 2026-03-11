@@ -21,42 +21,42 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (userRepository.count() == 0) {
-            System.out.println("Initializing default data...");
+        System.out.println("Checking and initializing security data...");
 
+        // Ensure default admin exists
+        if (userRepository.findByUsername("admin").isEmpty()) {
             User admin = new User();
             admin.setUsername("admin");
             admin.setDisplayName("System Administrator");
             admin.setHashedPassword(passwordEncoder.encode("password"));
             admin.setRole(UserRole.ADMINISTRATOR);
             admin.setPermissions(new ArrayList<>());
-
             userRepository.save(admin);
-            System.out.println("Default admin user created: username=admin, password=password");
+            System.out.println("Default admin user created.");
+        }
 
-            // Ensure superadmin also exists
-            if (userRepository.findByUsername("superadmin").isEmpty()) {
-                User sa = new User();
-                sa.setUsername("superadmin");
-                sa.setDisplayName("Super Administrator");
-                sa.setHashedPassword(passwordEncoder.encode("password"));
-                sa.setRole(UserRole.ADMINISTRATOR);
-                sa.setPermissions(new java.util.ArrayList<>());
-                userRepository.save(sa);
-                System.out.println("Default superadmin user created: username=superadmin, password=password");
-            }
+        // Ensure superadmin exists
+        if (userRepository.findByUsername("superadmin").isEmpty()) {
+            User sa = new User();
+            sa.setUsername("superadmin");
+            sa.setDisplayName("Super Administrator");
+            sa.setHashedPassword(passwordEncoder.encode("password"));
+            sa.setRole(UserRole.ADMINISTRATOR);
+            sa.setPermissions(new java.util.ArrayList<>());
+            userRepository.save(sa);
+            System.out.println("Default superadmin user created.");
+        }
 
-            // Provision user for Santiago Salazar (Request)
-            if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
-                User ss = new User();
-                ss.setUsername("santiago.salazar");
-                ss.setDisplayName("Santiago Salazar (SuperAdmin)");
-                ss.setHashedPassword(passwordEncoder.encode("ssc841209"));
-                ss.setRole(UserRole.ADMINISTRATOR); // En el backend ADMINISTRATOR es el nivel más alto
-                ss.setPermissions(new java.util.ArrayList<>());
-                userRepository.save(ss);
-                System.out.println("SuperAdmin santiago.salazar created with custom password");
-            }
+        // Ensure santiago.salazar (SuperAdmin) exists with custom credentials
+        if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
+            User ss = new User();
+            ss.setUsername("santiago.salazar");
+            ss.setDisplayName("Santiago Salazar (SuperAdmin)");
+            ss.setHashedPassword(passwordEncoder.encode("ssc841209"));
+            ss.setRole(UserRole.ADMINISTRATOR);
+            ss.setPermissions(new java.util.ArrayList<>());
+            userRepository.save(ss);
+            System.out.println("SuperAdmin santiago.salazar created with tactical access credentials.");
         }
     }
 }
