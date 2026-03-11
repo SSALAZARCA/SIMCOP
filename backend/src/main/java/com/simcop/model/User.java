@@ -24,7 +24,7 @@ public class User {
 
     private String displayName;
 
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String hashedPassword;
 
     @Enumerated(EnumType.STRING)
