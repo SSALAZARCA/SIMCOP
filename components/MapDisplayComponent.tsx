@@ -66,6 +66,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   hotspots = [],
   historicalHotspots = [],
   osintEvents = [],
+  osintLayerActive = false,
   isMaximized = false,
   onToggleMaximize
 }) => {
@@ -553,6 +554,20 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       layer.addLayer(marker);
     });
   }, [osintEvents, selectedEntity]);
+
+  // Sync OSINT layer visibility with prop
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (osintLayerActive) {
+      if (!mapRef.current.hasLayer(osintLayerRef.current)) {
+        osintLayerRef.current.addTo(mapRef.current);
+      }
+    } else {
+      if (mapRef.current.hasLayer(osintLayerRef.current)) {
+        mapRef.current.removeLayer(osintLayerRef.current);
+      }
+    }
+  }, [osintLayerActive]);
 
   // Tactical Link Graph Rendering
   useEffect(() => {

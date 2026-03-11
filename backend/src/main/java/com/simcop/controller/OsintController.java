@@ -17,9 +17,20 @@ public class OsintController {
     @Autowired
     private OsintService osintService;
 
+    @Autowired
+    private com.simcop.service.VisibilityService visibilityService;
+
     @GetMapping("/events")
-    public List<OsintEvent> getAllEvents() {
-        return osintService.getAllEvents();
+    public List<OsintEvent> getAllEvents(@RequestHeader(value = "Authorization", required = false) String token) {
+        if (token == null)
+            return List.of();
+        com.simcop.model.User user = visibilityService.getUserFromToken(token);
+        if (user == null)
+            return List.of();
+
+        return osintService.getAllEvents().stream()
+                .filter(e -> visibilityService.isLocationVisibleToUser(e.getLocation(), user))
+                .toList();
     }
 
     @PostMapping("/refresh")

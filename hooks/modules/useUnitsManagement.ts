@@ -156,6 +156,33 @@ export const useUnitsManagement = (
         }
     }, [units, usersInternal]);
 
+    const updateUnitAo = useCallback(async (unitId: string, geoJson: string): Promise<{ success: boolean, message?: string }> => {
+        const unitIndex = units.findIndex(u => u.id === unitId);
+        if (unitIndex === -1) return { success: false, message: "Unidad no encontrada." };
+
+        const unitToUpdate = units[unitIndex];
+        const updatedUnitData: MilitaryUnit = {
+            ...unitToUpdate,
+            areaOfOperations: geoJson,
+        };
+
+        try {
+            const savedUnit = await unitService.updateUnit(unitId, updatedUnitData);
+            setUnitsInternal(prev => prev.map(u => u.id === unitId ? savedUnit : u));
+            addUnitHistoryEvent({
+                eventType: "Área de Operaciones Actualizada",
+                unitId: savedUnit.id,
+                unitName: savedUnit.name,
+                details: `Área de Operaciones delimitada para ${savedUnit.name}.`,
+                relatedEntityType: MapEntityType.ORGANIZATION_UNIT,
+            });
+            return { success: true, message: "AO actualizada exitosamente." };
+        } catch (error) {
+            console.error("Error updating AO:", error);
+            return { success: false, message: "Error al guardar en el servidor." };
+        }
+    }, [units, addUnitHistoryEvent]);
+
     const assignUAVAsset = useCallback(async (unitId: string, asset: UAVAsset) => {
         try {
             await uavService.assignAsset(unitId, asset);
@@ -183,6 +210,7 @@ export const useUnitsManagement = (
         updateUnitHierarchyDetails,
         deleteUnitHierarchy,
         assignCommanderToOrganizationalUnit,
+        updateUnitAo,
         assignUAVAsset,
         removeUAVAsset
     };

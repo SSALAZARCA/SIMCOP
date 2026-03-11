@@ -12,9 +12,18 @@ interface IntelViewProps {
     onSelectIntel: (report: IntelligenceReport) => void;
     addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => void;
     onRefreshOsint?: () => Promise<void>;
+    osintLayerActive?: boolean;
+    setOsintLayerActive?: (active: boolean) => void;
 }
 
-export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectIntel, addIntelReport, onRefreshOsint }) => {
+export const IntelView: React.FC<IntelViewProps> = ({
+    intelReports,
+    onSelectIntel,
+    addIntelReport,
+    onRefreshOsint,
+    osintLayerActive = false,
+    setOsintLayerActive
+}) => {
     const [selectedIntelForPanel, setSelectedIntelForPanel] = useState<IntelligenceReport | null>(null);
     const [showAddIntelForm, setShowAddIntelForm] = useState(false);
 
@@ -184,11 +193,27 @@ export const IntelView: React.FC<IntelViewProps> = ({ intelReports, onSelectInte
                     {onRefreshOsint && (
                         <button
                             onClick={() => {
-                                onRefreshOsint().then(() => alert("Noticias OSINT actualizadas.")).catch(e => alert("Error al actualizar OSINT."));
+                                onRefreshOsint()
+                                    .then(() => {
+                                        alert("Noticias OSINT actualizadas.");
+                                        if (setOsintLayerActive) setOsintLayerActive(true);
+                                    })
+                                    .catch(e => alert("Error al actualizar OSINT."));
                             }}
                             className="px-3 py-1.5 md:px-4 md:py-2 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
                         >
                             Procesar OSINT (IA)
+                        </button>
+                    )}
+                    {setOsintLayerActive && (
+                        <button
+                            onClick={() => setOsintLayerActive(!osintLayerActive)}
+                            className={`px-3 py-1.5 md:px-4 md:py-2 border rounded-md text-xs sm:text-sm font-medium transition-colors ${osintLayerActive
+                                ? 'bg-cyan-900 border-cyan-500 text-cyan-200 hover:bg-cyan-800'
+                                : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            {osintLayerActive ? 'Ocultar Capa OSINT' : 'Ver Capa OSINT'}
                         </button>
                     )}
                     <button

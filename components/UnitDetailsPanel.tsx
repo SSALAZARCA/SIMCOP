@@ -28,6 +28,8 @@ interface UnitDetailsPanelProps {
   onCancelFireMission: () => void;
   pendingFireMissions: PendingFireMission[];
   dismissPendingMission: (missionId: string) => void;
+  onStartAoDrawing?: (unitId: string) => void;
+  onClearAo?: (unitId: string) => void;
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -111,6 +113,8 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
   onCancelFireMission,
   pendingFireMissions,
   dismissPendingMission,
+  onStartAoDrawing,
+  onClearAo,
 }) => {
   const lastCommMinutesAgo = Math.floor((Date.now() - unit.lastCommunicationTimestamp) / (60 * 1000));
   const lastMoveMinutesAgo = Math.floor((Date.now() - unit.lastMovementTimestamp) / (60 * 1000));
@@ -562,6 +566,49 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Area of Operations Section */}
+      <div className="glass-effect p-4 rounded-2xl border border-white/5 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+          <MapPinIcon className="w-12 h-12 text-cyan-500" />
+        </div>
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center">
+            <span className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></span>
+            Área de Operaciones (AO)
+          </h4>
+          <div className="flex gap-2">
+            {onClearAo && unit.areaOfOperations && (
+              <button
+                onClick={() => onClearAo(unit.id)}
+                className="px-3 py-1 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                ELIMINAR AO
+              </button>
+            )}
+            {onStartAoDrawing && (
+              <button
+                onClick={() => onStartAoDrawing(unit.id)}
+                className="px-3 py-1 bg-cyan-500/10 hover:bg-cyan-500 text-cyan-400 hover:text-white border border-cyan-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                {unit.areaOfOperations ? 'REDEFINIR ÁREA' : 'DELIMITAR ÁREA'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 bg-black/20 p-3 rounded-xl border border-white/5">
+          <div className={`w-2 h-2 rounded-full ${unit.areaOfOperations ? 'bg-cyan-500 glow-cyan' : 'bg-gray-600'}`}></div>
+          <p className="text-xs font-bold text-gray-200">
+            {unit.areaOfOperations ? 'ÁREA TÁCTICA DELIMITADA' : 'SIN ÁREA DE OPERACIONES ASIGNADA'}
+          </p>
+        </div>
+        {unit.areaOfOperations && (
+          <p className="mt-2 text-[10px] text-gray-400 italic">
+            El personal y las noticias OSINT se filtrarán automáticamente por este perímetro.
+          </p>
+        )}
       </div>
 
       {/* Positioning Section */}

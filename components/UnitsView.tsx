@@ -22,6 +22,8 @@ interface UnitsViewProps {
   onCancelFireMission: () => void;
   pendingFireMissions: PendingFireMission[];
   dismissPendingMission: (missionId: string) => void;
+  onStartAoDrawing?: (unitId: string) => void;
+  onClearAo?: (unitId: string) => void;
 }
 
 export const UnitsView: React.FC<UnitsViewProps> = ({
@@ -41,6 +43,8 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
   onCancelFireMission,
   pendingFireMissions,
   dismissPendingMission,
+  onStartAoDrawing,
+  onClearAo,
 }) => {
   const [selectedUnitForPanel, setSelectedUnitForPanel] = useState<MilitaryUnit | null>(null);
   const [showCreateUnitModal, setShowCreateUnitModal] = useState(false);
@@ -106,6 +110,8 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                   onCancelFireMission={onCancelFireMission}
                   pendingFireMissions={pendingFireMissions}
                   dismissPendingMission={dismissPendingMission}
+                  onStartAoDrawing={onStartAoDrawing}
+                  onClearAo={onClearAo}
                 />
               </div>
             ) : (

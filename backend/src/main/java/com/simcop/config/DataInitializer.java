@@ -33,6 +33,18 @@ public class DataInitializer implements CommandLineRunner {
 
             userRepository.save(admin);
             System.out.println("Default admin user created: username=admin, password=password");
+
+            // Ensure superadmin also exists
+            if (userRepository.findByUsername("superadmin").isEmpty()) {
+                User sa = new User();
+                sa.setUsername("superadmin");
+                sa.setDisplayName("Super Administrator");
+                sa.setHashedPassword(passwordEncoder.encode("password"));
+                sa.setRole(UserRole.ADMINISTRATOR);
+                sa.setPermissions(new java.util.ArrayList<>());
+                userRepository.save(sa);
+                System.out.println("Default superadmin user created: username=superadmin, password=password");
+            }
         }
     }
 }

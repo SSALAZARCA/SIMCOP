@@ -109,6 +109,9 @@ public class MilitaryUnit {
     @Fetch(FetchMode.SUBSELECT)
     private List<UAVAsset> uavAssets = new ArrayList<>();
 
+    @Column(columnDefinition = "TEXT")
+    private String areaOfOperations;
+
     public MilitaryUnit() {
         this.personnelBreakdown = new PersonnelBreakdown();
         this.toe = new TOEInformation();
@@ -387,5 +390,13 @@ public class MilitaryUnit {
 
     public void setUavAssets(List<UAVAsset> uavAssets) {
         this.uavAssets = uavAssets;
+    }
+
+    public String getAreaOfOperations() {
+        return areaOfOperations;
+    }
+
+    public void setAreaOfOperations(String areaOfOperations) {
+        this.areaOfOperations = areaOfOperations;
     }
 }

@@ -23,7 +23,7 @@ public class WeatherService {
     public WeatherInfo getCurrentWeather(double lat, double lon) {
         try {
             String url = String.format("%s?lat=%f&lon=%f&appid=%s&units=metric&lang=es",
-                    apiUrl, lat, lon, apiKey);
+                    apiUrl != null ? apiUrl : "", lat, lon, apiKey != null ? apiKey : "");
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);

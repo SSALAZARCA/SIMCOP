@@ -46,7 +46,7 @@ export const useBackendData = (): UseSimulatedDataReturn => {
   const { alerts, setAlertsInternal, acknowledgeAlert } = useAlertsManagement();
   const { intelligenceReports, setIntelligenceReportsInternal, addIntelReport } = useIntelligenceManagement(setAlertsInternal);
   const { usersInternal, setUsersInternal, login, addUser, updateUser, deleteUser, sendTestTelegramAlert, updateUserTelegramConfig } = useUserManagement(addUnitHistoryEvent, setAlertsInternal, []); // temporary empty units
-  const { units, setUnitsInternal, addUnitHierarchy, updateUnitHierarchyDetails, deleteUnitHierarchy, assignCommanderToOrganizationalUnit, assignUAVAsset, removeUAVAsset } = useUnitsManagement(addUnitHistoryEvent, setAlertsInternal, usersInternal);
+  const { units, setUnitsInternal, addUnitHierarchy, updateUnitHierarchyDetails, deleteUnitHierarchy, assignCommanderToOrganizationalUnit, updateUnitAo, assignUAVAsset, removeUAVAsset } = useUnitsManagement(addUnitHistoryEvent, setAlertsInternal, usersInternal);
   const { updateUnitLogistics, reportUnitEngaged, reportUnitCeasefire, addManualRoutePoint, markUnitHourlyReport, updateUnitMission, updateUnitSituation, addUnit, processSpotReport, updateUnitAttributes, sendUnitToRetraining, returnUnitFromRetraining, startUnitLeave, startUnitRetraining } = useTacticalOps(addUnitHistoryEvent, setAlertsInternal, units, setUnitsInternal);
   const { logisticsRequests, setLogisticsRequestsInternal, addLogisticsRequest, fulfillLogisticsRequest, submitAmmoExpenditureReport, approveAmmoReport, rejectAmmoReport, logPlatoonNovelty, approvePlatoonNovelty, rejectPlatoonNovelty } = useLogisticsManagement(addUnitHistoryEvent, setAlertsInternal, units);
   const { artilleryPieces, setArtilleryPiecesInternal, forwardObservers, setForwardObserversInternal, activeFireMissions, setActiveFireMissionsInternal, pendingFireMissions, setPendingFireMissionsInternal, addArtilleryPiece, addForwardObserver, confirmShotFired, requestFireMission, acceptFireMission, rejectFireMission, dismissPendingMission } = useArtilleryManagement(addUnitHistoryEvent, setAlertsInternal);
@@ -144,6 +144,8 @@ export const useBackendData = (): UseSimulatedDataReturn => {
     deleteUser,
     addIntelReport,
     acknowledgeAlert,
+    generateRandomId,
+    setAlertsInternal,
     addAfterActionReport,
     generateAndAddQ5Report,
     sendQ5ReportViaTelegram,
@@ -176,6 +178,7 @@ export const useBackendData = (): UseSimulatedDataReturn => {
     updateUnitHierarchyDetails,
     deleteUnitHierarchy,
     assignCommanderToOrganizationalUnit,
+    updateUnitAo,
     addArtilleryPiece,
     addForwardObserver,
     fulfillLogisticsRequest,

@@ -40,6 +40,7 @@ public class IntelligenceReportController {
 
         return repository.findAll().stream()
                 .filter(r -> r.getReportingUnitId() == null || visibleUnitIds.contains(r.getReportingUnitId()))
+                .filter(r -> visibilityService.isLocationVisibleToUser(r.getLocation(), user))
                 .toList();
     }
 
@@ -67,7 +68,8 @@ public class IntelligenceReportController {
     }
 
     @PutMapping("/{id}/link/{otherId}")
-    public ResponseEntity<Void> linkReports(@PathVariable String id, @PathVariable String otherId) {
+    public ResponseEntity<Void> linkReports(@PathVariable @org.springframework.lang.NonNull String id,
+            @PathVariable @org.springframework.lang.NonNull String otherId) {
         IntelligenceReport reportA = repository.findById(id).orElse(null);
         IntelligenceReport reportB = repository.findById(otherId).orElse(null);
 
@@ -88,7 +90,8 @@ public class IntelligenceReportController {
     }
 
     @DeleteMapping("/{id}/link/{otherId}")
-    public ResponseEntity<Void> unlinkReports(@PathVariable String id, @PathVariable String otherId) {
+    public ResponseEntity<Void> unlinkReports(@PathVariable @org.springframework.lang.NonNull String id,
+            @PathVariable @org.springframework.lang.NonNull String otherId) {
         IntelligenceReport reportA = repository.findById(id).orElse(null);
         IntelligenceReport reportB = repository.findById(otherId).orElse(null);
 

@@ -6,7 +6,7 @@ import { OrganizationUnitNode } from './OrganizationUnitNode';
 import { OrganizationUnitFormModal } from './OrganizationUnitFormModal';
 import { AssignCommanderModal } from './AssignCommanderModal';
 import { ConfirmationModal } from './ui/ConfirmationModal';
-import { Plus, UserPlus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Edit2, MapPin as MapPinIcon } from 'lucide-react';
 
 interface OrganizationStructureViewProps {
   organizationalUnits: MilitaryUnit[];
@@ -15,6 +15,8 @@ interface OrganizationStructureViewProps {
   updateUnitHierarchyDetails: (unitId: string, data: UpdateHierarchyUnitData) => Promise<{ success: boolean; message?: string }>;
   deleteUnitHierarchy: (unitId: string) => Promise<{ success: boolean; message?: string }>;
   assignCommanderToOrganizationalUnit: (unitId: string, userId: string) => Promise<{ success: boolean; message?: string }>;
+  onStartAoDrawing?: (unitId: string) => void;
+  onClearAo?: (unitId: string) => void;
 }
 
 export const OrganizationStructureView: React.FC<OrganizationStructureViewProps> = ({
@@ -24,6 +26,8 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
   updateUnitHierarchyDetails,
   deleteUnitHierarchy,
   assignCommanderToOrganizationalUnit,
+  onStartAoDrawing,
+  onClearAo,
 }) => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -171,6 +175,23 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
                 <UserPlus className="w-4 h-4" />
                 Asignar Mando
               </button>
+              {onStartAoDrawing && (
+                <button
+                  onClick={() => onStartAoDrawing(selectedUnit.id)}
+                  className="px-6 py-3.5 bg-cyan-900/20 hover:bg-cyan-600 text-cyan-400 hover:text-white rounded-[20px] font-black uppercase tracking-widest text-[10px] transition-all border border-cyan-500/20 active:scale-95 flex items-center gap-3 shadow-xl"
+                >
+                  <MapPinIcon className="w-4 h-4" />
+                  {selectedUnit.areaOfOperations ? 'Redefinir AO' : 'Delimitar AO'}
+                </button>
+              )}
+              {onClearAo && selectedUnit.areaOfOperations && (
+                <button
+                  onClick={() => onClearAo(selectedUnit.id)}
+                  className="px-6 py-3.5 bg-red-900/20 hover:bg-red-600 text-red-500 hover:text-white rounded-[20px] font-black uppercase tracking-widest text-[10px] transition-all border border-red-500/20 active:scale-95 shadow-xl"
+                >
+                  Borrar AO
+                </button>
+              )}
               <button
                 onClick={() => handleEditUnit(selectedUnit)}
                 className="px-6 py-3.5 bg-gray-800 hover:bg-gray-700 text-yellow-400 rounded-[20px] font-black uppercase tracking-widest text-[10px] transition-all border border-yellow-500/20 active:scale-95 flex items-center gap-3 shadow-xl"
@@ -186,7 +207,7 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
             </>
           )}
         </div>
-      </header>
+      </header >
 
       {feedbackMessage && (
         <div className={`mb-8 p-6 rounded-[24px] border ${feedbackMessage.type === 'success' ? 'bg-teal-950/30 border-teal-500/30 text-teal-400' : 'bg-red-950/30 border-red-500/30 text-red-400'} animate-fade-in flex items-center gap-4`}>
@@ -226,26 +247,30 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
         </div>
       </main>
 
-      {showFormModal && (
-        <OrganizationUnitFormModal
-          isOpen={showFormModal}
-          onClose={handleCloseFormModal}
-          onSubmit={handleSubmitForm}
-          existingUnit={editingUnit}
-          parentUnit={parentUnitForNew}
-          allUnits={organizationalUnits}
-        />
-      )}
+      {
+        showFormModal && (
+          <OrganizationUnitFormModal
+            isOpen={showFormModal}
+            onClose={handleCloseFormModal}
+            onSubmit={handleSubmitForm}
+            existingUnit={editingUnit}
+            parentUnit={parentUnitForNew}
+            allUnits={organizationalUnits}
+          />
+        )
+      }
 
-      {showAssignCommanderModal && unitToAssignCommander && (
-        <AssignCommanderModal
-          isOpen={showAssignCommanderModal}
-          onClose={handleCloseAssignCommanderModal}
-          onSubmit={handleAssignCommanderSubmit}
-          unit={unitToAssignCommander}
-          allUsers={allUsers}
-        />
-      )}
+      {
+        showAssignCommanderModal && unitToAssignCommander && (
+          <AssignCommanderModal
+            isOpen={showAssignCommanderModal}
+            onClose={handleCloseAssignCommanderModal}
+            onSubmit={handleAssignCommanderSubmit}
+            unit={unitToAssignCommander}
+            allUsers={allUsers}
+          />
+        )
+      }
 
       <ConfirmationModal
         isOpen={confirmationModalConfig.isOpen}
@@ -254,6 +279,6 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
         title={confirmationModalConfig.title}
         message={confirmationModalConfig.message}
       />
-    </div>
+    </div >
   );
 };

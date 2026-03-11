@@ -5,13 +5,11 @@ import com.simcop.model.embeddable.GeoLocation;
 import com.simcop.repository.OsintEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class OsintService {
@@ -22,14 +20,13 @@ public class OsintService {
     @Autowired
     private GeminiService geminiService;
 
-    private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<OsintEvent> getAllEvents() {
         return osintEventRepository.findAll();
     }
 
-    public OsintEvent setVerified(String id, boolean verified) {
+    public OsintEvent setVerified(@org.springframework.lang.NonNull String id, boolean verified) {
         OsintEvent event = osintEventRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
         event.setVerified(verified);
@@ -101,34 +98,43 @@ public class OsintService {
             return null;
 
         try {
-            // Remove markdown code blocks if present
-            aiResponse = aiResponse.replaceAll("```json", "").replaceAll("```", "").trim();
-            JsonNode result = objectMapper.readTree(aiResponse);
+            // Remove markdown code blocks and extract JSON using substring between first {
+            // and last }
+            String cleanedAiResponse = aiResponse.trim();
+            if (cleanedAiResponse.contains("{") && cleanedAiResponse.contains("}")) {
+                cleanedAiResponse = cleanedAiResponse.substring(cleanedAiResponse.indexOf("{"),
+                        cleanedAiResponse.lastIndexOf("}") + 1);
+            }
+            JsonNode result = objectMapper.readTree(cleanedAiResponse);
 
-            if (!result.get("relevant").asBoolean())
+            if (!result.has("relevant") || !result.get("relevant").asBoolean()) {
+                System.out.println("News marked as not relevant by AI: " + news.get("title"));
                 return null;
+            }
 
             OsintEvent event = new OsintEvent();
             event.setTitle(news.get("title"));
             event.setSourceUrl(news.get("url"));
             event.setSourceName(news.get("source"));
-            event.setSummary(result.get("summary").asText());
-            event.setLocationName(result.get("locationName").asText());
-            event.setEventType(result.get("type").asText());
-            event.setConfidenceScore(result.get("confidence").asDouble());
+            event.setSummary(result.has("summary") ? result.get("summary").asText() : "No summary provided");
+            event.setLocationName(result.has("locationName") ? result.get("locationName").asText() : "Unknown");
+            event.setEventType(result.has("type") ? result.get("type").asText() : "OTHER");
+            event.setConfidenceScore(result.has("confidence") ? result.get("confidence").asDouble() : 0.5);
 
             GeoLocation loc = new GeoLocation();
-            loc.setLat(result.get("latitude").asDouble());
-            loc.setLon(result.get("longitude").asDouble());
+            loc.setLat(result.has("latitude") ? result.get("latitude").asDouble() : 0.0);
+            loc.setLon(result.has("longitude") ? result.get("longitude").asDouble() : 0.0);
             event.setLocation(loc);
 
             event.setEventTimestamp(LocalDateTime.now());
             event.setProcessedTimestamp(LocalDateTime.now());
             event.setVerified(false);
 
+            System.out.println("Successfully processed OSINT event: " + event.getTitle());
             return event;
         } catch (Exception e) {
-            System.err.println("Error parsing AI response for OSINT: " + e.getMessage());
+            System.err.println("Error parsing AI response for OSINT. Response was: " + aiResponse);
+            System.err.println("Exception: " + e.getMessage());
             return null;
         }
     }

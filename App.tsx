@@ -39,7 +39,7 @@ import { MobileBottomNavComponent } from './components/MobileBottomNavComponent'
 import { useBackendData } from './hooks/useBackendData';
 import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
 import { eventBus } from './utils/eventEmitter';
-import { ViewType, MapEntityType, UnitStatus, PlantillaType, UserRole, UnitType as UnitTypeEnum, AlertType } from './types';
+import { ViewType, MapEntityType, UnitStatus, PlantillaType, UserRole, UnitType as UnitTypeEnum, AlertType, AlertSeverity } from './types';
 import type { MilitaryUnit, IntelligenceReport, Alert, SelectedEntity, AfterActionReport, Q5Report, PICCDrawConfig, SpotReportPayload, OperationsOrder, User, TargetSelectionRequest, GeoLocation, ForwardObserver, NewArtilleryPieceData, LogisticsRequest, PendingFireMission, ActiveFireMission, FiringSolution, ProjectileType, UserTelegramConfig, NewUserData, UpdateUserData, Hotspot } from './types';
 import { MapDisplayComponent } from './components/MapDisplayComponent';
 import { bmaService } from './services/bmaService';
@@ -108,7 +108,10 @@ const App: React.FC = () => {
     fulfillLogisticsRequest, addForwardObserver, confirmShotFired,
     requestFireMission, acceptFireMission, updateUserTelegramConfig,
     rejectFireMission, dismissPendingMission, addLogisticsRequest,
-    assignUAVAsset, removeUAVAsset, refreshData, refreshOsint, verifyOsintEvent, osintEvents
+    assignUAVAsset, removeUAVAsset, refreshData, refreshOsint, verifyOsintEvent, osintEvents,
+    updateUnitAo,
+    setAlertsInternal,
+    generateRandomId
   } = data;
 
 
@@ -151,6 +154,53 @@ const App: React.FC = () => {
   const [aoiDrawingModeActive, setAoiDrawingModeActive] = useState<boolean>(false);
   const [enemyInfluenceLayerActive, setEnemyInfluenceLayerActive] = useState<boolean>(false);
   const [elevationProfileActive, setElevationProfileActive] = useState<boolean>(false);
+  const [osintLayerActive, setOsintLayerActive] = useState<boolean>(false);
+  const [aoDrawingUnitId, setAoDrawingUnitId] = useState<string | null>(null);
+
+  const handleStartAoDrawing = useCallback((unitId: string) => {
+    setAoDrawingUnitId(unitId);
+    setAoiDrawingModeActive(true);
+    setCurrentView(ViewType.MAP);
+    setAlertsInternal(prev => [{
+      id: generateRandomId(),
+      type: AlertType.INFO as any,
+      message: `Modo de delimitación de AO activo. Haga clic en el mapa para trazar el perímetro de la unidad y doble clic para finalizar.`,
+      timestamp: Date.now(),
+      severity: AlertSeverity.INFO,
+      acknowledged: false
+    }, ...prev]);
+  }, []);
+
+  const handleClearAo = useCallback(async (unitId: string) => {
+    if (confirm("¿Está seguro de que desea eliminar el Área de Operaciones de esta unidad?")) {
+      await updateUnitAo(unitId, "");
+      setAlertsInternal(prev => [{
+        id: generateRandomId(),
+        type: AlertType.INFO as any,
+        message: `Área de Operaciones eliminada.`,
+        timestamp: Date.now(),
+        severity: AlertSeverity.INFO,
+        acknowledged: false
+      }, ...prev]);
+    }
+  }, [updateUnitAo]);
+
+  useEffect(() => {
+    const handleAoiFinalized = (geoJsonPolygon: any) => {
+      if (aoDrawingUnitId) {
+        updateUnitAo(aoDrawingUnitId, JSON.stringify(geoJsonPolygon))
+          .then(res => {
+            if (res.success) {
+              setAoDrawingUnitId(null);
+              setAoiDrawingModeActive(false);
+            }
+          });
+      }
+    };
+
+    const token = eventBus.subscribe('finalizeAoiLayer', (_msg: string, data: any) => handleAoiFinalized(data));
+    return () => eventBus.unsubscribe(token);
+  }, [aoDrawingUnitId, updateUnitAo]);
   const [piccDrawingConfig, setPiccDrawingConfig] = useState<PICCDrawConfig | null>(null);
   const [activePICCPlantillaContext, setActivePICCPlantillaContext] = useState<PlantillaType | null>(null);
   const [targetSelectionRequest, setTargetSelectionRequest] = useState<TargetSelectionRequest | null>(null);
@@ -578,6 +628,7 @@ const App: React.FC = () => {
     hotspots: hotspots,
     historicalHotspots: historicalHotspots,
     osintEvents: osintEvents,
+    osintLayerActive: osintLayerActive,
     isMaximized: isMapMaximized,
     onToggleMaximize: handleToggleMapMaximize,
   };
@@ -650,6 +701,8 @@ const App: React.FC = () => {
           onCancelFireMission={handleCancelFireMission}
           pendingFireMissions={pendingFireMissions}
           dismissPendingMission={dismissPendingMission}
+          onStartAoDrawing={handleStartAoDrawing}
+          onClearAo={handleClearAo}
         />;
       case ViewType.INTEL:
         return <IntelView
@@ -657,6 +710,8 @@ const App: React.FC = () => {
           onSelectIntel={(intel) => handleSelectEntity({ type: MapEntityType.INTEL, id: intel.id })}
           addIntelReport={addIntelReport}
           onRefreshOsint={refreshOsint}
+          osintLayerActive={osintLayerActive}
+          setOsintLayerActive={setOsintLayerActive}
         />;
       case ViewType.ALERTS:
         return <AlertsView alerts={alerts} acknowledgeAlert={acknowledgeAlert} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} />;
@@ -707,7 +762,10 @@ const App: React.FC = () => {
           rejectFireMission={rejectFireMission}
           dismissPendingMission={dismissPendingMission}
           confirmShotFired={confirmShotFired}
-          deleteArtilleryPiece={async (id) => alert("Funcionalidad de borrado no implementada.")}
+          deleteArtilleryPiece={async (id) => {
+            alert("Funcionalidad de borrado no implementada.");
+            return { success: false, message: "No implementado" };
+          }}
         />;
       case ViewType.UAV_MANAGEMENT:
         return <UAVManagementView
@@ -745,6 +803,8 @@ const App: React.FC = () => {
           updateUnitHierarchyDetails={updateUnitHierarchyDetails}
           deleteUnitHierarchy={deleteUnitHierarchy}
           assignCommanderToOrganizationalUnit={assignCommanderToOrganizationalUnit}
+          onStartAoDrawing={handleStartAoDrawing}
+          onClearAo={handleClearAo}
         />;
       case ViewType.HISTORICAL:
         return <HistoricalViewComponent afterActionReports={afterActionReports} units={units} onSelectAAR={handleSelectAARFromList} selectedAAR={selectedAAR} generateAndAddQ5Report={generateAndAddQ5Report} q5Reports={q5Reports} q5GeneratingStatus={q5GeneratingStatus} unitHistoryLog={unitHistoryLog} alerts={alerts} />;

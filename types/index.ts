@@ -107,6 +107,7 @@ export interface MilitaryUnit {
   personnelList?: Soldier[];
   uavAssets?: UAVAsset[];
   toe?: TOEInformation;
+  areaOfOperations?: string; // GeoJSON string
 }
 
 export interface Soldier {
@@ -275,6 +276,7 @@ export enum ViewType {
   BMA = 'Algoritmo de Gestión de Batalla (BMA)',
   USER_MANAGEMENT = 'Gestión de Usuarios',
   SETTINGS = 'Configuración',
+  NATIONAL_VIEW = 'Vista Nacional (Todo el País)',
 }
 
 export enum PlatoonViewType {
@@ -471,6 +473,8 @@ export type UnitHistoryEventType =
   | "Reintegrada de Permiso/Reentrenamiento"
   | "Inicio de Permiso"
   | "Inicio de Reentrenamiento"
+  | 'Análisis de Red (Link Analysis) Generado'
+  | 'Área de Operaciones Actualizada'
   | "Movimiento Simulado"
   | "Reporte SPOT Recibido"
   | "Información"
@@ -514,6 +518,10 @@ export interface UnitHistoryEvent {
   unitName?: string;
   userId?: string;
   username?: string;
+  unitSituationType?: UnitSituationINSITOP;
+  parentId?: string;
+  uavAssets?: UAVAsset[];
+  areaOfOperations?: string; // GeoJSON string
   timestamp: number;
   eventType: UnitHistoryEventType;
   details: string;
@@ -965,9 +973,13 @@ export interface UseSimulatedDataReturn {
   q5SendingStatus: { [q5Id: string]: boolean };
   unitHistoryLog: UnitHistoryEvent[];
   osintEvents: OsintEvent[];
+  onRefreshOsint?: () => Promise<void>;
+  osintLayerActive?: boolean;
+  setOsintLayerActive?: (active: boolean) => void;
   refreshOsint: () => Promise<void>;
   verifyOsintEvent: (id: string, verified: boolean) => Promise<void>;
   acknowledgeAlert: (alertId: string) => Promise<void>;
+  setAlertsInternal: React.Dispatch<React.SetStateAction<Alert[]>>;
   addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => Promise<void>;
   addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => Promise<void>;
   updateUnitLogistics: (unitId: string, logisticsData: { fuelLevel?: number | string; ammoLevel?: number | string; daysOfSupply?: number | string; }) => Promise<void>;
@@ -999,8 +1011,10 @@ export interface UseSimulatedDataReturn {
   rejectAmmoReport: (reportId: string, reason: string) => Promise<void>;
   addUnitHierarchy: (unitData: NewHierarchyUnitData) => Promise<{ success: boolean, message?: string, newUnit?: MilitaryUnit }>;
   updateUnitHierarchyDetails: (unitId: string, updateData: UpdateHierarchyUnitData) => Promise<{ success: boolean, message?: string }>;
-  deleteUnitHierarchy: (unitId: string) => Promise<{ success: boolean, message?: string }>;
-  assignCommanderToOrganizationalUnit: (unitId: string, userId: string) => Promise<{ success: boolean, message?: string }>;
+  deleteUnitHierarchy: (unitId: string) => Promise<{ success: boolean; message?: string }>;
+  assignCommanderToOrganizationalUnit: (unitId: string, userId: string) => Promise<{ success: boolean; message?: string }>;
+  updateUnitAo: (unitId: string, geoJson: string) => Promise<{ success: boolean; message?: string; }>;
+  generateRandomId: () => string;
   addArtilleryPiece: (pieceData: NewArtilleryPieceData) => Promise<{ success: boolean }>;
   addForwardObserver: (observerData: NewForwardObserverData) => Promise<{ success: boolean }>;
   fulfillLogisticsRequest: (requestId: string, userId: string) => Promise<void>;
@@ -1199,6 +1213,7 @@ export interface MapDisplayProps {
   activeFireMissions: FireMission[];
   afterActionReports?: AfterActionReport[];
   osintEvents?: OsintEvent[];
+  osintLayerActive?: boolean;
   selectedEntity: SelectedEntity | null;
   onSelectEntityOnMap?: (entity: SelectedEntity) => void;
   distanceToolActive?: boolean;

@@ -40,12 +40,19 @@ public class GeminiService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                List<Map> candidates = (List<Map>) response.getBody().get("candidates");
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(url,
+                    org.springframework.http.HttpMethod.POST, entity,
+                    new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+            Map<String, Object> body = response.getBody();
+            if (response.getStatusCode() == HttpStatus.OK && body != null) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> candidates = (List<Map<String, Object>>) body.get("candidates");
                 if (candidates != null && !candidates.isEmpty()) {
-                    Map contentMap = (Map) candidates.get(0).get("content");
-                    List<Map> parts = (List<Map>) contentMap.get("parts");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> contentMap = (Map<String, Object>) candidates.get(0).get("content");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> parts = (List<Map<String, Object>>) contentMap.get("parts");
                     return (String) parts.get(0).get("text");
                 }
             }

@@ -3,14 +3,15 @@ package com.simcop.service;
 import com.simcop.model.MilitaryUnit;
 import com.simcop.model.User;
 import com.simcop.model.UserRole;
+import com.simcop.model.embeddable.GeoLocation;
 import com.simcop.repository.MilitaryUnitRepository;
 import com.simcop.repository.UserRepository;
+import com.simcop.util.GeoUtils;
 import com.simcop.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class VisibilityService {
@@ -24,7 +25,6 @@ public class VisibilityService {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Helper to extract User from Token
     public User getUserFromToken(String token) {
         if (token != null && token.startsWith("Bearer ")) {
             String jwt = token.substring(7);
@@ -37,24 +37,18 @@ public class VisibilityService {
     public List<MilitaryUnit> getVisibleUnits(User user) {
         List<MilitaryUnit> allUnits = unitRepository.findAll();
 
-        // 1. Administrators see everything
-        if (user.getRole() == UserRole.ADMINISTRATOR) {
+        if (user.getRole() == UserRole.ADMINISTRATOR || user.getRole() == UserRole.COMANDANTE_EJERCITO) {
             return allUnits;
         }
 
-        // 2. Comandante Ejercito sees everything (top level)
-        if (user.getRole() == UserRole.COMANDANTE_EJERCITO) {
-            return allUnits; // Assuming he is top of chain
+        if (user.getPermissions() != null && user.getPermissions().contains("NATIONAL_VIEW")) {
+            return allUnits;
         }
 
-        // 3. User with no assigned unit sees nothing (or maybe just themselves? strict
-        // mode: nothing)
         if (user.getAssignedUnitId() == null) {
             return new ArrayList<>();
         }
 
-        // 4. Hierarchical filtering
-        // Build map for easier tree traversal
         Map<String, List<MilitaryUnit>> childrenMap = new HashMap<>();
         MilitaryUnit rootUnit = null;
 
@@ -68,11 +62,9 @@ public class VisibilityService {
         }
 
         if (rootUnit == null) {
-            // Assigned unit not found in DB
             return new ArrayList<>();
         }
 
-        // Collect all descendants
         List<MilitaryUnit> visibleUnits = new ArrayList<>();
         collectDescendants(rootUnit, childrenMap, visibleUnits);
 
@@ -88,5 +80,33 @@ public class VisibilityService {
                 collectDescendants(child, childrenMap, result);
             }
         }
+    }
+
+    public boolean isLocationVisibleToUser(GeoLocation location, User user) {
+        if (user == null || location == null)
+            return false;
+
+        if (user.getRole() == UserRole.ADMINISTRATOR || user.getRole() == UserRole.COMANDANTE_EJERCITO) {
+            return true;
+        }
+
+        if (user.getPermissions() != null && user.getPermissions().contains("NATIONAL_VIEW")) {
+            return true;
+        }
+
+        if (user.getAssignedUnitId() == null)
+            return false;
+
+        Optional<MilitaryUnit> unitOpt = unitRepository.findById(user.getAssignedUnitId());
+        if (unitOpt.isPresent()) {
+            MilitaryUnit unit = unitOpt.get();
+            String aoValue = unit.getAreaOfOperations();
+            if (aoValue != null && !aoValue.isEmpty()) {
+                return GeoUtils.isPointInPolygon(location, aoValue);
+            }
+            return true;
+        }
+
+        return false;
     }
 }
