@@ -54,7 +54,7 @@ export const useBackendData = (): UseSimulatedDataReturn => {
   const { operationsOrders, setOperationsOrdersInternal, addOperationsOrder, updateOperationsOrder, publishOperationsOrder, acknowledgeOperationsOrder } = useOperationsOrdersManagement(addUnitHistoryEvent, setAlertsInternal);
   const { afterActionReports, setAfterActionReportsInternal, q5Reports, setQ5ReportsInternal, q5GeneratingStatus, q5SendingStatus, setQ5SendingStatus, addAfterActionReport, generateAndAddQ5Report, sendQ5ReportViaTelegram } = useReportManagement(addUnitHistoryEvent, setAlertsInternal, units, setUnitsInternal);
 
-  const loadDataFromBackend = async () => {
+  const loadDataFromBackend = useCallback(async () => {
     setLoadingErrors([]);
     try {
       const results = await Promise.allSettled([
@@ -109,7 +109,12 @@ export const useBackendData = (): UseSimulatedDataReturn => {
       console.error("Error loading data:", error);
       setIsInitialized(true);
     }
-  };
+  }, [
+    setUnitsInternal, setIntelligenceReportsInternal, setAlertsInternal,
+    setUsersInternal, setArtilleryPiecesInternal, setForwardObserversInternal,
+    setOperationsOrdersInternal, setAfterActionReportsInternal, setQ5ReportsInternal,
+    setLogisticsRequestsInternal, setUnitHistoryLogInternal
+  ]);
 
   const refreshOsint = async () => {
     try {

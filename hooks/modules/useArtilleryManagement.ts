@@ -46,6 +46,9 @@ export const useArtilleryManagement = (
     // Polling Loop
     useEffect(() => {
         const fetchMissions = async () => {
+            const token = localStorage.getItem('simcop_auth_token');
+            if (!token) return;
+
             try {
                 const data = await fireMissionService.getAll();
                 setRawMissions(data);
@@ -55,7 +58,7 @@ export const useArtilleryManagement = (
         };
 
         fetchMissions(); // initial
-        const interval = setInterval(fetchMissions, 2000); // Poll every 2s
+        const interval = setInterval(fetchMissions, 5000); // Polling slower (5s) for stability
         return () => clearInterval(interval);
     }, []);
 
