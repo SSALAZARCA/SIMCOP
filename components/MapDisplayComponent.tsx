@@ -1354,7 +1354,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         currentPICCDrawingToolRef.current = null;
       }
     };
-  }, [piccDrawingConfig, activeTemplateContext, onPiccDrawingComplete, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
+  }, [piccDrawingConfig, activeTemplateContext, onPiccDrawingComplete, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, onAoFinishDrawing, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
 
 
   useEffect(() => {

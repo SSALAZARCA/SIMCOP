@@ -17,6 +17,7 @@ interface OrganizationStructureViewProps {
   assignCommanderToOrganizationalUnit: (unitId: string, userId: string) => Promise<{ success: boolean; message?: string }>;
   onStartAoDrawing?: (unitId: string) => void;
   onClearAo?: (unitId: string) => void;
+  onCancelAoDrawing?: () => void;
 }
 
 export const OrganizationStructureView: React.FC<OrganizationStructureViewProps> = ({
@@ -28,6 +29,8 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
   assignCommanderToOrganizationalUnit,
   onStartAoDrawing,
   onClearAo,
+  onCancelAoDrawing
+,
 }) => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -258,6 +261,7 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
             allUnits={organizationalUnits}
             onStartAoDrawing={onStartAoDrawing}
             onClearAo={onClearAo}
+            onCancelAoDrawing={onCancelAoDrawing}
           />
         )
       }

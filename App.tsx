@@ -181,7 +181,19 @@ const App: React.FC = () => {
     }, ...prev]);
   }, [isMobile, setCurrentView]);
 
+  const handleCancelAoDrawing = useCallback(() => {
+    setAoiDrawingModeActive(false);
+    setAoDrawingUnitId(null);
+  }, []);
+
   const handleAoFinishDrawing = useCallback(async (unitId: string, geoJson: string) => {
+    if (unitId === 'NEW_UNIT_DRAFT') {
+      eventBus.publish('newUnitAoFinalized', geoJson);
+      setAoiDrawingModeActive(false);
+      setAoDrawingUnitId(null);
+      return { success: true };
+    }
+
     try {
       const result = await updateUnitAo(unitId, geoJson);
       if (result.success) {
