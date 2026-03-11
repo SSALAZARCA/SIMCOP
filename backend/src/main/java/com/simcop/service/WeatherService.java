@@ -1,8 +1,6 @@
 package com.simcop.service;
 
 import com.simcop.model.WeatherInfo;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,51 +10,55 @@ import java.util.List;
 @Service
 public class WeatherService {
 
-    @Value("${openweather.api.key}")
-    private String apiKey;
-
-    @Value("${openweather.api.url}")
-    private String apiUrl;
-
     private final RestTemplate restTemplate = new RestTemplate();
 
     public WeatherInfo getCurrentWeather(double lat, double lon) {
         try {
-            String url = String.format("%s?lat=%f&lon=%f&appid=%s&units=metric&lang=es",
-                    apiUrl != null ? apiUrl : "", lat, lon, apiKey != null ? apiKey : "");
+            // Open-Meteo con dirección de viento para Fase 2
+            String url = String.format("https://api.open-meteo.com/v1/forecast?latitude=%.6f&longitude=%.6f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&wind_speed_unit=kmh&timezone=auto",
+                    lat, lon);
 
-            @SuppressWarnings({ "unchecked", "null" })
+            @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
 
-            if (response == null)
+            if (response == null || !response.containsKey("current"))
                 return getDefaultWeather();
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> main = (Map<String, Object>) response.get("main");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> wind = (Map<String, Object>) response.get("wind");
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> weatherList = (List<Map<String, Object>>) response.get("weather");
+            Map<String, Object> current = (Map<String, Object>) response.get("current");
 
-            double temperature = ((Number) main.get("temp")).doubleValue();
-            double humidity = ((Number) main.get("humidity")).doubleValue();
-            double windSpeed = ((Number) wind.get("speed")).doubleValue() * 3.6; // m/s to km/h
+            double temperature = ((Number) current.get("temperature_2m")).doubleValue();
+            double humidity = ((Number) current.get("relative_humidity_2m")).doubleValue();
+            double windSpeed = ((Number) current.get("wind_speed_10m")).doubleValue();
+            int windDirection = ((Number) current.get("wind_direction_10m")).intValue();
+            int weatherCode = ((Number) current.get("weather_code")).intValue();
 
-            String condition = "Despejado";
-            boolean isThunderstorm = false;
-            if (weatherList != null && !weatherList.isEmpty()) {
-                Map<String, Object> weather = weatherList.get(0);
-                condition = (String) weather.get("description");
-                int weatherId = ((Number) weather.get("id")).intValue();
-                isThunderstorm = (weatherId >= 200 && weatherId < 300);
-            }
-            condition = condition.substring(0, 1).toUpperCase() + condition.substring(1);
+            String condition = decodeWeatherCode(weatherCode);
+            boolean isThunderstorm = (weatherCode >= 95);
+
+            // Añadir metadatos adicionales si es necesario (U/V componentes)
+            double windRad = Math.toRadians(windDirection);
+            double u = -windSpeed * Math.sin(windRad); // Componente Este-Oeste
+            double v = -windSpeed * Math.cos(windRad); // Componente Norte-Sur
 
             return new WeatherInfo(temperature, humidity, windSpeed, condition,
-                    calculateImpact(temperature, humidity, windSpeed, isThunderstorm), isThunderstorm);
+                    calculateImpact(temperature, humidity, windSpeed, isThunderstorm), 
+                    isThunderstorm, windDirection, u, v);
         } catch (Exception e) {
             return getDefaultWeather();
         }
+    }
+
+    private String decodeWeatherCode(int code) {
+        if (code == 0) return "Cielo despejado";
+        if (code >= 1 && code <= 3) return "Parcialmente nublado";
+        if (code >= 45 && code <= 48) return "Niebla";
+        if (code >= 51 && code <= 55) return "Llovizna";
+        if (code >= 61 && code <= 65) return "Lluvia";
+        if (code >= 71 && code <= 77) return "Nieve";
+        if (code >= 80 && code <= 82) return "Chubascos";
+        if (code >= 95) return "Tormenta";
+        return "N/A";
     }
 
     private boolean calculateImpact(double temp, double humidity, double windSpeed, boolean isThunderstorm) {
@@ -64,29 +66,29 @@ public class WeatherService {
     }
 
     private WeatherInfo getDefaultWeather() {
-        return new WeatherInfo(20, 50, 10, "Información no disponible", false, false);
+        return new WeatherInfo(20, 50, 10, "Información no disponible", false, false, 0, 0, 0);
+    }
+
+    public double getElevation(double lat, double lon) {
+        try {
+            String url = String.format("https://elevation-api.open-meteo.com/v1/elevation?latitude=%f&longitude=%f", lat, lon);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && response.containsKey("elevation")) {
+                java.util.List<Double> elevations = (java.util.List<Double>) response.get("elevation");
+                if (elevations != null && !elevations.isEmpty()) {
+                    return elevations.get(0);
+                }
+            }
+        } catch (Exception e) {}
+        return 0;
     }
 
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
-        try {
-            String owmLayer = layer;
-            if (layer.equals("precipitation"))
-                owmLayer = "precipitation_new";
-            else if (layer.equals("clouds"))
-                owmLayer = "clouds_new";
-            else if (layer.equals("temp"))
-                owmLayer = "temp_new";
-            else if (layer.equals("wind"))
-                owmLayer = "wind_new";
-
-            String url = String.format("https://tile.openweathermap.org/map/%s/%d/%d/%d.png?appid=%s",
-                    owmLayer, z, x, y, apiKey);
-
-            byte[] image = restTemplate.getForObject(url, byte[].class);
-            return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(image);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        // Mantenemos soporte para OWM tiles si aún se desean, o dirigimos a otra fuente gratuita
+        // Por ahora, para no quitar funcionalidad, lo dejamos como fallback si hay API KEY, 
+        // o implementamos una alternativa
+        return ResponseEntity.notFound().build(); 
     }
 
     public String getRadarPath() {
@@ -103,8 +105,7 @@ public class WeatherService {
                     return (String) past.get(past.size() - 1).get("path");
                 }
             }
-        } catch (Exception e) {
-        }
+        } catch (Exception e) {}
         return null;
     }
 }

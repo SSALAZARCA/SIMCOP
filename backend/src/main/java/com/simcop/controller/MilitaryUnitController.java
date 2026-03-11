@@ -43,11 +43,13 @@ public class MilitaryUnitController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
         return repository.save(unit);
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_BRIGADA', 'COMANDANTE_DIVISION', 'COMANDANTE_EJERCITO')")
     public ResponseEntity<MilitaryUnit> updateUnit(@PathVariable String id, @RequestBody MilitaryUnit unitDetails) {
         return repository.findById(id)
                 .map(unit -> {
@@ -95,6 +97,7 @@ public class MilitaryUnitController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Void> deleteUnit(@PathVariable String id) {
         if (repository.existsById(id)) {
             repository.deleteById(id);

@@ -41,6 +41,7 @@ export const useBackendData = (): UseSimulatedDataReturn => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [userTelegramConfigs, setUserTelegramConfigsInternal] = useState<UserTelegramConfig[]>([]);
   const [osintEvents, setOsintEventsInternal] = useState<OsintEvent[]>([]);
+  const [loadingErrors, setLoadingErrors] = useState<string[]>([]);
 
   const { unitHistoryLog, setUnitHistoryLogInternal, addUnitHistoryEvent } = useHistoryManagement();
   const { alerts, setAlertsInternal, acknowledgeAlert } = useAlertsManagement();
@@ -54,38 +55,55 @@ export const useBackendData = (): UseSimulatedDataReturn => {
   const { afterActionReports, setAfterActionReportsInternal, q5Reports, setQ5ReportsInternal, q5GeneratingStatus, q5SendingStatus, setQ5SendingStatus, addAfterActionReport, generateAndAddQ5Report, sendQ5ReportViaTelegram } = useReportManagement(addUnitHistoryEvent, setAlertsInternal, units, setUnitsInternal);
 
   const loadDataFromBackend = async () => {
+    setLoadingErrors([]);
     try {
-      const [
-        fetchedUnits, fetchedIntel, fetchedAlerts, fetchedUsers,
-        fetchedArtillery, fetchedObservers, fetchedOrders,
-        fetchedAARs, fetchedQ5s, fetchedLogistics, fetchedHistory, fetchedOsint
-      ] = await Promise.all([
-        unitService.getAllUnits().catch(e => []),
-        intelService.getAllReports().catch(e => []),
-        alertService.getAllAlerts().catch(e => []),
-        userService.getAllUsers().catch(e => []),
-        artilleryService.getAllPieces().catch(e => []),
-        observerService.getAllObservers().catch(e => []),
-        orderService.getAllOrders().catch(e => []),
-        aarService.getAllReports().catch(e => []),
-        q5Service.getAllReports().catch(e => []),
-        logisticsService.getAllRequests().catch(e => []),
-        historyService.getAllEvents().catch(e => []),
-        osintService.getAllEvents().catch(e => [])
+      const results = await Promise.allSettled([
+        unitService.getAllUnits(),
+        intelService.getAllReports(),
+        alertService.getAllAlerts(),
+        userService.getAllUsers(),
+        artilleryService.getAllPieces(),
+        observerService.getAllObservers(),
+        orderService.getAllOrders(),
+        aarService.getAllReports(),
+        q5Service.getAllReports(),
+        logisticsService.getAllRequests(),
+        historyService.getAllEvents(),
+        osintService.getAllEvents()
       ]);
 
-      setUnitsInternal(fetchedUnits);
-      setIntelligenceReportsInternal(fetchedIntel);
-      setAlertsInternal(fetchedAlerts);
-      setUsersInternal(fetchedUsers);
-      setArtilleryPiecesInternal(fetchedArtillery);
-      setForwardObserversInternal(fetchedObservers);
-      setOperationsOrdersInternal(fetchedOrders);
-      setAfterActionReportsInternal(fetchedAARs);
-      setQ5ReportsInternal(fetchedQ5s);
-      setLogisticsRequestsInternal(fetchedLogistics);
-      setUnitHistoryLogInternal(fetchedHistory);
-      setOsintEventsInternal(fetchedOsint);
+      const errors: string[] = [];
+      const [
+        resUnits, resIntel, resAlerts, resUsers,
+        resArtillery, resObservers, resOrders,
+        resAARs, resQ5s, resLogistics, resHistory, resOsint
+      ] = results;
+
+      if (resUnits.status === 'fulfilled') setUnitsInternal(resUnits.value); else errors.push("unidades");
+      if (resIntel.status === 'fulfilled') setIntelligenceReportsInternal(resIntel.value); else errors.push("inteligencia");
+      if (resAlerts.status === 'fulfilled') setAlertsInternal(resAlerts.value); else errors.push("alertas");
+      if (resUsers.status === 'fulfilled') setUsersInternal(resUsers.value); else errors.push("usuarios");
+      if (resArtillery.status === 'fulfilled') setArtilleryPiecesInternal(resArtillery.value); else errors.push("artillería");
+      if (resObservers.status === 'fulfilled') setForwardObserversInternal(resObservers.value); else errors.push("observadores");
+      if (resOrders.status === 'fulfilled') setOperationsOrdersInternal(resOrders.value); else errors.push("órdenes");
+      if (resAARs.status === 'fulfilled') setAfterActionReportsInternal(resAARs.value); else errors.push("AARs");
+      if (resQ5s.status === 'fulfilled') setQ5ReportsInternal(resQ5s.value); else errors.push("reportes Q5");
+      if (resLogistics.status === 'fulfilled') setLogisticsRequestsInternal(resLogistics.value); else errors.push("logística");
+      if (resHistory.status === 'fulfilled') setUnitHistoryLogInternal(resHistory.value); else errors.push("historial");
+      if (resOsint.status === 'fulfilled') setOsintEventsInternal(resOsint.value); else errors.push("OSINT");
+
+      if (errors.length > 0) {
+        setLoadingErrors(errors);
+        setAlertsInternal(prev => [{
+          id: generateRandomId(),
+          type: AlertType.ERROR as any,
+          message: `Error al cargar: ${errors.join(', ')}. Algunas funciones podrían estar limitadas.`,
+          timestamp: Date.now(),
+          severity: AlertSeverity.CRITICAL,
+          acknowledged: false
+        }, ...prev]);
+      }
+
       setIsInitialized(true);
     } catch (error) {
       console.error("Error loading data:", error);

@@ -23,11 +23,13 @@ public class FireMissionController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_PIEZA_ARTILLERIA', 'COMANDANTE_OBSERVADOR_ADELANTADO')")
     public FireMission create(@RequestBody FireMission mission) {
         return service.createMission(mission);
     }
 
     @PutMapping("/{id}/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_PIEZA_ARTILLERIA', 'DIRECTOR_TIRO_155', 'DIRECTOR_TIRO_M101A1', 'DIRECTOR_TIRO_LG1', 'DIRECTOR_TIRO_L119', 'DIRECTOR_TIRO_M120', 'DIRECTOR_TIRO_HY112', 'DIRECTOR_TIRO_MLRS')")
     public ResponseEntity<FireMission> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
         String statusStr = body.get("status");
         String reason = body.get("reason");
@@ -41,6 +43,7 @@ public class FireMissionController {
     }
 
     @PutMapping("/{id}/assign")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'DIRECTOR_TIRO_155', 'DIRECTOR_TIRO_M101A1', 'DIRECTOR_TIRO_LG1', 'DIRECTOR_TIRO_L119', 'DIRECTOR_TIRO_M120', 'DIRECTOR_TIRO_HY112', 'DIRECTOR_TIRO_MLRS')")
     public ResponseEntity<FireMission> assignArtillery(@PathVariable String id, @RequestBody Map<String, String> body) {
         String artilleryId = body.get("artilleryId");
         if (artilleryId == null)

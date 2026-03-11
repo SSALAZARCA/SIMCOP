@@ -96,6 +96,10 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const [currentCOAPlan, setCurrentCOAPlan] = useState<COAPlan | null>(null);
 
   const piccTemplateLayersRef = useRef<Record<PlantillaType, L.FeatureGroup>>({} as Record<PlantillaType, L.FeatureGroup>);
+  const [isThunderstorm, setIsThunderstorm] = useState(false);
+  const [windLayerActive, setWindLayerActive] = useState(false);
+  const windCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const windAnimationRef = useRef<number | null>(null);
   const layerControlRef = useRef<L.Control.Layers | null>(null);
   const weatherLayerRef = useRef<L.TileLayer | null>(null);
   const weatherAlertLayerRef = useRef<L.LayerGroup>(L.layerGroup());
@@ -105,6 +109,18 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const activeDrawControlRef = useRef<any | null>(null);
   const currentPICCDrawingToolRef = useRef<any | null>(null);
   const lastPannedIdRef = useRef<string | null>(null);
+
+  // Top-level refs for callbacks to avoid re-triggering effects or violating Hook rules
+  const onAoFinishDrawingRef = useRef(onAoFinishDrawing);
+  const onPiccDrawingCompleteRef = useRef(onPiccDrawingComplete);
+
+  useEffect(() => {
+    onAoFinishDrawingRef.current = onAoFinishDrawing;
+  }, [onAoFinishDrawing]);
+
+  useEffect(() => {
+    onPiccDrawingCompleteRef.current = onPiccDrawingComplete;
+  }, [onPiccDrawingComplete]);
 
   const [distancePoints, setDistancePoints] = useState<L.LatLng[]>([]);
   const [elevationDisplay, setElevationDisplay] = useState<string>("Elevación: --- m");
@@ -338,7 +354,11 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
       return () => {
         if (mapContainerElement) resizeObserver.unobserve(mapContainerElement);
-      }
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
     }
   }, []);
 
@@ -510,6 +530,92 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       layer.addLayer(marker);
     });
   }, [filteredIntel, selectedEntity, onSelectEntityOnMap, distanceToolActive, aoiDrawingModeActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive]);
+
+  // Dynamic Wind Animation Logic (Fase 2)
+  const animateWind = useCallback((map: L.Map, weather: WeatherInfo) => {
+    if (!windLayerActive || !weather.windSpeed) return;
+    
+    const canvas = windCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const particles: any[] = [];
+    const particleCount = 100;
+    const speedScale = 0.5;
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        life: Math.random() * 100
+      });
+    }
+
+    const draw = () => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 1;
+      
+      particles.forEach(p => {
+        const oldX = p.x;
+        const oldY = p.y;
+        
+        // Use U/V components from backend
+        p.x += weather.uComponent * speedScale;
+        p.y -= weather.vComponent * speedScale; // Leaflet Y is inverted vs Cartesian
+        
+        ctx.beginPath();
+        ctx.moveTo(oldX, oldY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        
+        p.life--;
+        if (p.life <= 0 || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+          p.x = Math.random() * canvas.width;
+          p.y = Math.random() * canvas.height;
+          p.life = Math.random() * 100;
+        }
+      });
+      
+      windAnimationRef.current = requestAnimationFrame(draw);
+    };
+    
+    draw();
+  }, [windLayerActive]);
+
+  useEffect(() => {
+    if (windLayerActive && weatherInfo && mapRef.current) {
+      const map = mapRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.pointerEvents = 'none';
+      canvas.width = map.getSize().x;
+      canvas.height = map.getSize().y;
+      map.getPanes().overlayPane.appendChild(canvas);
+      windCanvasRef.current = canvas;
+      
+      animateWind(map, weatherInfo);
+      
+      const updateCanvas = () => {
+        canvas.width = map.getSize().x;
+        canvas.height = map.getSize().y;
+      };
+      
+      map.on('move', updateCanvas);
+      
+      return () => {
+        if (windAnimationRef.current) cancelAnimationFrame(windAnimationRef.current);
+        map.off('move', updateCanvas);
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        windCanvasRef.current = null;
+      };
+    }
+  }, [windLayerActive, weatherInfo, animateWind]);
 
   // OSINT Layer Rendering
   useEffect(() => {
@@ -1022,17 +1128,21 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const fetchElevation = useCallback(async (lat: number, lon: number) => {
     setElevationDisplay("Elevación: Cargando...");
     try {
-      const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-      const data = await response.json();
-      if (data.results && data.results.length > 0) setElevationDisplay(`Elevación: ${Math.round(data.results[0].elevation)} m`);
+      const elevation = await weatherService.getElevation(lat, lon);
+      if (elevation !== undefined) setElevationDisplay(`Elevación: ${Math.round(elevation)} m`);
       else setElevationDisplay("Elevación: N/A");
-    } catch (error) { console.warn("Error fetching elevation:", error); setElevationDisplay("Elevación: Error"); }
+    } catch (error) { 
+      console.warn("Error fetching elevation:", error); 
+      setElevationDisplay("Elevación: Error"); 
+    }
   }, []);
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
-    const throttledFetchElevation = (lat: number, lon: number) => { if (fetchElevationTimeoutRef.current) clearTimeout(fetchElevationTimeoutRef.current); fetchElevationTimeoutRef.current = window.setTimeout(() => fetchElevation(lat, lon), 300); };
+    const throttledFetchElevation = (lat: number, lon: number) => { 
+      if (fetchElevationTimeoutRef.current) clearTimeout(fetchElevationTimeoutRef.current); 
+      fetchElevationTimeoutRef.current = window.setTimeout(() => fetchElevation(lat, lon), 200); // Faster response
+    };
     const handleMouseMove = (e: L.LeafletMouseEvent) => throttledFetchElevation(e.latlng.lat, e.latlng.lng);
     const handleMouseOut = () => { if (fetchElevationTimeoutRef.current) clearTimeout(fetchElevationTimeoutRef.current); setElevationDisplay("Elevación: --- m"); };
     map.on('mousemove', handleMouseMove); map.on('mouseout', handleMouseOut);
@@ -1115,17 +1225,6 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    // Ref for callback to avoid re-triggering effect on reference change
-    const onAoFinishDrawingRef = useRef(onAoFinishDrawing);
-    useEffect(() => {
-      onAoFinishDrawingRef.current = onAoFinishDrawing;
-    }, [onAoFinishDrawing]);
-
-    const onPiccDrawingCompleteRef = useRef(onPiccDrawingComplete);
-    useEffect(() => {
-      onPiccDrawingCompleteRef.current = onPiccDrawingComplete;
-    }, [onPiccDrawingComplete]);
 
     const handleDrawCreated = (e: LeafletDrawEvent) => {
       const layerType = e.layerType as string;
@@ -1649,6 +1748,15 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
                     className={`w-8 h-4 rounded-full transition-colors relative ${showUavLayer ? 'bg-cyan-600' : 'bg-gray-600'}`}
                   >
                     <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showUavLayer ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-700 pt-2">
+                  <span className="text-xs text-teal-400 font-bold">Dinámica de Vientos</span>
+                  <button
+                    onClick={() => setWindLayerActive(!windLayerActive)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${windLayerActive ? 'bg-teal-500' : 'bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${windLayerActive ? 'left-4.5' : 'left-0.5'}`} />
                   </button>
                 </div>
               </div>

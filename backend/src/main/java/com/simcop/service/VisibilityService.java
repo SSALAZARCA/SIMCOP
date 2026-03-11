@@ -106,7 +106,8 @@ public class VisibilityService {
             if (aoValue != null && !aoValue.isEmpty()) {
                 return GeoUtils.isPointInPolygon(location, aoValue);
             }
-            return true;
+            // If they have a unit but no specific AO defined, they see a proximity radius (e.g., 5km)
+            return GeoUtils.calculateDistanceMeters(unit.getLocation(), location) <= 5000;
         }
 
         return false;
@@ -132,10 +133,15 @@ public class VisibilityService {
             return false;
         }
 
-        // If they have a unit but no specific AO defines, they see everything (legacy
-        // behavior).
         if (preloadedAo == null || preloadedAo.isEmpty()) {
-            return true;
+            String assignedUnitId = user.getAssignedUnitId();
+            if (assignedUnitId != null) {
+                Optional<MilitaryUnit> unitOpt = unitRepository.findById(assignedUnitId);
+                if (unitOpt.isPresent()) {
+                    return GeoUtils.calculateDistanceMeters(unitOpt.get().getLocation(), location) <= 5000;
+                }
+            }
+            return false;
         }
 
         return GeoUtils.isPointInPolygon(location, preloadedAo);

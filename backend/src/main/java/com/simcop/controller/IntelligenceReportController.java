@@ -34,18 +34,19 @@ public class IntelligenceReportController {
             return repository.findAll();
         }
 
-        // Optimized check
-        String preloadedAo = visibilityService.getPreloadedAoForUser(user);
+        // Optimized check: Filter by visible units first in DB
         List<com.simcop.model.MilitaryUnit> visibleUnits = visibilityService.getVisibleUnits(user);
         List<String> visibleUnitIds = visibleUnits.stream().map(u -> u.getId()).toList();
+        
+        String preloadedAo = visibilityService.getPreloadedAoForUser(user);
 
-        return repository.findAll().stream()
-                .filter(r -> r.getReportingUnitId() == null || visibleUnitIds.contains(r.getReportingUnitId()))
+        return repository.findByReportingUnitIdIn(visibleUnitIds).stream()
                 .filter(r -> visibilityService.isLocationVisibleWithPreloadedAo(r.getLocation(), user, preloadedAo))
                 .toList();
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES', 'COMANDANTE_BATALLON', 'COMANDANTE_BRIGADA', 'COMANDANTE_DIVISION', 'COMANDANTE_EJERCITO', 'COMANDANTE_OBSERVADOR_ADELANTADO')")
     public ResponseEntity<IntelligenceReport> createReport(@RequestBody IntelligenceReport report,
             @RequestHeader(value = "Authorization", required = false) String token) {
         if (token == null)
@@ -69,6 +70,7 @@ public class IntelligenceReportController {
     }
 
     @PutMapping("/{id}/link/{otherId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES')")
     public ResponseEntity<Void> linkReports(@PathVariable @org.springframework.lang.NonNull String id,
             @PathVariable @org.springframework.lang.NonNull String otherId) {
         IntelligenceReport reportA = repository.findById(id).orElse(null);
@@ -91,6 +93,7 @@ public class IntelligenceReportController {
     }
 
     @DeleteMapping("/{id}/link/{otherId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES')")
     public ResponseEntity<Void> unlinkReports(@PathVariable @org.springframework.lang.NonNull String id,
             @PathVariable @org.springframework.lang.NonNull String otherId) {
         IntelligenceReport reportA = repository.findById(id).orElse(null);

@@ -23,6 +23,8 @@ public class User {
     private String username;
 
     private String displayName;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String hashedPassword;
 
     @Enumerated(EnumType.STRING)

@@ -24,6 +24,7 @@ public class UserController {
     private JwtUtil jwtUtil;
 
     @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public List<User> getAllUsers() {
         return repository.findAll();
     }
@@ -48,6 +49,7 @@ public class UserController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<User> createUser(@RequestBody User user) {
         try {
             // Encode the password before saving
@@ -65,7 +67,8 @@ public class UserController {
         if (userOpt.isPresent()) {
             User u = userOpt.get();
             if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
-                String token = jwtUtil.generateToken(u.getUsername());
+                String role = u.getRole() != null ? u.getRole().name() : "USER";
+                String token = jwtUtil.generateToken(u.getUsername(), role);
                 u.setToken(token);
                 return ResponseEntity.ok(u);
             }
@@ -74,6 +77,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> updateUser(@PathVariable String id, @RequestBody User userDetails) {
         try {
             return repository.findById(id)
@@ -94,6 +98,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Void> deleteUser(@PathVariable String id) {
         if (repository.existsById(id)) {
             repository.deleteById(id);

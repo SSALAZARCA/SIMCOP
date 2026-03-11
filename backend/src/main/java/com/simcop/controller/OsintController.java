@@ -36,6 +36,7 @@ public class OsintController {
     }
 
     @PostMapping("/refresh")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES')")
     public ResponseEntity<Map<String, Object>> refreshEvents() {
         int count = osintService.fetchAndProcessNews();
         return ResponseEntity.ok(Map.of(
@@ -45,6 +46,7 @@ public class OsintController {
     }
 
     @PatchMapping("/events/{id}/verify")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES')")
     public ResponseEntity<OsintEvent> verifyEvent(@PathVariable String id, @RequestBody Map<String, Boolean> request) {
         boolean verified = request.getOrDefault("verified", true);
         @SuppressWarnings("null")

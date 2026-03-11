@@ -20,11 +20,13 @@ public class ArtilleryPieceController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ArtilleryPiece createPiece(@RequestBody ArtilleryPiece piece) {
         return repository.save(piece);
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ArtilleryPiece updatePiece(@PathVariable String id, @RequestBody ArtilleryPiece piece) {
         return repository.findById(id).map(existing -> {
             piece.setId(id); // Ensure ID matches
@@ -33,6 +35,7 @@ public class ArtilleryPieceController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public void deletePiece(@PathVariable String id) {
         repository.deleteById(id);
     }

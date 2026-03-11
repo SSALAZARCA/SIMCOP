@@ -36,9 +36,9 @@ public class ConfigurationController {
 
     /**
      * Get Gemini API key (admin only)
-     * In production, add @PreAuthorize("hasRole('ADMINISTRATOR')")
      */
     @GetMapping("/gemini-api-key")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> getGeminiApiKey() {
         return configService.getGeminiApiKey()
                 .map(apiKey -> {
@@ -51,9 +51,9 @@ public class ConfigurationController {
 
     /**
      * Save Gemini API key (admin only)
-     * In production, add @PreAuthorize("hasRole('ADMINISTRATOR')")
      */
     @PostMapping("/gemini-api-key")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveGeminiApiKey(@RequestBody Map<String, String> request) {
         try {
             String apiKey = request.get("apiKey");
@@ -84,9 +84,9 @@ public class ConfigurationController {
 
     /**
      * Delete Gemini API key (admin only)
-     * In production, add @PreAuthorize("hasRole('ADMINISTRATOR')")
      */
     @DeleteMapping("/gemini-api-key")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> deleteGeminiApiKey() {
         try {
             configService.deleteGeminiApiKey();

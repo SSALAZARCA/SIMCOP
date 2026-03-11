@@ -9,6 +9,11 @@ export const weatherService = {
         const response = await apiClient.fetch(`${API_URL}/current?lat=${lat}&lon=${lon}`);
         if (!response.ok) throw new Error('Error al obtener el clima');
         return response.json();
+    },
+    getElevation: async (lat: number, lon: number): Promise<number> => {
+        const response = await apiClient.fetch(`${API_URL}/elevation?lat=${lat}&lon=${lon}`);
+        if (!response.ok) return 0;
+        const data = await response.json();
+        return data.elevation || 0;
     }
 };
-

@@ -8,18 +8,24 @@ public class WeatherInfo {
     private boolean operationalImpact; // true if weather affects operations
 
     private boolean thunderstorm;
+    private double windDirection;
+    private double uComponent;
+    private double vComponent;
 
     public WeatherInfo() {
     }
 
     public WeatherInfo(double temperature, double humidity, double windSpeed, String condition,
-            boolean operationalImpact, boolean thunderstorm) {
+            boolean operationalImpact, boolean thunderstorm, double windDirection, double uComponent, double vComponent) {
         this.temperature = temperature;
         this.humidity = humidity;
         this.windSpeed = windSpeed;
         this.condition = condition;
         this.operationalImpact = operationalImpact;
         this.thunderstorm = thunderstorm;
+        this.windDirection = windDirection;
+        this.uComponent = uComponent;
+        this.vComponent = vComponent;
     }
 
     // Getters and Setters
@@ -69,5 +75,29 @@ public class WeatherInfo {
 
     public void setOperationalImpact(boolean operationalImpact) {
         this.operationalImpact = operationalImpact;
+    }
+
+    public double getWindDirection() {
+        return windDirection;
+    }
+
+    public void setWindDirection(double windDirection) {
+        this.windDirection = windDirection;
+    }
+
+    public double getuComponent() {
+        return uComponent;
+    }
+
+    public void setuComponent(double uComponent) {
+        this.uComponent = uComponent;
+    }
+
+    public double getvComponent() {
+        return vComponent;
+    }
+
+    public void setvComponent(double vComponent) {
+        this.vComponent = vComponent;
     }
 }

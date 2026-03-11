@@ -34,4 +34,12 @@ public class WeatherController {
         res.put("path", path);
         return res;
     }
+
+    @GetMapping("/elevation")
+    public java.util.Map<String, Double> getElevation(@RequestParam double lat, @RequestParam double lon) {
+        double elevation = weatherService.getElevation(lat, lon);
+        java.util.Map<String, Double> res = new java.util.HashMap<>();
+        res.put("elevation", elevation);
+        return res;
+    }
 }

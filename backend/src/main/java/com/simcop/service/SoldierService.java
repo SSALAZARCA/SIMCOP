@@ -52,11 +52,16 @@ public class SoldierService {
     @Transactional
     public Soldier updateSoldier(String id, Soldier soldierDetails) {
         return soldierRepository.findById(id).map(soldier -> {
-            // Check if rank changed to update quotas potentially?
-            // For simplicity in this version we just update fields.
-            // Ideally if rank changes category, we should decrement old category and
-            // increment new one in the unit.
-            // But let's leave that for a more advanced refactor to avoid complexity now.
+            String oldRank = soldier.getRank();
+            String newRank = soldierDetails.getRank();
+
+            // Sincronizar contadores si el rango cambió y el soldado está asignado a una unidad
+            com.simcop.model.MilitaryUnit unit = soldier.getUnit();
+            if (oldRank != null && !oldRank.equals(newRank) && unit != null) {
+                updateUnitPersonnelCount(unit, oldRank, -1);
+                updateUnitPersonnelCount(unit, newRank, 1);
+                unitRepository.save(unit);
+            }
 
             soldier.setFullName(soldierDetails.getFullName());
             soldier.setRank(soldierDetails.getRank());

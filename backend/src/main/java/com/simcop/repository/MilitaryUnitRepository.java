@@ -10,4 +10,6 @@ import java.util.List;
 public interface MilitaryUnitRepository extends JpaRepository<MilitaryUnit, String> {
     @Query("SELECT DISTINCT u FROM MilitaryUnit u JOIN u.uavAssets a")
     List<MilitaryUnit> findUnitsWithUavs();
+
+    List<MilitaryUnit> findByParentId(String parentId);
 }

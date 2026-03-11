@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface IntelligenceReportRepository extends JpaRepository<IntelligenceReport, String> {
+    java.util.List<IntelligenceReport> findByReportingUnitIdIn(java.util.Collection<String> reportingUnitIds);
 }

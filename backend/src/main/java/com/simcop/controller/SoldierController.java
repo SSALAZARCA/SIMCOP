@@ -35,6 +35,7 @@ public class SoldierController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES', 'OFICIAL_LOGISTICA')")
     public ResponseEntity<Soldier> createSoldier(@RequestBody Soldier soldier,
             @RequestParam(required = false) String unitId) {
         try {
@@ -45,6 +46,7 @@ public class SoldierController {
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES', 'OFICIAL_LOGISTICA')")
     public ResponseEntity<Soldier> updateSoldier(@PathVariable String id, @RequestBody Soldier soldier) {
         try {
             return ResponseEntity.ok(soldierService.updateSoldier(id, soldier));
@@ -54,6 +56,7 @@ public class SoldierController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Void> deleteSoldier(@PathVariable String id) {
         soldierService.deleteSoldier(id);
         return ResponseEntity.noContent().build();

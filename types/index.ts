@@ -227,6 +227,7 @@ export enum AlertType {
   PLATOON_NOVELTY_REJECTED = 'Novedad de Pelotón Rechazada',
   LOGISTICS_REQUEST_PENDING = 'Requerimiento Logístico Pendiente',
   LOGISTICS_REQUEST_FULFILLED = 'Requerimiento Logístico Satisfecho',
+  ERROR = 'Error de Sistema',
 }
 
 export enum AlertSeverity {
@@ -1278,4 +1279,7 @@ export interface WeatherInfo {
   condition: string;
   operationalImpact: boolean;
   isThunderstorm: boolean;
+  windDirection: number;
+  uComponent: number;
+  vComponent: number;
 }
