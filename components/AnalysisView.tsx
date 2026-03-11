@@ -334,9 +334,12 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   useEffect(() => {
     const handleMapClickForAoi = (_msg: string, latlng: L.LatLng) => {
       if (aoiDrawingModeActive) {
-        setAoiPoints(prevPoints => [...prevPoints, latlng]);
+        setAoiPoints(currentPoints => {
+          const newPoints = [...currentPoints, latlng];
+          eventBus.publish('updateAoiDrawingLayer', newPoints);
+          return newPoints;
+        });
         setAoiError(null);
-        eventBus.publish('updateAoiDrawingLayer', [...aoiPoints, latlng]);
       }
     };
 
@@ -344,7 +347,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     return () => {
       eventBus.unsubscribe(token);
     };
-  }, [aoiDrawingModeActive, aoiPoints, eventBus]);
+  }, [aoiDrawingModeActive, eventBus]);
 
   // Elevation Profile Logic (Existing + Fixed)
   const handleElevationProfileLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {

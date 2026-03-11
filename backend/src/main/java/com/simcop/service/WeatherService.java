@@ -85,9 +85,23 @@ public class WeatherService {
     }
 
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
-        // Mantenemos soporte para OWM tiles si aún se desean, o dirigimos a otra fuente gratuita
-        // Por ahora, para no quitar funcionalidad, lo dejamos como fallback si hay API KEY, 
-        // o implementamos una alternativa
+        // Usar RainViewer para la capa de precipitación (radar)
+        if ("precipitation".equalsIgnoreCase(layer)) {
+            String radarPath = getRadarPath();
+            if (radarPath != null) {
+                String url = String.format("https://tilecache.rainviewer.com%s/256/%d/%d/%d/1/1_1.png", radarPath, z, x, y);
+                try {
+                    byte[] image = restTemplate.getForObject(url, byte[].class);
+                    if (image != null) {
+                        return ResponseEntity.ok()
+                                .header("Content-Type", "image/png")
+                                .body(image);
+                    }
+                } catch (Exception e) {}
+            }
+        }
+        
+        // Para otras capas, por ahora devolvemos no encontrado hasta integrar otra fuente gratuita
         return ResponseEntity.notFound().build(); 
     }
 

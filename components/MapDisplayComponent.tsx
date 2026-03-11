@@ -29,7 +29,7 @@ import { operationalGraphicToLayer, layerToOperationalGraphic } from '../utils/p
 import { addCenterSymbolToArea, applyFillPattern, enhanceAttackAxis } from '../utils/piccSymbology';
 import { coaPlanToLayers, getCOAPlanBounds } from '../utils/coaVisualization';
 import { useUnitLayer } from '../hooks/useUnitLayer';
-import { ArrowsPointingOutIcon, ArrowsPointingInIcon, AdjustmentsHorizontalIcon, BoltIcon } from './icons';
+import { ArrowsPointingOutIcon, ArrowsPointingInIcon, AdjustmentsHorizontalIcon, BoltIcon, CloudIcon } from './icons';
 import { weatherService } from '../services/weatherService';
 import { API_BASE_URL } from '../utils/apiConfig';
 
@@ -996,7 +996,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const map = mapRef.current; if (!map) return;
     const handleMapClickForAoi = (e: L.LeafletMouseEvent) => { if (distanceToolActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive) return; eventBus.publish('mapClickForAoi', e.latlng); };
     const clearAoiMapLayer = () => aoiLayerRef.current.clearLayers();
-    const updateAoiDrawingLayer = (_msg: string, points: L.LatLng[]) => { aoiLayerRef.current.clearLayers(); points.forEach(p => L.circleMarker(p, { radius: 4, color: 'cyan', fillColor: '#0ff', fillOpacity: 0.7 }).addTo(aoiLayerRef.current)); if (points.length > 1) L.polyline(points, { color: 'cyan', weight: 2, dashArray: '3, 3' }).addTo(aoiLayerRef.current); };
+    const updateAoiDrawingLayer = (_msg: string, points: L.LatLng[]) => { aoiLayerRef.current.clearLayers(); points.forEach(p => L.circleMarker(p, { radius: 4, color: 'cyan', fillColor: '#0ff', fillOpacity: 0.7, interactive: false }).addTo(aoiLayerRef.current)); if (points.length > 1) L.polyline(points, { color: 'cyan', weight: 2, dashArray: '3, 3', interactive: false }).addTo(aoiLayerRef.current); };
     const finalizeAoiLayer = (_msg: string, geoJsonPolygon: GeoJSONFeature<GeoJSONPolygon>) => { aoiLayerRef.current.clearLayers(); if (geoJsonPolygon?.geometry?.coordinates) { const leafletCoords = (geoJsonPolygon.geometry.coordinates[0] as unknown as Position[]).map(coord => [coord[1], coord[0]] as L.LatLngTuple); L.polygon(leafletCoords, { color: 'rgba(59, 130, 246, 0.8)', fillColor: 'rgba(59, 130, 246, 0.3)', weight: 2 }).addTo(aoiLayerRef.current); } };
 
     const clearToken = eventBus.subscribe('clearAoiLayer', clearAoiMapLayer);
@@ -1775,8 +1775,20 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       </div>
 
       <div id="map-container" className="w-full h-full" />
-      <div className="map-elevation-display">
-        {elevationDisplay}
+      <div className="map-elevation-display flex items-center gap-3">
+        <span className="font-mono text-[11px]">{elevationDisplay}</span>
+        {weatherInfo && (
+          <div className="flex items-center gap-3 border-l border-gray-600 pl-3 animate-in fade-in slide-in-from-left-2">
+            <div className="flex items-center gap-1.5">
+              <CloudIcon className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-gray-300 font-black uppercase text-[10px] tracking-tight">{weatherInfo.condition}</span>
+            </div>
+            <span className="text-blue-400 font-black text-[11px]">{Math.round(weatherInfo.temperature)}°C</span>
+            <span className="text-teal-400 font-bold flex items-center gap-1 text-[10px]">
+              <span className="text-[10px]">💨</span> {Math.round(weatherInfo.windSpeed)}<span className="text-[8px] opacity-70">KM/H</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Temporal Pattern Analysis - Time Slider */}
