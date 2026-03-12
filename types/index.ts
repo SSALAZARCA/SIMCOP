@@ -1240,6 +1240,8 @@ export interface MapDisplayProps {
   rejectAmmoReport?: (reportId: string) => void;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
+  isCoordinatePickingActive?: boolean;
+  onCoordinatePicked?: (location: GeoLocation) => void;
 }
 
 

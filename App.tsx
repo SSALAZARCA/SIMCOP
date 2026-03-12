@@ -162,6 +162,8 @@ const App: React.FC = () => {
   const [pendingAoiGeoJson, setPendingAoiGeoJson] = useState<any | null>(null);
   const [aoiSector, setAoiSector] = useState<string | null>(null);
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  const [isCoordinatePickingActive, setIsCoordinatePickingActive] = useState<boolean>(false);
+  const [coordinatePicked, setCoordinatePicked] = useState<GeoLocation | null>(null);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -227,6 +229,27 @@ const App: React.FC = () => {
       }, ...prev]);
     }
   }, [updateUnitAo]);
+
+  const handleStartCoordinatePicking = useCallback(() => {
+    setIsCoordinatePickingActive(true);
+    setCoordinatePicked(null);
+    if (isMobile) {
+      setCurrentView(ViewType.MAP);
+    }
+    setAlertsInternal(prev => [{
+      id: generateRandomId(),
+      type: AlertType.INFO as any,
+      message: `Modo de captura de coordenadas activo. Haga clic en cualquier punto del mapa para obtener su ubicación.`,
+      timestamp: Date.now(),
+      severity: AlertSeverity.INFO,
+      acknowledged: false
+    }, ...prev]);
+  }, [isMobile]);
+
+  const handleMapCoordinatePicked = useCallback((location: GeoLocation) => {
+    setCoordinatePicked(location);
+    setIsCoordinatePickingActive(false);
+  }, []);
 
   useEffect(() => {
     const handleAoiDrawingFinished = async (_msg: string, geoJson: any) => {
@@ -713,8 +736,9 @@ const App: React.FC = () => {
     osintLayerActive: osintLayerActive,
     isMaximized: isMapMaximized,
     onToggleMaximize: handleToggleMapMaximize,
-    aoDrawingUnitId: aoDrawingUnitId,
     onAoFinishDrawing: handleAoFinishDrawing,
+    isCoordinatePickingActive: isCoordinatePickingActive,
+    onCoordinatePicked: handleMapCoordinatePicked,
   };
 
   const analysisViewProps = {
@@ -798,6 +822,9 @@ const App: React.FC = () => {
           dismissPendingMission={dismissPendingMission}
           onStartAoDrawing={handleStartAoDrawing}
           onClearAo={handleClearAo}
+          onStartCoordinatePicking={handleStartCoordinatePicking}
+          isCoordinatePicking={isCoordinatePickingActive}
+          coordinatePicked={coordinatePicked}
         />;
       case ViewType.INTEL:
         return <IntelView

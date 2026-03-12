@@ -7,12 +7,15 @@ import { API_BASE_URL } from './apiConfig';
 let API_KEY: string | undefined = undefined;
 let ai: GoogleGenAI | null = null;
 
+import { apiClient } from './apiClient';
+
+// ... (existing imports)
+
 // Initialize API key from backend
 export const initializeApiKey = async (): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/config/gemini-api-key`, {
+    const response = await apiClient.fetch(`${API_BASE_URL}/api/config/gemini-api-key`, {
       method: 'GET',
-      credentials: 'omit',
       headers: {
         'Content-Type': 'application/json'
       }
@@ -23,21 +26,14 @@ export const initializeApiKey = async (): Promise<void> => {
       API_KEY = data.apiKey;
       if (API_KEY) {
         console.log('[Gemini] ✅ API key cargada desde backend');
-        console.log('[Gemini] 🔑 API key:', API_KEY.substring(0, 10) + '...');
         ai = new GoogleGenAI({ apiKey: API_KEY });
         console.log('[Gemini] ✅ Cliente GoogleGenAI inicializado');
       } else {
         console.warn('[Gemini] ⚠️ No se encontró API key en la respuesta del backend');
         ai = null;
       }
-    } else if (response.status === 404) {
-      console.warn('[Gemini] ⚠️ No hay API key configurada en el backend (404)');
-      ai = null;
-    } else if (response.status === 403) {
-      // 403 Forbidden - usuario no autenticado aún, no mostrar error
-      ai = null;
     } else {
-      console.error('[Gemini] ❌ Error al obtener API key del backend. Status:', response.status);
+      console.error('[Gemini] ❌ Error al obtener API key. Status:', response.status);
       ai = null;
     }
   } catch (error) {

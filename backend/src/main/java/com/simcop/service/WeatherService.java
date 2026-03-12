@@ -159,8 +159,9 @@ public class WeatherService {
             
             org.springframework.http.ResponseEntity<java.util.Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, java.util.Map.class);
             
-            if (response.getBody() != null && response.getBody().containsKey("display_name")) {
-                String fullName = (String) response.getBody().get("display_name");
+            java.util.Map body = response != null ? response.getBody() : null;
+            if (body != null && body.containsKey("display_name")) {
+                String fullName = (String) body.get("display_name");
                 String[] parts = fullName.split(",");
                 if (parts.length >= 2) {
                     return parts[0].trim() + ", " + parts[1].trim();

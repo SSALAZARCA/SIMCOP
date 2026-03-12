@@ -129,7 +129,6 @@ export const useTacticalOps = (
         try {
             const created = await unitService.createUnit({
                 ...unitData,
-                id: generateRandomId(),
                 status: UnitStatus.OPERATIONAL,
                 lastMovementTimestamp: Date.now(),
                 lastCommunicationTimestamp: Date.now(),

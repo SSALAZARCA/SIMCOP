@@ -144,19 +144,9 @@
         }
 
         if (formEl) {
-            formEl.addEventListener('submit', function(event) {
+            formEl.addEventListener('submit', async function(event) {
                 event.preventDefault();
-                if (!window.opener && feedbackEl) {
-                     feedbackEl.textContent = 'Error: Esta página debe ser abierta desde SIMCOP para enviar datos (window.opener no está disponible).';
-                     feedbackEl.className = 'error';
-                    return;
-                }
-                if (!targetOrigin && feedbackEl) {
-                     feedbackEl.textContent = 'Error: targetOrigin no disponible. No se puede enviar.';
-                     feedbackEl.className = 'error';
-                    return;
-                }
-
+                
                 const latInput = document.getElementById('latitude');
                 const lonInput = document.getElementById('longitude');
                 const timestampInput = document.getElementById('timestamp');
@@ -175,41 +165,58 @@
                     if (feedbackEl) feedbackEl.className = 'error';
                     return;
                 }
-                if (timestampValue !== null && (isNaN(timestampValue) || timestampValue <= 0)) {
-                    if (feedbackEl) feedbackEl.textContent = 'Error: Timestamp inválido. Debe ser un número positivo (segundos Unix) o dejarse vacío.';
-                    if (feedbackEl) feedbackEl.className = 'error';
-                    return;
-                }
                 
                 if (timestampValue === null) {
-                    timestampValue = Math.floor(Date.now() / 1000); // Default to current time in seconds
+                    timestampValue = Math.floor(Date.now() / 1000); 
                 }
 
-
                 const payload = {
-                    unitId: unitId,
-                    location: { lat: lat, lon: lon },
-                    timestamp: timestampValue * 1000 // Convert to milliseconds for SIMCOP internal use
+                    lat: lat,
+                    lon: lon,
+                    timestamp: timestampValue * 1000 
                 };
                 
+                sendButtonEl.disabled = true;
+                if (feedbackEl) {
+                    feedbackEl.textContent = 'Enviando reporte a la API...';
+                    feedbackEl.className = 'info';
+                }
+
                 try {
-                    if (window.opener) {
-                        window.opener.postMessage({ type: 'SPOT_REPORT', payload }, targetOrigin);
-                        if (feedbackEl) feedbackEl.textContent = 'Reporte enviado a SIMCOP!';
+                    // Determinar la URL de la API basándose en la ubicación de esta página
+                    // La página se sirve desde la raíz del frontend (o similar)
+                    // El backend suele estar en el mismo host o configurado en el proxy
+                    const apiUrl = `/api/units/${unitId}/spot`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        if (feedbackEl) feedbackEl.textContent = '¡Reporte enviado exitosamente a la API real!';
                         if (feedbackEl) feedbackEl.className = 'success';
-                        // Clear some fields after sending
-                        // latInput.value = '';
-                        // lonInput.value = '';
-                        timestampInput.value = Math.floor(Date.now() / 1000).toString();
+                        
+                        // Opcional: Notificar a la ventana padre si existe
+                        if (window.opener && targetOrigin) {
+                            window.opener.postMessage({ 
+                                type: 'SPOT_REPORT_REAL_SENT', 
+                                payload: { unitId, ...payload } 
+                            }, targetOrigin);
+                        }
                     } else {
-                         // This case should ideally be prevented by the earlier check.
-                         if (feedbackEl) feedbackEl.textContent = 'Error crítico: No se pudo acceder a la ventana de SIMCOP (window.opener es nulo).';
-                         if (feedbackEl) feedbackEl.className = 'error';
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.message || `Error del servidor: ${response.status}`);
                     }
                 } catch (e) {
-                    console.error("Error sending postMessage:", e);
-                    if (feedbackEl) feedbackEl.textContent = `Error al enviar: ${e.message || 'Error desconocido'}. Ver consola.`;
+                    console.error("Error sending report:", e);
+                    if (feedbackEl) feedbackEl.textContent = `Error al enviar: ${e.message || 'Error desconocido'}`;
                     if (feedbackEl) feedbackEl.className = 'error';
+                } finally {
+                    sendButtonEl.disabled = false;
                 }
             });
         }

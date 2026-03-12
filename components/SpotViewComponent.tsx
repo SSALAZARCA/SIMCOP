@@ -6,21 +6,16 @@ import { ArrowTopRightOnSquareIcon } from './icons/ArrowTopRightOnSquareIcon';
 import { ClipboardDocumentIcon } from './icons/ClipboardDocumentIcon';
 import { decimalToDMS } from '../utils/coordinateUtils';
 
+const MAX_LOGGED_REPORTS = 20;
+
 interface SpotViewProps {
   units: MilitaryUnit[];
   processSpotReport: (data: SpotReportPayload) => void;
 }
 
-const MAX_LOGGED_REPORTS = 20;
-
-interface UnitWebhookInfo {
-  url: string;
-  unitName: string;
-}
-
 export const SpotViewComponent: React.FC<SpotViewProps> = ({ units, processSpotReport }) => {
   const [loggedReports, setLoggedReports] = useState<LoggedSpotReport[]>([]);
-  const [generatedUnitUrls, setGeneratedUnitUrls] = useState<Record<string, UnitWebhookInfo>>({});
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
 
   const logReport = useCallback((report: SpotReportPayload) => {
@@ -33,34 +28,22 @@ export const SpotViewComponent: React.FC<SpotViewProps> = ({ units, processSpotR
       };
       return [newLog, ...prev].slice(0, MAX_LOGGED_REPORTS);
     });
-  }, [units]); // Dependency on units is correct here
+  }, [units]);
 
   useEffect(() => {
     const handleSpotMessage = (event: MessageEvent) => {
-      if (event.origin !== window.origin) { 
-        console.warn("SPOT: Mensaje recibido de origen no confiable:", event.origin, "Esperado:", window.origin);
-        return;
-      }
-      if (event.data && event.data.type === 'SPOT_REPORT') {
-        const payload = event.data.payload as SpotReportPayload; // Assert type
-        if (payload && payload.unitId && payload.location && 
-            typeof payload.location.lat === 'number' && 
-            typeof payload.location.lon === 'number' && 
-            typeof payload.timestamp === 'number') {
+      if (event.origin !== window.origin) return;
+      
+      if (event.data && (event.data.type === 'SPOT_REPORT' || event.data.type === 'SPOT_REPORT_REAL_SENT')) {
+        const payload = event.data.payload;
+        if (payload && payload.unitId) {
           const reportData: SpotReportPayload = { 
             unitId: payload.unitId, 
-            location: payload.location, 
-            timestamp: payload.timestamp 
+            location: payload.location || { lat: payload.lat, lon: payload.lon }, 
+            timestamp: payload.timestamp || Date.now()
           };
           processSpotReport(reportData);
           logReport(reportData);
-        } else {
-          console.error("SPOT: Payload de SPOT_REPORT inválido:", event.data.payload);
-          const errorLog: LoggedSpotReport = {
-            unitId: 'ERROR_PAYLOAD', location: {lat:0, lon:0}, timestamp: 0,
-            receivedTimestamp: Date.now(), unitName: 'Payload Inválido',
-          };
-          setLoggedReports(prev => [errorLog, ...prev].slice(0, MAX_LOGGED_REPORTS));
         }
       }
     };
@@ -69,151 +52,152 @@ export const SpotViewComponent: React.FC<SpotViewProps> = ({ units, processSpotR
     return () => window.removeEventListener('message', handleSpotMessage);
   }, [processSpotReport, logReport]);
 
-  const handleGenerateOrShowUrl = (unit: MilitaryUnit) => {
-    const spotSenderPage = "/spot-sender.html"; // Relative path
-    let origin = window.location.origin;
-    if (!origin || origin === "null") { // Handle file:// or other unusual origins
-        console.warn("SPOT: window.location.origin is not standard. Using empty string for URL generation. This might affect spot-sender.html functionality if not served via HTTP/S.");
-        origin = ""; // Fallback to relative path for spot-sender, targetOrigin might be problematic
-    }
-    const url = `${origin}${spotSenderPage}?unitId=${unit.id}&targetOrigin=${encodeURIComponent(origin)}`;
-    setGeneratedUnitUrls(prev => ({
-      ...prev,
-      [unit.id]: { url, unitName: unit.name }
-    }));
+  const getApiWebhookUrl = (unitId: string) => {
+    return `${window.location.origin}/api/units/${unitId}/spot`;
   };
 
-  const handleOpenSenderPage = (url: string, unitId: string) => {
-    // Ensure unique name for window.open to allow multiple instances if needed
-    // and to ensure window.opener is set reliably.
-    window.open(url, `_blank_spot_${unitId}_${Date.now()}`, 'noopener,noreferrer');
+  const getSimulatorUrl = (unitId: string) => {
+    return `${window.location.origin}/spot-sender.html?unitId=${unitId}&targetOrigin=${encodeURIComponent(window.location.origin)}`;
   };
   
-  const handleCopyUrl = (url: string, unitId: string) => {
-    if (!navigator.clipboard) {
-        alert("La API del portapapeles no está disponible en este navegador o contexto (posiblemente HTTP). Por favor, copie manualmente.");
-        console.warn("Navigator.clipboard no disponible.");
-        return;
-    }
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedUrlId(unitId);
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedUrlId(id);
       setTimeout(() => setCopiedUrlId(null), 2000);
-    }).catch(err => {
-      console.error("Error al copiar URL: ", err);
-      alert("No se pudo copiar la URL. Verifique los permisos del portapapeles o cópiela manualmente.");
     });
   };
 
-  // Ensure units is always an array before mapping
   const safeUnits = Array.isArray(units) ? units : [];
 
   return (
-    <div className="flex flex-col space-y-4 p-2 md:p-4">
+    <div className="flex flex-col space-y-4 p-2 md:p-4 h-full overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 pb-3 gap-2">
         <h2 className="text-xl md:text-2xl font-semibold text-gray-200 flex items-center">
           <RssIcon className="w-6 h-6 md:w-7 md:h-7 mr-2 md:mr-3 text-orange-400" />
-          SPOT - Seguimiento y Posicionamiento Táctico
+          SPOT - Seguimiento Táctico de Unidades
         </h2>
       </div>
 
-      <div className="bg-gray-800 p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold text-gray-300 mb-2">Generador de URL de Envío SPOT por Unidad</h3>
-        <p className="text-sm text-gray-400 mb-3">
-          Para cada unidad, se genera una URL real y única que apunta a la página 'SPOT Sender' (`spot-sender.html`). 
-          Esta página actúa como la interfaz para que un dispositivo externo (o un simulador) envíe reportes de coordenadas 
-          para esa unidad específica de vuelta a esta aplicación SIMCOP principal. 
-          Abra esta URL en otro navegador o pestaña para simular un reporte de dispositivo.
-        </p>
-        {safeUnits.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-3">No hay unidades creadas. Por favor, cree unidades en la vista 'Unidades' primero.</p>
-        ) : (
-          <div className="space-y-4 pr-2">
-            {safeUnits.map(unit => (
-              <div key={unit.id} className="bg-gray-750 p-3 rounded-md">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                  <div>
-                    <p className="font-semibold text-blue-300">{unit.name}</p>
-                    <p className="text-xs text-gray-500">ID: {unit.id}</p>
-                  </div>
-                  <button
-                    onClick={() => handleGenerateOrShowUrl(unit)}
-                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors w-full sm:w-auto"
-                  >
-                    {generatedUnitUrls[unit.id] ? 'Actualizar URL de Envío' : 'Generar URL de Envío'}
-                  </button>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 flex-1 overflow-hidden">
+        {/* Unit Selector */}
+        <div className="xl:col-span-1 bg-gray-800 p-4 rounded-lg shadow-md flex flex-col overflow-hidden border border-gray-700">
+          <h3 className="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">Unidades en AO</h3>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+            {safeUnits.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10 italic">No hay unidades activas.</p>
+            ) : (
+              safeUnits.map(unit => (
+                <div 
+                  key={unit.id} 
+                  onClick={() => setActiveUnitId(unit.id)}
+                  className={`p-3 rounded-md cursor-pointer transition-all border ${activeUnitId === unit.id ? 'bg-blue-900 bg-opacity-30 border-blue-500' : 'bg-gray-750 border-gray-700 hover:border-gray-500'}`}
+                >
+                  <p className="font-semibold text-blue-300 text-sm">{unit.name}</p>
+                  <p className="text-[10px] text-gray-500 truncate">UUID: {unit.id}</p>
                 </div>
-                {generatedUnitUrls[unit.id] && (
-                  <div className="mt-2 space-y-2">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={generatedUnitUrls[unit.id].url} 
-                      className="w-full bg-gray-700 p-1.5 rounded-md text-xs text-gray-300 border border-gray-600"
-                      aria-label={`URL de Envío SPOT para ${unit.name}`}
-                      onFocus={(e) => e.target.select()}
-                    />
-                    <div className="flex flex-col sm:flex-row gap-2">
-                       <button
-                        onClick={() => handleCopyUrl(generatedUnitUrls[unit.id].url, unit.id)}
-                        className="flex-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs font-medium rounded-md shadow-sm transition-colors flex items-center justify-center"
-                      >
-                        <ClipboardDocumentIcon className="w-3.5 h-3.5 mr-1.5" />
-                        {copiedUrlId === unit.id ? '¡Copiado!' : 'Copiar URL'}
-                      </button>
-                      <button
-                        onClick={() => handleOpenSenderPage(generatedUnitUrls[unit.id].url, unit.id)}
-                        className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors flex items-center justify-center"
-                      >
-                        <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 mr-1.5" />
-                        Abrir Página de Envío
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Integration Details */}
+        <div className="xl:col-span-2 bg-gray-800 p-4 rounded-lg shadow-md flex flex-col overflow-hidden border border-gray-700">
+          {activeUnitId ? (
+            <div className="space-y-4 flex flex-col h-full">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-200">Integración de Producción</h3>
+                  <p className="text-xs text-blue-400 font-medium">Unidad Selección: {safeUnits.find(u => u.id === activeUnitId)?.name}</p>
+                </div>
+                <button 
+                  onClick={() => window.open(getSimulatorUrl(activeUnitId), '_blank')}
+                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-[10px] rounded flex items-center transition-colors border border-gray-600"
+                >
+                  <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 mr-1.5" /> Abrir Simulador
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="bg-gray-900 p-3 rounded-md border border-gray-700">
+                  <label className="text-[10px] text-gray-500 uppercase font-black mb-1.5 block tracking-widest">Webhook Endpoint (POST)</label>
+                  <div className="flex items-center gap-2 bg-gray-950 p-2 rounded border border-gray-800">
+                    <code className="flex-1 text-[11px] text-orange-400 font-mono break-all">{getApiWebhookUrl(activeUnitId)}</code>
+                    <button 
+                      onClick={() => handleCopy(getApiWebhookUrl(activeUnitId), 'url')}
+                      className={`p-1.5 rounded transition-colors ${copiedUrlId === 'url' ? 'bg-green-600 text-white' : 'hover:bg-gray-800 text-gray-400'}`}
+                    >
+                      <ClipboardDocumentIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-900 p-3 rounded-md border border-gray-700">
+                  <label className="text-[10px] text-gray-500 uppercase font-black mb-1.5 block tracking-widest">Esquema de Datos (JSON)</label>
+                  <div className="relative group">
+                    <pre className="text-[10px] text-green-500 font-mono p-2 bg-gray-950 rounded border border-gray-800 leading-relaxed">
+{`{
+  "lat": 4.1234,  // Latitud Decimal
+  "lon": -74.5678, // Longitud Decimal
+  "timestamp": ${Date.now()} // Opcional (ms)
+}`}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="bg-blue-900 bg-opacity-20 border border-blue-900 p-3 rounded flex gap-3">
+                  <div className="text-blue-400 mt-0.5">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-[11px] text-blue-200 leading-relaxed italic">
+                    Este endpoint está optimizado para dispositivos de campo y rastreadores GPS reales. Una vez configurado, la unidad actualizará su posición y estado de "Misión" automáticamente en el mapa táctico de SIMCOP sin necesidad de intervención manual.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-600 opacity-50 space-y-3">
+              <RssIcon className="w-16 h-16" />
+              <p className="text-sm font-medium">Seleccione una unidad para configurar el Webhook</p>
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className="bg-gray-800 p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold text-gray-300 mb-2">Instrucciones de Integración (Envío Simulado)</h3>
-        <p className="text-sm text-gray-400 mb-2">
-          La "Página de Envío" que se abre con la URL generada permite ingresar coordenadas manualmente. Para una simulación más avanzada, un script externo que controle un navegador podría usar esta URL para automatizar el envío de datos mediante `postMessage`.
-        </p>
-        <p className="text-sm text-gray-400 mb-1">El sistema receptor en SIMCOP (esta pestaña) escucha mensajes con la estructura:</p>
-        <pre className="bg-gray-900 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
-          {`{\n  type: 'SPOT_REPORT',\n  payload: {\n    unitId: 'ID_DE_LA_UNIDAD_DE_LA_URL',\n    location: { lat: 4.60971, lon: -74.08175 },\n    timestamp: 1678886400000 // Timestamp UNIX en milisegundos\n  }\n}`}
-        </pre>
-         <p className="text-xs text-gray-500 mt-2">
-          La página <code className="bg-gray-700 p-0.5 rounded text-orange-400">spot-sender.html</code> se encarga de formatear y enviar este mensaje a SIMCOP.
-        </p>
-      </div>
-
-      <div className="flex-1 bg-gray-800 p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Registro de Reportes SPOT Recibidos (Últimos {MAX_LOGGED_REPORTS})</h3>
+      {/* Activity Log */}
+      <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
+        <h3 className="text-sm font-bold text-gray-400 uppercase mb-3 flex justify-between items-center tracking-wider">
+          <span>Monitor de Actividad SPOT</span>
+          <span className="flex items-center text-[9px] text-green-500 font-bold bg-green-500 bg-opacity-10 px-2 py-0.5 rounded-full border border-green-500 border-opacity-30">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+            SERVICIO ACTIVO
+          </span>
+        </h3>
         {loggedReports.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-5">Esperando reportes SPOT...</p>
+          <p className="text-xs text-gray-500 text-center py-6 italic">En espera de telemetría entrante...</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700 text-xs">
-              <thead className="bg-gray-750 sticky top-0 z-10">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="min-w-full text-[10px] text-left">
+              <thead className="text-gray-500 border-b border-gray-700">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-300">Recibido (App)</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-300">ID Unidad</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-300">Nombre Unidad</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-300">Ubicación (GMS)</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-300">Timestamp (Dispositivo)</th>
+                  <th className="pb-2 font-black uppercase tracking-tighter">Timestamp (Recepcionado)</th>
+                  <th className="pb-2 font-black uppercase tracking-tighter">Elemento Táctico</th>
+                  <th className="pb-2 font-black uppercase tracking-tighter">Coordenadas (GMS)</th>
+                  <th className="pb-2 font-black uppercase tracking-tighter text-right">Integridad</th>
                 </tr>
               </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
+              <tbody className="divide-y divide-gray-800">
                 {loggedReports.map((log, index) => (
-                  <tr key={index} className={`${log.unitId === 'ERROR_PAYLOAD' ? 'bg-red-900 bg-opacity-30' : (index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-850') }`}>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-300">{new Date(log.receivedTimestamp).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-300">{log.unitId.substring(0,10)}...</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-300">{log.unitName}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-300">{log.unitId !== 'ERROR_PAYLOAD' ? decimalToDMS(log.location) : 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-300">{log.unitId !== 'ERROR_PAYLOAD' ? new Date(log.timestamp).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'medium'}) : 'N/A'}</td>
+                  <tr key={index} className="animate-in fade-in slide-in-from-left-2 duration-300">
+                    <td className="py-2.5 text-gray-300">{new Date(log.receivedTimestamp).toLocaleString()}</td>
+                    <td className="py-2.5">
+                      <span className="text-blue-400 font-bold">{log.unitName}</span>
+                    </td>
+                    <td className="py-2.5 font-mono text-orange-300">{decimalToDMS(log.location)}</td>
+                    <td className="py-2.5 text-right">
+                      <span className="px-1.5 py-0.5 rounded bg-green-900 bg-opacity-30 text-green-400 border border-green-800">OK</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

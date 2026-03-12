@@ -37,7 +37,7 @@ public class ConfigurationController {
      * Get Gemini API key (admin only)
      */
     @GetMapping("/gemini-api-key")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'OFICIAL_INTELIGENCIA')")
     public ResponseEntity<Map<String, String>> getGeminiApiKey() {
         return configService.getGeminiApiKey()
                 .map(apiKey -> {

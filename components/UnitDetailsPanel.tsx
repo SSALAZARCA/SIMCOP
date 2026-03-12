@@ -13,6 +13,9 @@ import { SoldierListComponent } from './SoldierListComponent';
 import { UsersIcon } from './icons/UsersIcon';
 import { ResupplyModal } from './ResupplyModal';
 import { Truck } from 'lucide-react';
+import { RssIcon } from './icons/RssIcon';
+import { ClipboardDocumentIcon } from './icons/ClipboardDocumentIcon';
+import { ArrowTopRightOnSquareIcon } from './icons/ArrowTopRightOnSquareIcon';
 
 interface UnitDetailsPanelProps {
   unit: MilitaryUnit;
@@ -30,6 +33,9 @@ interface UnitDetailsPanelProps {
   dismissPendingMission: (missionId: string) => void;
   onStartAoDrawing?: (unitId: string) => void;
   onClearAo?: (unitId: string) => void;
+  onStartCoordinatePicking?: () => void;
+  isCoordinatePicking?: boolean;
+  coordinatePicked?: GeoLocation | null;
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -115,6 +121,9 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
   dismissPendingMission,
   onStartAoDrawing,
   onClearAo,
+  onStartCoordinatePicking,
+  isCoordinatePicking,
+  coordinatePicked
 }) => {
   const lastCommMinutesAgo = Math.floor((Date.now() - unit.lastCommunicationTimestamp) / (60 * 1000));
   const lastMoveMinutesAgo = Math.floor((Date.now() - unit.lastMovementTimestamp) / (60 * 1000));
@@ -207,6 +216,40 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
       setEditableSituation(unit.unitSituationType);
     }
   }, [unit, isEditingSituation]);
+
+  useEffect(() => {
+    if (coordinatePicked) {
+      const { lat, lon } = coordinatePicked;
+      
+      // Convert decimal to DMS
+      const latAbs = Math.abs(lat);
+      const latDeg = Math.floor(latAbs);
+      const latMin = Math.floor((latAbs - latDeg) * 60);
+      const latSec = Math.round(((latAbs - latDeg) * 60 - latMin) * 60 * 100) / 100;
+      const latDir = lat >= 0 ? 'N' : 'S';
+
+      const lonAbs = Math.abs(lon);
+      const lonDeg = Math.floor(lonAbs);
+      const lonMin = Math.floor((lonAbs - lonDeg) * 60);
+      const lonSec = Math.round(((lonAbs - lonDeg) * 60 - lonMin) * 60 * 100) / 100;
+      const lonDir = lon >= 0 ? 'E' : 'W';
+
+      setManualLatDeg(latDeg.toString());
+      setManualLatMin(latMin.toString());
+      setManualLatSec(latSec.toString());
+      setManualLatDir(latDir);
+
+      setManualLonDeg(lonDeg.toString());
+      setManualLonMin(lonMin.toString());
+      setManualLonSec(lonSec.toString());
+      setManualLonDir(lonDir);
+
+      // Also set the timestamp if it's empty
+      if (!manualTimestampStr) {
+        setManualTimestampStr(new Date().toISOString().slice(0, 16));
+      }
+    }
+  }, [coordinatePicked, manualTimestampStr]);
 
   const clearManualInputFields = () => {
     setManualLatDeg(''); setManualLatMin(''); setManualLatSec(''); setManualLatDir('N');
@@ -629,11 +672,26 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
 
             {unit.status !== UnitStatus.AAR_PENDING && unit.status !== UnitStatus.ENGAGED && (
               <div className="bg-blue-900/10 p-6 rounded-3xl border border-blue-500/10 space-y-6 shadow-inner backdrop-blur-md">
-                <div className="flex items-center gap-3 border-b border-blue-500/10 pb-4">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <MapPinIcon className="w-5 h-5 text-blue-400" />
+                <div className="flex items-center justify-between w-full border-b border-blue-500/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                      <MapPinIcon className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <h5 className="text-sm font-black text-blue-300 uppercase tracking-widest">Registro de Punto Manual (GMS)</h5>
                   </div>
-                  <h5 className="text-sm font-black text-blue-300 uppercase tracking-widest">Registro de Punto Manual (GMS)</h5>
+                  
+                  <button
+                    type="button"
+                    onClick={onStartCoordinatePicking}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+                      isCoordinatePicking 
+                      ? "bg-blue-600 text-white animate-pulse" 
+                      : "bg-gray-800 hover:bg-gray-700 text-blue-400 border border-blue-500/30"
+                    }`}
+                  >
+                    <MapPinIcon className="w-3 h-3" />
+                    {isCoordinatePicking ? "Seleccionando..." : "Seleccionar en Mapa"}
+                  </button>
                 </div>
 
                 <div className="space-y-6">
@@ -697,6 +755,45 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* SPOT Webhook Integration */}
+      <div className="glass-effect p-4 rounded-2xl border border-orange-500/20 bg-orange-500/5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-3 opacity-10">
+          <RssIcon className="w-12 h-12 text-orange-400" />
+        </div>
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] flex items-center">
+            <span className="w-2 h-2 bg-orange-500 rounded-full mr-2 animate-pulse"></span>
+            Telemetría SPOT / Webhook de Producción
+          </h4>
+          <button 
+            onClick={() => window.open(`${window.location.origin}/spot-sender.html?unitId=${unit.id}&targetOrigin=${encodeURIComponent(window.location.origin)}`, '_blank')}
+            className="px-2 py-1 bg-white/5 hover:bg-white/10 text-orange-300 border border-white/10 rounded-lg text-[9px] font-bold uppercase transition-all flex items-center gap-1.5"
+          >
+            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+            SIMULADOR
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+            <label className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">URL de Telemetría (POST)</label>
+            <div className="flex items-center justify-between gap-2 overflow-hidden">
+              <code className="text-[10px] text-blue-400 monospace-tech truncate flex-1">{window.location.origin}/api/units/{unit.id}/spot</code>
+              <button 
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/units/${unit.id}/spot`)}
+                className="p-1.5 hover:bg-white/5 rounded text-gray-400 hover:text-white transition-colors"
+                title="Copiar Webhook"
+              >
+                <ClipboardDocumentIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <p className="text-[9px] text-gray-500 italic leading-relaxed">
+            Configure este endpoint en su rastreador GPS o dispositivo SPOT para actualización en tiempo real.
+          </p>
+        </div>
+      </div>
 
       {/* Fire Control System */}
       {unit.type === UnitType.PLATOON && (

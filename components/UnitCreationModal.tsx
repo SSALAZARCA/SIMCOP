@@ -12,11 +12,17 @@ interface UnitCreationModalProps {
   onClose: () => void;
   addUnit: (unitData: NewUnitData) => void;
   allUnits: MilitaryUnit[];
+  onStartCoordinatePicking?: () => void;
+  isCoordinatePicking?: boolean;
+  coordinatePicked?: GeoLocation | null;
 }
 
 const allowedUnitTypesForCreation = [UnitType.PLATOON, UnitType.TEAM, UnitType.SQUAD];
 
-export const UnitCreationModal: React.FC<UnitCreationModalProps> = ({ isOpen, onClose, addUnit, allUnits }) => {
+export const UnitCreationModal: React.FC<UnitCreationModalProps> = ({ 
+  isOpen, onClose, addUnit, allUnits,
+  onStartCoordinatePicking, isCoordinatePicking, coordinatePicked
+}) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<UnitType>(UnitType.PLATOON);
   const [primaryRole, setPrimaryRole] = useState<string>(PRIMARY_UNIT_ROLES_APP6[0].capabilityTerm);
@@ -90,6 +96,35 @@ export const UnitCreationModal: React.FC<UnitCreationModalProps> = ({ isOpen, on
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); // potentialParents is intentionally omitted to avoid re-triggering form reset on its change
+
+  useEffect(() => {
+    if (coordinatePicked) {
+      const { lat, lon } = coordinatePicked;
+      
+      // Convert decimal to DMS using robust utility
+      const latAbs = Math.abs(lat);
+      const latDeg = Math.floor(latAbs);
+      const latMin = Math.floor((latAbs - latDeg) * 60);
+      const latSec = Math.round(((latAbs - latDeg) * 60 - latMin) * 60 * 100) / 100;
+      const latDir = lat >= 0 ? 'N' : 'S';
+
+      const lonAbs = Math.abs(lon);
+      const lonDeg = Math.floor(lonAbs);
+      const lonMin = Math.floor((lonAbs - lonDeg) * 60);
+      const lonSec = Math.round(((lonAbs - lonDeg) * 60 - lonMin) * 60 * 100) / 100;
+      const lonDir = lon >= 0 ? 'E' : 'W';
+
+      setInitialLatDeg(latDeg.toString());
+      setInitialLatMin(latMin.toString());
+      setInitialLatSec(latSec.toString());
+      setInitialLatDir(latDir);
+
+      setInitialLonDeg(lonDeg.toString());
+      setInitialLonMin(lonMin.toString());
+      setInitialLonSec(lonSec.toString());
+      setInitialLonDir(lonDir);
+    }
+  }, [coordinatePicked]);
 
   useEffect(() => {
     if (!showFuelInput) {
@@ -319,8 +354,21 @@ export const UnitCreationModal: React.FC<UnitCreationModalProps> = ({ isOpen, on
           </fieldset>
 
           {/* Initial Location GMS */}
-          <fieldset className="border border-white/20 p-8 rounded-[32px] bg-black/40 space-y-10 shadow-2xl">
+          <fieldset className="border border-white/20 p-8 rounded-[32px] bg-black/40 space-y-10 shadow-2xl relative">
             <legend className="text-sm font-black text-purple-400 uppercase tracking-[0.4em] px-6 py-1 bg-purple-900/20 rounded-full border border-purple-500/30">Ubicación Inicial (GMS)</legend>
+            
+            <button
+              type="button"
+              onClick={onStartCoordinatePicking}
+              className={`absolute top-4 right-8 flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+                isCoordinatePicking 
+                ? "bg-purple-600 text-white animate-pulse" 
+                : "bg-gray-800 hover:bg-gray-700 text-purple-400 border border-purple-500/30"
+              }`}
+            >
+              <Target className="w-3 h-3" />
+              {isCoordinatePicking ? "Seleccionando..." : "Seleccionar en Mapa"}
+            </button>
 
             <div className="space-y-10">
               {/* LATITUD ROW */}

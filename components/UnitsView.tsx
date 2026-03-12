@@ -24,6 +24,9 @@ interface UnitsViewProps {
   dismissPendingMission: (missionId: string) => void;
   onStartAoDrawing?: (unitId: string) => void;
   onClearAo?: (unitId: string) => void;
+  onStartCoordinatePicking?: () => void;
+  isCoordinatePicking?: boolean;
+  coordinatePicked?: GeoLocation | null;
 }
 
 export const UnitsView: React.FC<UnitsViewProps> = ({
@@ -45,6 +48,9 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
   dismissPendingMission,
   onStartAoDrawing,
   onClearAo,
+  onStartCoordinatePicking,
+  isCoordinatePicking,
+  coordinatePicked,
 }) => {
   const [selectedUnitForPanel, setSelectedUnitForPanel] = useState<MilitaryUnit | null>(null);
   const [showCreateUnitModal, setShowCreateUnitModal] = useState(false);
@@ -112,6 +118,9 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                   dismissPendingMission={dismissPendingMission}
                   onStartAoDrawing={onStartAoDrawing}
                   onClearAo={onClearAo}
+                  onStartCoordinatePicking={onStartCoordinatePicking}
+                  isCoordinatePicking={isCoordinatePicking}
+                  coordinatePicked={coordinatePicked}
                 />
               </div>
             ) : (
@@ -141,6 +150,9 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
         onClose={() => setShowCreateUnitModal(false)}
         addUnit={addUnit}
         allUnits={allUnits}
+        onStartCoordinatePicking={onStartCoordinatePicking}
+        isCoordinatePicking={isCoordinatePicking}
+        coordinatePicked={coordinatePicked}
       />
     </>
   );

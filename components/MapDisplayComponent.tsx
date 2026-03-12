@@ -70,7 +70,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   isMaximized = false,
   onToggleMaximize,
   aoDrawingUnitId,
-  onAoFinishDrawing
+  onAoFinishDrawing,
+  isCoordinatePickingActive = false,
+  onCoordinatePicked
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const unitLayerRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -126,17 +128,20 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const [elevationDisplay, setElevationDisplay] = useState<string>("Elevación: --- m");
   const fetchElevationTimeoutRef = useRef<number | null>(null);
 
-  const [unitStatusFilter, setUnitStatusFilter] = useState<UnitStatus | 'ALL'>('ALL');
-  const [unitTypeFilter, setUnitTypeFilter] = useState<UnitType | 'ALL'>('ALL');
-  const [intelReliabilityFilter, setIntelReliabilityFilter] = useState<IntelligenceReliability | 'ALL'>('ALL');
   const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [showWindyWeather, setShowWindyWeather] = useState<boolean>(false);
-  const [showWeatherMarkers, setShowWeatherMarkers] = useState<boolean>(false);
   const [timeOffsetHours, setTimeOffsetHours] = useState<number>(0); // 0h to 72h
-  const [showOsintLayer, setShowOsintLayer] = useState<boolean>(true);
+  const [showOsintLayer, setShowOsintLayer] = useState<boolean>(osintLayerActive);
   const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(true);
   const [showHistoricalHotspotsLayer, setShowHistoricalHotspotsLayer] = useState<boolean>(false);
   const [showUavLayer, setShowUavLayer] = useState<boolean>(true);
+  const [unitStatusFilter, setUnitStatusFilter] = useState<UnitStatus | 'ALL'>('ALL');
+  const [unitTypeFilter, setUnitTypeFilter] = useState<UnitType | 'ALL'>('ALL');
+  const [intelReliabilityFilter, setIntelReliabilityFilter] = useState<IntelligenceReliability | 'ALL'>('ALL');
+
+  // Sync prop visibility with local state
+  useEffect(() => {
+    setShowOsintLayer(osintLayerActive);
+  }, [osintLayerActive]);
 
   const filteredUnits = useMemo(() => {
     return units.filter(unit => {
@@ -911,6 +916,74 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   }, [entityToPanTo, units, eventBus]);
 
 
+  // --- OSINT LAYER ---
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = osintLayerRef.current;
+    if (!map || !layer) return;
+
+    layer.clearLayers();
+
+    if (osintLayerActive && osintEvents.length > 0) {
+      osintEvents.forEach(event => {
+        if (!event.location || !event.location.lat || !event.location.lon) return;
+
+        // Determinar icono basado en el tipo de evento
+        let iconHtml = '📢';
+        let colorClass = 'bg-pink-500';
+
+        const type = (event.eventType || '').toUpperCase();
+        if (type.includes('ATAQUE') || type.includes('EXPLOSIÓN')) {
+          iconHtml = '💥';
+          colorClass = 'bg-red-600';
+        } else if (type.includes('PROTESTA') || type.includes('DISTURBIO')) {
+          iconHtml = '🚩';
+          colorClass = 'bg-orange-500';
+        } else if (type.includes('MILITAR') || type.includes('DESPLIEGUE')) {
+          iconHtml = '🎖️';
+          colorClass = 'bg-blue-600';
+        } else if (type.includes('CRÍMEN') || type.includes('DELITO')) {
+          iconHtml = '⚖️';
+          colorClass = 'bg-gray-700';
+        }
+
+        const osintIcon = L.divIcon({
+          html: `
+            <div class="relative flex items-center justify-center">
+              <div class="absolute w-8 h-8 ${colorClass} opacity-20 rounded-full animate-ping"></div>
+              <div class="w-8 h-8 ${colorClass} rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white">
+                <span class="text-sm">${iconHtml}</span>
+              </div>
+            </div>
+          `,
+          className: 'osint-event-icon',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+
+        const popupContent = `
+          <div class="p-2 max-w-xs font-sans">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-lg">${iconHtml}</span>
+              <h4 class="font-bold text-gray-900 leading-tight">${event.title}</h4>
+            </div>
+            <p class="text-xs text-gray-600 mb-2 italic">${event.locationName || 'Ubicación no especificada'}</p>
+            <p class="text-[11px] text-gray-800 line-clamp-3 mb-2">${event.summary}</p>
+            <div class="flex justify-between items-center border-t border-gray-100 pt-2">
+              <span class="text-[10px] font-bold text-pink-600 uppercase">${event.sourceName}</span>
+              <a href="${event.sourceUrl}" target="_blank" rel="noopener noreferrer" class="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-600 hover:bg-gray-200 transition-colors">Ver fuente</a>
+            </div>
+            <p class="text-[9px] text-gray-400 mt-1">Detectado: ${new Date(event.processedTimestamp).toLocaleString()}</p>
+          </div>
+        `;
+
+        L.marker([event.location.lat, event.location.lon], { icon: osintIcon })
+          .bindPopup(popupContent, { maxWidth: 300 })
+          .addTo(layer);
+      });
+    }
+  }, [osintLayerActive, osintEvents]);
+
   // --- DISTANCE TOOL (Multi-segment Upgrade) ---
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
@@ -1191,19 +1264,48 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       map.getContainer().style.cursor = 'crosshair';
     } else {
       map.off('click', handleMapClickForTarget);
-      if (!distanceToolActive && !aoiDrawingModeActive && !piccDrawingConfig && !elevationProfileActive) {
+      if (!distanceToolActive && !aoiDrawingModeActive && !piccDrawingConfig && !elevationProfileActive && !isCoordinatePickingActive) {
         map.getContainer().style.cursor = '';
       }
     }
     return () => {
       if (map) {
         map.off('click', handleMapClickForTarget);
-        if (!distanceToolActive && !aoiDrawingModeActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) {
+        if (!distanceToolActive && !aoiDrawingModeActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive && !isCoordinatePickingActive) {
           map.getContainer().style.cursor = '';
         }
       }
     }
-  }, [isTargetSelectionActive, onTargetSelected, distanceToolActive, aoiDrawingModeActive, piccDrawingConfig, elevationProfileActive]);
+  }, [isTargetSelectionActive, onTargetSelected, distanceToolActive, aoiDrawingModeActive, piccDrawingConfig, elevationProfileActive, isCoordinatePickingActive]);
+
+  // Coordinate Picking (Generic)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
+      if (onCoordinatePicked) {
+        onCoordinatePicked({ lat: e.latlng.lat, lon: e.latlng.lng });
+      }
+    };
+
+    if (isCoordinatePickingActive) {
+      map.on('click', handleMapClick);
+      map.getContainer().style.cursor = 'crosshair';
+      
+      // Notify user via event bus for UI feedback if needed
+      eventBus.publish('coordinatePickingStarted');
+    } else {
+      map.off('click', handleMapClick);
+      if (!distanceToolActive && !aoiDrawingModeActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) {
+        map.getContainer().style.cursor = '';
+      }
+    }
+
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [isCoordinatePickingActive, onCoordinatePicked, distanceToolActive, aoiDrawingModeActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive]);
 
   useEffect(() => {
     const map = mapRef.current;

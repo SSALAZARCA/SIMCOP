@@ -1,7 +1,11 @@
 package com.simcop.controller;
 
 import com.simcop.model.MilitaryUnit;
+import com.simcop.model.UnitStatus;
+import com.simcop.model.embeddable.GeoLocation;
+import com.simcop.model.embeddable.RoutePoint;
 import com.simcop.repository.MilitaryUnitRepository;
+import com.simcop.dto.SpotReportDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -43,7 +47,7 @@ public class MilitaryUnitController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'OFICIAL_INTELIGENCIA')")
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
         return repository.save(unit);
     }
@@ -53,9 +57,9 @@ public class MilitaryUnitController {
     public ResponseEntity<MilitaryUnit> updateUnit(@PathVariable String id, @RequestBody MilitaryUnit unitDetails) {
         return repository.findById(id)
                 .map(unit -> {
-                    unit.setName(unitDetails.getName());
+                    if (unitDetails.getName() != null) unit.setName(unitDetails.getName());
                     unit.setType(unitDetails.getType());
-                    unit.setCommander(unitDetails.getCommander());
+                    if (unitDetails.getCommander() != null) unit.setCommander(unitDetails.getCommander());
                     unit.setPersonnelBreakdown(unitDetails.getPersonnelBreakdown());
                     unit.setLocation(unitDetails.getLocation());
                     unit.setStatus(unitDetails.getStatus());
@@ -104,5 +108,27 @@ public class MilitaryUnitController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/{id}/spot")
+    public ResponseEntity<MilitaryUnit> handleSpotReport(@PathVariable String id, @RequestBody SpotReportDTO report) {
+        return repository.findById(id)
+                .map(unit -> {
+                    GeoLocation newLoc = new GeoLocation(report.getLat(), report.getLon());
+                    unit.setLocation(newLoc);
+                    unit.setLastMovementTimestamp(report.getTimestamp() != null ? report.getTimestamp() : System.currentTimeMillis());
+                    unit.setLastCommunicationTimestamp(System.currentTimeMillis());
+                    unit.setStatus(UnitStatus.MOVING);
+
+                    // Add to route history
+                    RoutePoint point = new RoutePoint();
+                    point.setLat(report.getLat());
+                    point.setLon(report.getLon());
+                    point.setTimestamp(unit.getLastMovementTimestamp());
+                    unit.getRouteHistory().add(point);
+
+                    return ResponseEntity.ok(repository.save(unit));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }
