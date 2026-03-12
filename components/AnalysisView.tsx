@@ -15,6 +15,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { ChartBarIcon } from './icons/ChartBarIcon';
 import { AcademicCapIcon } from './icons/AcademicCapIcon';
 import { EyeIcon } from './icons/EyeIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { PlantillaPICCConfig } from '../utils/piccConfig';
 
 interface EventEmitter {
@@ -290,10 +291,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   const toggleAoiDrawingMode = () => {
     deactivateOtherTools();
     if (aoiDrawingModeActive) {
-      handleFinalizeAoi();
+      setAoiDrawingModeActive(false);
     } else {
       setAoiDrawingModeActive(true);
-      setAoiPoints([]);
       setFinalizedAoiGeoJson(null);
       setAoiStats(null);
       setAoiError(null);
@@ -302,16 +302,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   };
 
   const handleFinalizeAoi = () => {
+    if (!finalizedAoiGeoJson) return;
+    
     setAoiDrawingModeActive(false);
-    if (aoiPoints.length < 3) {
-      setAoiError("Se necesitan al menos 3 puntos para definir un área.");
-      setAoiPoints([]);
-      eventBus.publish('clearAoiLayer');
-      return;
-    }
-    const coordinates = [...aoiPoints.map(p => [p.lng, p.lat]), [aoiPoints[0].lng, aoiPoints[0].lat]];
-    const polygonGeoJson = turfPolygonFunction([coordinates]) as GeoJSONFeature<GeoJSONPolygon>;
-    setFinalizedAoiGeoJson(polygonGeoJson);
+    const polygonGeoJson = finalizedAoiGeoJson;
 
     const areaM2 = turf.area(polygonGeoJson);
     const unitsInAoi = units.filter(unit => turf.booleanPointInPolygon(turfPoint([unit.location.lon, unit.location.lat]), polygonGeoJson));
@@ -332,22 +326,18 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   };
 
   useEffect(() => {
-    const handleMapClickForAoi = (_msg: string, latlng: L.LatLng) => {
-      if (aoiDrawingModeActive) {
-        setAoiPoints(currentPoints => {
-          const newPoints = [...currentPoints, latlng];
-          eventBus.publish('updateAoiDrawingLayer', newPoints);
-          return newPoints;
-        });
-        setAoiError(null);
-      }
+    const onAoiFinished = (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
+      setFinalizedAoiGeoJson(geoJson);
+      setAoiError(null);
+      // Automatically show stats or wait for approval? 
+      // User said "appear the option to approve AO and it closes"
     };
 
-    const token = eventBus.subscribe('mapClickForAoi', handleMapClickForAoi);
+    const token = eventBus.subscribe('aoiDrawingFinished', onAoiFinished);
     return () => {
       eventBus.unsubscribe(token);
     };
-  }, [aoiDrawingModeActive, eventBus]);
+  }, [eventBus]);
 
   // Elevation Profile Logic (Existing + Fixed)
   const handleElevationProfileLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {
@@ -867,20 +857,23 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
             <ChartBarIcon className="w-4 h-4 mr-1.5" />
             {slopeAnalysisActive ? 'Cancelar Análisis' : 'Análisis de Pendiente'}
           </button>
-          {(aoiDrawingModeActive && !finalizedAoiGeoJson && aoiPoints.length >= 3) && (
+          {finalizedAoiGeoJson && !aoiStats && (
             <button
               onClick={handleFinalizeAoi}
-              className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm flex items-center transition-colors bg-green-600 hover:bg-green-700 text-white"
+              className="px-3 py-1.5 text-xs font-bold rounded-md shadow-sm flex items-center transition-all bg-green-500 hover:bg-green-600 text-white animate-pulse"
             >
-              Finalizar Dibujo AOI
+              <CheckCircleIcon className="w-4 h-4 mr-1.5" />
+              APROBAR Y ANALIZAR AO
             </button>
           )}
-          {(aoiPoints.length > 0 || finalizedAoiGeoJson) && (
+
+          {(aoiDrawingModeActive || finalizedAoiGeoJson) && (
             <button
               onClick={handleClearAoi}
               className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm flex items-center transition-colors bg-red-600 hover:bg-red-700 text-white"
             >
-              Limpiar AOI
+              <TrashIcon className="w-4 h-4 mr-1.5" />
+              {finalizedAoiGeoJson ? 'Borrar AO' : 'Cancelar Dibujo'}
             </button>
           )}
           <button
@@ -1022,46 +1015,93 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       </div>
 
       {(aoiDrawingModeActive || finalizedAoiGeoJson || aoiError) && (
-        <div className="bg-gray-800 p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-sky-300 mb-2">Análisis de Área de Interés (AOI)</h3>
-          {aoiError && <p className="text-sm text-red-400 bg-red-900 p-2 rounded">{aoiError}</p>}
+        <div className="bg-gray-800 p-4 rounded-lg shadow-md border-t-2 border-sky-500/30">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold text-sky-300 flex items-center">
+              <span className="mr-2">📐</span> Análisis de Área de Operaciones (AO)
+            </h3>
+            {finalizedAoiGeoJson && (
+              <button 
+                onClick={handleClearAoi}
+                className="text-gray-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors"
+              >
+                <TrashIcon className="w-3.5 h-3.5" /> Limpiar
+              </button>
+            )}
+          </div>
+
+          {aoiError && <p className="text-sm text-red-400 bg-red-900/30 p-2 rounded mb-3 border border-red-800/50">{aoiError}</p>}
 
           {aoiDrawingModeActive && !finalizedAoiGeoJson && (
-            <p className="text-sm text-gray-300">Haga clic en el mapa para añadir puntos al AOI. Necesita al menos 3 puntos. Luego presione "Finalizar Dibujo AOI".</p>
+            <div className="p-3 bg-sky-900/20 border border-sky-800/30 rounded-md animate-pulse">
+              <p className="text-sm text-sky-200">
+                <strong>Modo Lápiz Activo:</strong> Dibuje el polígono en el mapa haciendo clic en cada vértice. Haga clic en el primer punto para cerrar el área.
+              </p>
+            </div>
+          )}
+
+          {finalizedAoiGeoJson && !aoiStats && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-gray-300">Área trazada correctamente. ¿Desea aprobar este AO para análisis?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleFinalizeAoi}
+                  className="flex-1 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-md shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                >
+                  <CheckCircleIcon className="w-5 h-5" /> Aprobar y Calcular AO
+                </button>
+              </div>
+            </div>
           )}
 
           {aoiStats && finalizedAoiGeoJson && (
-            <div className="space-y-3 text-sm">
-              <p><strong>Área del AOI:</strong> {aoiStats.areaKm2.toFixed(2)} km²</p>
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="grid grid-cols-3 gap-2 py-2 border-y border-gray-700">
+                <div className="text-center">
+                  <p className="text-[10px] text-gray-500 uppercase font-black">Superficie</p>
+                  <p className="text-lg font-mono text-sky-400">{aoiStats.areaKm2.toFixed(2)}<span className="text-xs ml-0.5">KM²</span></p>
+                </div>
+                <div className="text-center border-x border-gray-700">
+                  <p className="text-[10px] text-gray-500 uppercase font-black">Unidades</p>
+                  <p className="text-lg font-mono text-green-400">{aoiStats.unitsInAoi.length}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-gray-500 uppercase font-black">Intel</p>
+                  <p className="text-lg font-mono text-yellow-500">{aoiStats.intelInAoi.length}</p>
+                </div>
+              </div>
+
               <div>
-                <h4 className="font-semibold">Unidades en AOI ({aoiStats.unitsInAoi.length}):</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Unidades Identificadas</h4>
                 {aoiStats.unitsInAoi.length > 0 ? (
-                  <ul className="list-disc list-inside pl-4 max-h-24 overflow-y-auto text-xs">
+                  <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1 pr-1">
                     {aoiStats.unitsInAoi.map(u => (
-                      <li key={u.id}
-                        className="cursor-pointer hover:text-blue-300"
+                      <div key={u.id}
+                        className="p-1 px-2 flex justify-between items-center bg-gray-750 hover:bg-gray-700 rounded border border-gray-700/50 cursor-pointer text-xs"
                         onClick={() => onSelectEntityOnMap && onSelectEntityOnMap({ type: MapEntityType.UNIT, id: u.id })}
                       >
-                        {u.name} ({u.type})
-                      </li>
+                        <span className="text-gray-200 font-medium truncate">{u.name}</span>
+                        <span className="text-[10px] text-gray-500 italic">{u.type}</span>
+                      </div>
                     ))}
-                  </ul>
-                ) : <p className="text-xs italic">Ninguna unidad dentro del AOI.</p>}
+                  </div>
+                ) : <p className="text-xs italic text-gray-500">Sin unidades en el sector.</p>}
               </div>
+
               <div>
-                <h4 className="font-semibold">Informes Intel en AOI ({aoiStats.intelInAoi.length}):</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Puntos de Inteligencia</h4>
                 {aoiStats.intelInAoi.length > 0 ? (
-                  <ul className="list-disc list-inside pl-4 max-h-24 overflow-y-auto text-xs">
+                  <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1 pr-1">
                     {aoiStats.intelInAoi.map(i => (
-                      <li key={i.id}
-                        className="cursor-pointer hover:text-yellow-300"
+                      <div key={i.id}
+                        className="p-1 px-2 flex justify-between bg-gray-750 hover:bg-gray-700 rounded border border-gray-700/50 cursor-pointer text-xs"
                         onClick={() => onSelectEntityOnMap && onSelectEntityOnMap({ type: MapEntityType.INTEL, id: i.id })}
                       >
-                        {i.title}
-                      </li>
+                        <span className="text-yellow-500/80 font-medium truncate">{i.title}</span>
+                      </div>
                     ))}
-                  </ul>
-                ) : <p className="text-xs italic">Ningún informe de inteligencia dentro del AOI.</p>}
+                  </div>
+                ) : <p className="text-xs italic text-gray-500">Sin alertas de inteligencia en el sector.</p>}
               </div>
             </div>
           )}

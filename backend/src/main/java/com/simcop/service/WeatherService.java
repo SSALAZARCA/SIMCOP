@@ -85,10 +85,27 @@ public class WeatherService {
     }
 
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
+        // Usar NASA GIBS para nubes/satélite (Capa profesional y gratuita)
+        if ("clouds".equalsIgnoreCase(layer)) {
+            // Layer: MODIS_Terra_CorrectedReflectance_TrueColor (Satélite + Nubes en tiempo real)
+            // MatrixSet: 250m (Soporta zoom alto)
+            String url = String.format("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/250m/%d/%d/%d.jpg", z, y, x);
+            try {
+                byte[] image = restTemplate.getForObject(url, byte[].class);
+                if (image != null) {
+                    return ResponseEntity.ok()
+                            .header("Content-Type", "image/jpeg")
+                            .header("Cache-Control", "public, max-age=3600")
+                            .body(image);
+                }
+            } catch (Exception e) {}
+        }
+
         // Usar RainViewer para la capa de precipitación (radar)
         if ("precipitation".equalsIgnoreCase(layer)) {
             String radarPath = getRadarPath();
             if (radarPath != null) {
+                // RainViewer tiles: /256/{z}/{x}/{y}/...
                 String url = String.format("https://tilecache.rainviewer.com%s/256/%d/%d/%d/1/1_1.png", radarPath, z, x, y);
                 try {
                     byte[] image = restTemplate.getForObject(url, byte[].class);
@@ -97,11 +114,12 @@ public class WeatherService {
                                 .header("Content-Type", "image/png")
                                 .body(image);
                     }
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    // Fallback para evitar errores 404 de zoom no soportado en RainViewer
+                }
             }
         }
         
-        // Para otras capas, por ahora devolvemos no encontrado hasta integrar otra fuente gratuita
         return ResponseEntity.notFound().build(); 
     }
 

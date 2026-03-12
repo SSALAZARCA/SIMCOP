@@ -243,6 +243,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         .then(data => {
           const radarPath = data.path;
           if (radarPath) {
+            // RainViewer Radar (Precipitación) - Mantenido solo para radar real
             const newWeatherLayer = L.tileLayer(
               `https://tilecache.rainviewer.com/v2/radar/${radarPath}/512/{z}/{x}/{y}/2/1_1.png`,
               {
@@ -252,45 +253,34 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
               }
             );
 
-            // GUARD: Verify map and pane still exist (race condition catch)
             if (mapInstance && mapRef.current === mapInstance && mapInstance.getPane('weatherPane') && layerControlRef.current) {
-              layerControlRef.current.addOverlay(newWeatherLayer, "Radar Precipitación y Tormentas <br/><small>(Intensidad: 1=débil, 7=extrema)</small>");
+              layerControlRef.current.addOverlay(newWeatherLayer, "🌧️ Radar (RainViewer)");
               weatherLayerRef.current = newWeatherLayer;
-              newWeatherLayer.addTo(mapInstance); // Active by default
-            } else {
-              console.warn("[Map] Skipping weather layer addition: Map or weatherPane no longer valid.");
+              newWeatherLayer.addTo(mapInstance);
             }
           }
         })
-        .catch(error => {
-            if (error instanceof TypeError && error.message.includes('appendChild')) {
-                console.error("Critical Leaflet Append Error prevented:", error);
-            } else {
-                console.warn("Optional: Weather radar path not available:", error);
-            }
-        });
+        .catch(err => console.warn("RainViewer failure:", err));
 
-      // Capas de OpenWeatherMap como overlays opcionales
-      const createWeatherLayer = (layerName: string, attribution: string) => {
-          return L.tileLayer(`${BACKEND_TILE_URL}/${layerName}/{z}/{x}/{y}`, {
-              attribution,
-              opacity: 0.5,
-              pane: 'weatherPane',
-              maxZoom: 19
-          });
-      };
+      // Capas de NASA GIBS y Open-Meteo Proxy
+      const cloudsLayer = L.tileLayer(`${BACKEND_TILE_URL}/clouds/{z}/{x}/{y}`, {
+          attribution: 'Nubes/Satélite © NASA GIBS',
+          opacity: 0.8,
+          pane: 'weatherPane',
+          maxZoom: 19
+      });
+      cloudsLayer.addTo(mapInstance); // Activa por defecto puesto que el usuario quiere "ver nubes"
 
-      const precipitationLayer = createWeatherLayer('precipitation', 'Radar © OpenWeatherMap');
-      const cloudsLayer = createWeatherLayer('clouds', 'Nubes © OpenWeatherMap');
-      const temperatureLayer = createWeatherLayer('temp', 'Temp © OpenWeatherMap');
-      const windLayer = createWeatherLayer('wind', 'Viento © OpenWeatherMap');
+      const precipitationLayer = L.tileLayer(`${BACKEND_TILE_URL}/precipitation/{z}/{x}/{y}`, {
+          attribution: 'Precipitación © Open-Meteo/RainViewer',
+          opacity: 0.6,
+          pane: 'weatherPane',
+          maxZoom: 19
+      });
 
-      // GUARD: Final check before adding OWM overlays
       if (mapInstance && mapRef.current === mapInstance && mapInstance.getPane('weatherPane') && layerControlRef.current) {
-        layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar Precipitación");
-        layerControlRef.current.addOverlay(cloudsLayer, "☁️ Cobertura de Nubes");
-        layerControlRef.current.addOverlay(temperatureLayer, "🌡️ Temperatura");
-        layerControlRef.current.addOverlay(windLayer, "💨 Viento");
+        layerControlRef.current.addOverlay(cloudsLayer, "☁️ Capa de Nubes (NASA)");
+        layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar Detallado");
       }
 
 
@@ -994,17 +984,25 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
-    const handleMapClickForAoi = (e: L.LeafletMouseEvent) => { if (distanceToolActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive) return; eventBus.publish('mapClickForAoi', e.latlng); };
     const clearAoiMapLayer = () => aoiLayerRef.current.clearLayers();
-    const updateAoiDrawingLayer = (_msg: string, points: L.LatLng[]) => { aoiLayerRef.current.clearLayers(); points.forEach(p => L.circleMarker(p, { radius: 4, color: 'cyan', fillColor: '#0ff', fillOpacity: 0.7, interactive: false }).addTo(aoiLayerRef.current)); if (points.length > 1) L.polyline(points, { color: 'cyan', weight: 2, dashArray: '3, 3', interactive: false }).addTo(aoiLayerRef.current); };
-    const finalizeAoiLayer = (_msg: string, geoJsonPolygon: GeoJSONFeature<GeoJSONPolygon>) => { aoiLayerRef.current.clearLayers(); if (geoJsonPolygon?.geometry?.coordinates) { const leafletCoords = (geoJsonPolygon.geometry.coordinates[0] as unknown as Position[]).map(coord => [coord[1], coord[0]] as L.LatLngTuple); L.polygon(leafletCoords, { color: 'rgba(59, 130, 246, 0.8)', fillColor: 'rgba(59, 130, 246, 0.3)', weight: 2 }).addTo(aoiLayerRef.current); } };
+    const updateAoiDrawingLayer = (_msg: string, points: L.LatLng[]) => { 
+      aoiLayerRef.current.clearLayers(); 
+      points.forEach(p => L.circleMarker(p, { radius: 4, color: 'cyan', fillColor: '#0ff', fillOpacity: 0.7, interactive: false }).addTo(aoiLayerRef.current)); 
+      if (points.length > 1) L.polyline(points, { color: 'cyan', weight: 2, dashArray: '3, 3', interactive: false }).addTo(aoiLayerRef.current); 
+    };
+    const finalizeAoiLayer = (_msg: string, geoJsonPolygon: GeoJSONFeature<GeoJSONPolygon>) => { 
+      aoiLayerRef.current.clearLayers(); 
+      if (geoJsonPolygon?.geometry?.coordinates) { 
+        const leafletCoords = (geoJsonPolygon.geometry.coordinates[0] as unknown as Position[]).map(coord => [coord[1], coord[0]] as L.LatLngTuple); 
+        L.polygon(leafletCoords, { color: 'rgba(0, 255, 255, 0.8)', fillColor: 'rgba(0, 255, 255, 0.2)', weight: 2, dashArray: '5, 5' }).addTo(aoiLayerRef.current); 
+      } 
+    };
 
     const clearToken = eventBus.subscribe('clearAoiLayer', clearAoiMapLayer);
     const updateToken = eventBus.subscribe('updateAoiDrawingLayer', updateAoiDrawingLayer);
     const finalizeToken = eventBus.subscribe('finalizeAoiLayer', finalizeAoiLayer);
 
     if (aoiDrawingModeActive && !aoDrawingUnitId) {
-      map.on('click', handleMapClickForAoi);
       map.getContainer().style.cursor = 'crosshair';
       selectionHighlightLayerRef.current.clearLayers();
       (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
@@ -1012,10 +1010,11 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       enemyInfluencePolygonsRef.current.clearLayers();
       (Object.values(piccTemplateLayersRef.current) as L.FeatureGroup[]).forEach(fg => fg.clearLayers());
     }
-    else { map.off('click', handleMapClickForAoi); if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = ''; }
+    else { 
+      if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = ''; 
+    }
 
     return () => {
-      map.off('click', handleMapClickForAoi);
       if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = '';
       eventBus.unsubscribe(clearToken);
       eventBus.unsubscribe(updateToken);
@@ -1335,6 +1334,13 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
       // Save to database
       (async () => {
+        if (aoiDrawingModeActive) {
+          const geoJsonPolygon = (layer as L.Polygon).toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
+          eventBus.publish('aoiDrawingFinished', geoJsonPolygon);
+          map.removeLayer(layer); // AnalysisView will redraw the permanent one
+          return;
+        }
+
         try {
           const graphicData = layerToOperationalGraphic(
             layer,
