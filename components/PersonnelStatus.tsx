@@ -26,7 +26,7 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
         return units.map(unit => {
             // Safe access to nested properties
             const toe = unit.toe?.authorizedPersonnel || { officers: 0, ncos: 0, professionalSoldiers: 0, regularSoldiers: 0, civilians: 0 };
-            const actual = unit.personnelBreakdown || { officers: 0, ncos: 0, professionalSoldiers: 0, slRegulars: 0, slPeasant: 0, slBaccalaureate: 0 };
+            const actual = unit.personnelBreakdown || { officers: 0, ncos: 0, professionalSoldiers: 0, slRegulars: 0 };
 
             // Officers
             const authOfficers = toe.officers || 0;
@@ -42,7 +42,7 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
 
             // Soldiers (Professional + Regular)
             const authSoldiers = (toe.professionalSoldiers || 0) + (toe.regularSoldiers || 0);
-            const actSoldiers = (actual.professionalSoldiers || 0) + (actual.slRegulars || 0) + (actual.slPeasant || 0) + (actual.slBaccalaureate || 0);
+            const actSoldiers = (actual.professionalSoldiers || 0) + (actual.slRegulars || 0);
             const diffSoldiers = actSoldiers - authSoldiers;
             const pctSoldiers = authSoldiers > 0 ? (actSoldiers / authSoldiers) * 100 : (actSoldiers > 0 ? 100 : 0);
 
@@ -112,13 +112,60 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
                 </div>
             </div>
 
-            {/* Detailed Table */}
+            {/* Detailed Table / Mobile Cards */}
             <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
                 <div className="p-4 border-b border-gray-700">
                     <h3 className="text-lg font-semibold text-white">Detalle por Unidad</h3>
-                    <p className="text-xs text-gray-400 mt-1">Haz clic en "Ver Nómina" para gestionar el personal individualmente.</p>
+                    <p className="text-xs text-gray-400 mt-1">Comparativa de pie de fuerza Real vs Autorizado (TOE).</p>
                 </div>
-                <div className="overflow-x-auto">
+
+                {/* Mobile View (Cards) - Hidden on md+ */}
+                <div className="md:hidden divide-y divide-gray-700">
+                    {readinessData.map((row) => (
+                        <div key={row.unitId} className="p-4 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="text-sm font-bold text-white">{row.unitName}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase">{row.unitType}</div>
+                                </div>
+                                <span className={`px-2 py-0.5 text-[10px] font-black rounded-full 
+                                    ${row.readinessStatus === 'GREEN' ? 'bg-green-900/40 text-green-400 border border-green-500/20' :
+                                        row.readinessStatus === 'AMBER' ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-500/20' :
+                                            'bg-red-900/40 text-red-400 border border-red-500/20'}`}>
+                                    {row.readinessStatus === 'GREEN' ? 'LISTO' :
+                                        row.readinessStatus === 'AMBER' ? 'ALERTA' : 'CRÍTICO'}
+                                </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { label: 'OFICIALES', data: row.officers },
+                                    { label: 'SUB/OFICIALES', data: row.ncos },
+                                    { label: 'SOLDADOS', data: row.soldiers },
+                                    { label: 'TOTAL', data: { actual: row.total.actual, authorized: row.total.authorized, percent: row.total.percent, diff: row.total.actual - row.total.authorized } }
+                                ].map((item, idx) => (
+                                    <div key={idx} className="bg-black/20 p-2 rounded-lg border border-white/5">
+                                        <p className="text-[8px] font-black text-gray-600 uppercase mb-1">{item.label}</p>
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-xs font-bold text-white">{item.data.actual}/{item.data.authorized}</span>
+                                            <span className="text-[10px] text-gray-400">{item.data.percent.toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setSelectedUnit(row.originalUnit)}
+                                className="w-full py-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 text-xs font-bold rounded-lg border border-teal-500/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                Gestionar Nómina <ChevronRight size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop View (Table) - Hidden on mobile */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-700">
                         <thead className="bg-gray-900">
                             <tr>
@@ -126,17 +173,17 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
                                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Oficiales (Real/Auth)</th>
                                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Suboficiales (Real/Auth)</th>
                                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Soldados (Real/Auth)</th>
-                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Total</th>
+                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Total (%)</th>
                                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Estado</th>
                                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="bg-gray-800 divide-y divide-gray-700">
                             {readinessData.map((row) => (
-                                <tr key={row.unitId} className="hover:bg-gray-750">
+                                <tr key={row.unitId} className="hover:bg-gray-750 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-white">{row.unitName}</div>
-                                        <div className="text-xs text-gray-500">{row.unitType}</div>
+                                        <div className="text-[10px] text-gray-500 uppercase">{row.unitType}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         <div className="text-sm text-gray-300">
@@ -161,10 +208,10 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         <div className="text-sm font-bold text-white">{row.total.percent.toFixed(1)}%</div>
-                                        <div className="text-xs text-gray-500">{row.total.actual} / {row.total.authorized}</div>
+                                        <div className="text-[10px] text-gray-500">{row.total.actual} / {row.total.authorized}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        <span className={`px-2 inline-flex text-[10px] leading-5 font-semibold rounded-full 
                                             ${row.readinessStatus === 'GREEN' ? 'bg-green-900 text-green-200' :
                                                 row.readinessStatus === 'AMBER' ? 'bg-yellow-900 text-yellow-200' :
                                                     'bg-red-900 text-red-200'}`}>
@@ -175,7 +222,7 @@ export const PersonnelStatus: React.FC<PersonnelStatusProps> = ({ units }) => {
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button
                                             onClick={() => setSelectedUnit(row.originalUnit)}
-                                            className="text-teal-400 hover:text-teal-300 flex items-center gap-1 ml-auto"
+                                            className="text-teal-400 hover:text-teal-300 flex items-center gap-1 ml-auto transition-colors"
                                         >
                                             Ver Nómina <ChevronRight size={16} />
                                         </button>

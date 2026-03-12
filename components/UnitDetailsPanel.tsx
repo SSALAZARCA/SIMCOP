@@ -95,13 +95,30 @@ const renderRouteHistory = (routeHistory: RoutePoint[]) => {
   );
 };
 
-const formatPersonnelBreakdown = (pb: MilitaryUnit['personnelBreakdown']): string => {
+const formatPersonnelShort = (actual: number, authorized: number | undefined): string => {
+  if (authorized === undefined) return String(actual).padStart(2, '0');
+  return `${actual}/${authorized}`;
+};
+
+const formatPersonnelBreakdown = (unit: MilitaryUnit): string => {
+  const pb = unit.personnelBreakdown;
+  const auth = unit.toe?.authorizedPersonnel;
+  
+  if (!auth) {
+    return [
+      String(pb.officers).padStart(2, '0'),
+      String(pb.ncos).padStart(2, '0'),
+      String(pb.professionalSoldiers).padStart(2, '0'),
+      String(pb.slRegulars).padStart(2, '0')
+    ].join('-');
+  }
+
   return [
-    String(pb.officers).padStart(2, '0'),
-    String(pb.ncos).padStart(2, '0'),
-    String(pb.professionalSoldiers).padStart(2, '0'),
-    String(pb.slRegulars).padStart(2, '0')
-  ].join('-');
+    formatPersonnelShort(pb.officers, auth.officers),
+    formatPersonnelShort(pb.ncos, auth.ncos),
+    formatPersonnelShort(pb.professionalSoldiers, auth.professionalSoldiers),
+    formatPersonnelShort(pb.slRegulars, auth.regularSoldiers)
+  ].join(' | ');
 };
 
 
@@ -352,10 +369,10 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
       </div>
 
       {/* Primary Data Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {[
           { label: "ID OPERATIVO", value: unit.id.substring(0, 12), mono: true },
-          { label: "EFECTIVOS (OF-SOS-SLP-SLR)", value: formatPersonnelBreakdown(unit.personnelBreakdown), mono: true },
+          { label: "PERSONAL (REAL / AUTH)", value: formatPersonnelBreakdown(unit), mono: true, color: unit.toe ? "text-green-400" : "text-white" },
           { label: "UBICACIÓN GPS", value: unit.status !== UnitStatus.ON_LEAVE_RETRAINING ? decimalToDMS(unit.location) : "N/A", mono: true, color: "text-blue-400" },
           { label: "ÚLTIMO REPORTE", value: `${lastCommMinutesAgo}M ATRÁS`, mono: true },
         ].map((item, idx) => (
@@ -466,6 +483,75 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
           )}
         </div>
       </div>
+
+      {/* TOE Detailed Status Section */}
+      {unit.toe && (
+        <div className="glass-effect p-4 rounded-2xl border border-white/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-5">
+            <UsersIcon className="w-12 h-12" />
+          </div>
+          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center">
+            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            Situación de Efectivos (ESTRUCTURA ORGÁNICA - TOE)
+          </h4>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "OFICIALES", actual: unit.personnelBreakdown.officers, auth: unit.toe.authorizedPersonnel.officers },
+              { label: "SUBOFICIALES", actual: unit.personnelBreakdown.ncos, auth: unit.toe.authorizedPersonnel.ncos },
+              { label: "SOLDADOS PROF.", actual: unit.personnelBreakdown.professionalSoldiers, auth: unit.toe.authorizedPersonnel.professionalSoldiers },
+              { label: "SOLDADOS REG.", actual: unit.personnelBreakdown.slRegulars, auth: unit.toe.authorizedPersonnel.regularSoldiers },
+            ].map((cat, i) => {
+              const gap = cat.actual - cat.auth;
+              const pct = cat.auth > 0 ? (cat.actual / cat.auth) * 100 : 100;
+              return (
+                <div key={i} className="bg-black/20 p-3 rounded-xl border border-white/5">
+                  <p className="text-[9px] font-black text-gray-500 uppercase mb-2">{cat.label}</p>
+                  <div className="flex justify-between items-end mb-1">
+                    <span className="text-lg font-black text-white monospace-tech">{cat.actual}<span className="text-gray-600 text-xs ml-1">/ {cat.auth}</span></span>
+                    <span className={`text-[10px] font-bold ${gap < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {gap > 0 ? `+${gap}` : gap === 0 ? 'OK' : gap}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-1000 ${pct >= 100 ? 'bg-green-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(100, pct)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Specialties Gap Analysis */}
+          <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/5">
+            <h5 className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-3">Resumen de Especialidades (MOCE) Requeridas</h5>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ...(unit.toe.specialties?.officers || []),
+                ...(unit.toe.specialties?.ncos || []),
+                ...(unit.toe.specialties?.professionalSoldiers || []),
+                ...(unit.toe.specialties?.regularSoldiers || [])
+              ].slice(0, 8).map((spec, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded border border-white/5">
+                  <span className="text-[9px] font-black text-blue-400 monospace-tech">{spec.code}</span>
+                  <span className="text-[9px] font-medium text-gray-400 truncate max-w-[100px]">{spec.name}</span>
+                  <span className="text-[9px] font-bold text-gray-500 ml-1">x{spec.quantity}</span>
+                </div>
+              ))}
+              {(([
+                ...(unit.toe.specialties?.officers || []),
+                ...(unit.toe.specialties?.ncos || []),
+                ...(unit.toe.specialties?.professionalSoldiers || []),
+                ...(unit.toe.specialties?.regularSoldiers || [])
+              ].length > 8)) && (
+                <span className="text-[9px] font-bold text-gray-600 mt-1">... y más</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SIOCH Personnel Section */}
       <div className="glass-effect p-4 rounded-2xl border border-white/5">

@@ -185,8 +185,7 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
                 </div>
 
                 {/* Unit Details Tree */}
-                <div>
-                    <h3 className="text-lg font-bold uppercase border-b border-gray-400 mb-4 pb-1">2. Estado de Fuerza por Niveles de Mando</h3>
+                <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse border border-gray-400">
                         <thead>
                             <tr className="bg-gray-800 text-white">
