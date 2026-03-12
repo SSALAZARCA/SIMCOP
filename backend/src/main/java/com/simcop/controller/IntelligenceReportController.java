@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/intel")
@@ -25,30 +26,20 @@ public class IntelligenceReportController {
     private com.simcop.service.VisibilityService visibilityService;
 
     @GetMapping
-    public List<IntelligenceReport> getAllReports(
-            @RequestHeader(value = "Authorization", required = false) String token) {
-        if (token == null)
-            return List.of();
-
-        com.simcop.model.User user = visibilityService.getUserFromToken(token);
-        if (user == null)
-            return List.of();
-
-        // Admin/Army Commander see all
-        if (user.getRole() == com.simcop.model.UserRole.ADMINISTRATOR ||
-                user.getRole() == com.simcop.model.UserRole.COMANDANTE_EJERCITO) {
-            return repository.findAll();
+    public List<IntelligenceReport> getAllReports(@RequestHeader(value = "Authorization", required = false) String token) {
+        if (token == null) {
+            return new ArrayList<>();
         }
 
-        // Optimized check: Filter by visible units first in DB
-        List<com.simcop.model.MilitaryUnit> visibleUnits = visibilityService.getVisibleUnits(user);
-        List<String> visibleUnitIds = visibleUnits.stream().map(u -> u.getId()).toList();
-        
-        String preloadedAo = visibilityService.getPreloadedAoForUser(user);
+        com.simcop.model.User user = visibilityService.getUserFromToken(token);
+        if (user == null) {
+            return new ArrayList<>();
+        }
 
-        return repository.findByReportingUnitIdIn(visibleUnitIds).stream()
-                .filter(r -> visibilityService.isLocationVisibleWithPreloadedAo(r.getLocation(), user, preloadedAo))
-                .toList();
+        logger.info("🔍 Filtrando reportes de inteligencia para usuario: {} (Rol: {})", user.getUsername(), user.getRole());
+        
+        List<IntelligenceReport> allReports = repository.findAll();
+        return visibilityService.getVisibleReports(user, allReports);
     }
 
     @PostMapping

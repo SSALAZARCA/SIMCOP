@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/units")
@@ -31,15 +32,23 @@ public class MilitaryUnitController {
     @GetMapping
     public List<MilitaryUnit> getAllUnits(@RequestHeader(value = "Authorization", required = false) String token) {
         if (token == null) {
-            // If no token (should be handled by security, but just in case), return empty
-            // or all?
-            // SecurityConfig requires auth for /api/** so this is just failsafe
-            return List.of();
+            logger.warn("⚠️ Intento de acceso a unidades sin token");
+            return new ArrayList<>();
         }
 
         com.simcop.model.User user = visibilityService.getUserFromToken(token);
         if (user == null) {
-            return List.of();
+            logger.error("❌ Usuario no encontrado para el token proporcionado");
+            return new ArrayList<>();
+        }
+
+        logger.info("🔍 Filtrando unidades para usuario: {} (Rol: {})", user.getUsername(), user.getRole());
+        
+        // Superadmin always sees everything
+        if (user.getRole() == com.simcop.model.UserRole.ADMINISTRATOR || 
+            user.getRole() == com.simcop.model.UserRole.COMANDANTE_EJERCITO) {
+            logger.info("✅ Acceso total concedido por rol administrativo");
+            return repository.findAll();
         }
 
         return visibilityService.getVisibleUnits(user);
@@ -53,7 +62,6 @@ public class MilitaryUnitController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'OFICIAL_INTELIGENCIA')")
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
         logger.info("📦 Iniciando creación de unidad: {} (ID: {})", unit.getName(), unit.getId());
         try {

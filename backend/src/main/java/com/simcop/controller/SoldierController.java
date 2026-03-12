@@ -21,9 +21,39 @@ public class SoldierController {
     @Autowired
     private SoldierService soldierService;
 
+    @Autowired
+    private com.simcop.service.VisibilityService visibilityService;
+
     @GetMapping
-    public List<Soldier> getAllSoldiers() {
-        return soldierService.getAllSoldiers();
+    public List<Soldier> getAllSoldiers(@RequestHeader(value = "Authorization", required = false) String token) {
+        if (token == null) return new java.util.ArrayList<>();
+        
+        com.simcop.model.User user = visibilityService.getUserFromToken(token);
+        if (user == null) return new java.util.ArrayList<>();
+
+        List<Soldier> allSoldiers = soldierService.getAllSoldiers();
+
+        // Superadmin and National View see everyone
+        if (user.getRole() == com.simcop.model.UserRole.ADMINISTRATOR || 
+            user.getRole() == com.simcop.model.UserRole.COMANDANTE_EJERCITO ||
+            (user.getPermissions() != null && (user.getPermissions().contains("NATIONAL_VIEW") || user.getPermissions().contains("VISTA_NACIONAL")))) {
+            return allSoldiers;
+        }
+
+        // Logic: Filter soldiers belonging to units they can see
+        List<com.simcop.model.MilitaryUnit> visibleUnits = visibilityService.getVisibleUnits(user);
+        java.util.Set<String> visibleUnitIds = new java.util.HashSet<>();
+        for (com.simcop.model.MilitaryUnit u : visibleUnits) {
+            visibleUnitIds.add(u.getId());
+        }
+
+        java.util.List<Soldier> visibleSoldiers = new java.util.ArrayList<>();
+        for (Soldier s : allSoldiers) {
+            if (s.getUnit() != null && visibleUnitIds.contains(s.getUnit().getId())) {
+                visibleSoldiers.add(s);
+            }
+        }
+        return visibleSoldiers;
     }
 
     @GetMapping("/{id}")

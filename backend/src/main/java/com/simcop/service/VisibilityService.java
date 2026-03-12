@@ -42,7 +42,7 @@ public class VisibilityService {
             return allUnits;
         }
 
-        if (user.getPermissions() != null && user.getPermissions().contains("NATIONAL_VIEW")) {
+        if (user.getPermissions() != null && (user.getPermissions().contains("NATIONAL_VIEW") || user.getPermissions().contains("VISTA_NACIONAL"))) {
             return allUnits;
         }
 
@@ -70,6 +70,35 @@ public class VisibilityService {
         collectDescendants(rootUnit, childrenMap, visibleUnits);
 
         return visibleUnits;
+    }
+
+    public List<com.simcop.model.IntelligenceReport> getVisibleReports(User user, List<com.simcop.model.IntelligenceReport> allReports) {
+        if (user.getRole() == UserRole.ADMINISTRATOR || user.getRole() == UserRole.COMANDANTE_EJERCITO) {
+            return allReports;
+        }
+
+        if (user.getPermissions() != null && (user.getPermissions().contains("NATIONAL_VIEW") || user.getPermissions().contains("VISTA_NACIONAL"))) {
+            return allReports;
+        }
+
+        if (user.getAssignedUnitId() == null) {
+            return new ArrayList<>();
+        }
+
+        // Logical filter: User sees reports from their unit and subordinates
+        List<MilitaryUnit> visibleUnits = getVisibleUnits(user);
+        Set<String> visibleUnitIds = new HashSet<>();
+        for (MilitaryUnit u : visibleUnits) {
+            visibleUnitIds.add(u.getId());
+        }
+
+        List<com.simcop.model.IntelligenceReport> visibleReports = new ArrayList<>();
+        for (com.simcop.model.IntelligenceReport r : allReports) {
+            if (r.getReportingUnitId() == null || visibleUnitIds.contains(r.getReportingUnitId())) {
+                visibleReports.add(r);
+            }
+        }
+        return visibleReports;
     }
 
     private void collectDescendants(MilitaryUnit current, Map<String, List<MilitaryUnit>> childrenMap,
