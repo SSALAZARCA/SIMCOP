@@ -264,7 +264,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
       // Capas de NASA GIBS y Open-Meteo Proxy
       const cloudsLayer = L.tileLayer(`${BACKEND_TILE_URL}/clouds/{z}/{x}/{y}`, {
-          attribution: 'Nubes/Satélite © NASA GIBS',
+          attribution: 'Meteorología/Satélite © RainViewer',
           opacity: 0.8,
           pane: 'weatherPane',
           maxZoom: 19
@@ -279,8 +279,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       });
 
       if (mapInstance && mapRef.current === mapInstance && mapInstance.getPane('weatherPane') && layerControlRef.current) {
-        layerControlRef.current.addOverlay(cloudsLayer, "☁️ Capa de Nubes (NASA)");
-        layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar Detallado");
+        layerControlRef.current.addOverlay(cloudsLayer, "☁️ Satélite / Nubes");
+        layerControlRef.current.addOverlay(precipitationLayer, "🌧️ Radar (Lluvia)");
       }
 
 

@@ -87,18 +87,21 @@ public class WeatherService {
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
         // Usar NASA GIBS para nubes/satélite (Capa profesional y gratuita)
         if ("clouds".equalsIgnoreCase(layer)) {
-            // Layer: MODIS_Terra_CorrectedReflectance_TrueColor (Satélite + Nubes en tiempo real)
-            // MatrixSet: GoogleMapsCompatible_Level9 (Optimo para Leaflet/EPSG:3857)
-            String url = String.format(java.util.Locale.US, "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/%d/%d/%d.jpg", z, y, x);
-            try {
-                byte[] image = restTemplate.getForObject(url, byte[].class);
-                if (image != null) {
-                    return ResponseEntity.ok()
-                            .header("Content-Type", "image/jpeg")
-                            .header("Cache-Control", "public, max-age=3600")
-                            .body(image);
-                }
-            } catch (Exception e) {}
+            // Revertir a RainViewer Satellite (Satélite infrarrojo/nubes - Transparente y fiable)
+            String radarPath = getRadarPath();
+            if (radarPath != null) {
+                // RainViewer satellite tiles: /v2/satellite/{path}/512/{z}/{x}/{y}/0/1_1.png
+                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com/v2/satellite/%s/512/%d/%d/%d/0/1_1.png", radarPath, z, x, y);
+                try {
+                    byte[] image = restTemplate.getForObject(url, byte[].class);
+                    if (image != null) {
+                        return ResponseEntity.ok()
+                                .header("Content-Type", "image/png")
+                                .header("Cache-Control", "public, max-age=3600")
+                                .body(image);
+                    }
+                } catch (Exception e) {}
+            }
         }
 
         // Usar RainViewer para la capa de precipitación (radar)

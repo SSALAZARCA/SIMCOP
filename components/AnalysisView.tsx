@@ -330,6 +330,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     const onAoiFinished = (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
       setFinalizedAoiGeoJson(geoJson);
       setAoiError(null);
+      // Notificar al mapa que debe dibujar el polígono permanente inmediatamente
+      eventBus.publish('finalizeAoiLayer', geoJson);
     };
 
     const onDeactivateAoiMode = () => {
