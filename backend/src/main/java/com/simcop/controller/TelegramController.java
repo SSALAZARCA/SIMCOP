@@ -9,7 +9,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/telegram")
-@CrossOrigin(origins = "*")
 public class TelegramController {
 
     @Autowired

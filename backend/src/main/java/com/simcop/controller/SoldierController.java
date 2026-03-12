@@ -10,8 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/soldiers")
-@CrossOrigin(origins = "*", allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
-        RequestMethod.DELETE })
 public class SoldierController {
 
     @Autowired

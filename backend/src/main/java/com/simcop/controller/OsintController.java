@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/osint")
-@CrossOrigin(origins = "*")
 public class OsintController {
 
     @Autowired

@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/uav")
-@CrossOrigin(origins = "*")
 public class UAVController {
 
     @Autowired

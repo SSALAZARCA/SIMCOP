@@ -17,17 +17,16 @@ public class WebConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        // Use patterns to be more flexible and handle ports/subdomains
-        config.setAllowedOriginPatterns(Arrays.asList(
+        config.setAllowedOrigins(Arrays.asList(
                 "https://simcop.site",
-                "http://simcop.site",
-                "https://*.simcop.site",
-                "http://*.simcop.site",
-                "http://localhost:*",
-                "http://127.0.0.1:*"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
-                "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+                "https://api.simcop.site",
+                "http://localhost:5173",
+                "http://localhost:3000"
+        ));
+        config.setAllowedOriginPatterns(Arrays.asList("*")); // Fallback matching
+        config.setAllowedHeaders(Arrays.asList("*")); // Permitir todas las cabeceras para evitar bloqueos por cabeceras personalizadas
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setExposedHeaders(Arrays.asList("Authorization"));
         config.setMaxAge(3600L);
         source.registerCorsConfiguration("/**", config);
 

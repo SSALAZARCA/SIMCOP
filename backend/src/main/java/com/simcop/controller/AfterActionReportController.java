@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/aar")
-@CrossOrigin(origins = "*")
 public class AfterActionReportController {
 
     @Autowired

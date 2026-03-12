@@ -44,13 +44,13 @@ public class SecurityConfig {
                         }
                 ))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/users/login").permitAll()
                         .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/api/weather/**").permitAll()
                         .requestMatchers("/api/config/**").permitAll()
                         .requestMatchers("/api/bma/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -62,20 +62,18 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        // Explicitly allow important origins for HTTPS and development
-        config.setAllowedOriginPatterns(Arrays.asList(
+        config.setAllowedOrigins(Arrays.asList(
                 "https://simcop.site",
-                "http://simcop.site",
-                "https://*.simcop.site",
-                "http://*.simcop.site",
-                "http://localhost:*",
-                "http://127.0.0.1:*"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
-                "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+                "https://api.simcop.site",
+                "http://localhost:5173",
+                "http://localhost:3000"
+        ));
+        config.setAllowedOriginPatterns(Arrays.asList("*"));
+        config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        // Preflight cache
+        config.setExposedHeaders(Arrays.asList("Authorization"));
         config.setMaxAge(3600L);
-
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

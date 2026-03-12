@@ -10,8 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/specialty-catalog")
-@CrossOrigin(origins = "http://localhost:3000", allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST,
-        RequestMethod.PUT, RequestMethod.DELETE })
 public class SpecialtyCatalogController {
 
     @Autowired

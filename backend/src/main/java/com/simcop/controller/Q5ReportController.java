@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/q5")
-@CrossOrigin(origins = "*")
 public class Q5ReportController {
 
     @Autowired
