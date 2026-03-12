@@ -1476,6 +1476,53 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     map.on('draw:created', handleDrawCreated as any);
 
 
+    let isDrawingAoi = false;
+    let aoiPointsList: L.LatLng[] = [];
+    let tempPolyline: L.Polyline | null = null;
+
+    const onMouseDown = (e: L.LeafletMouseEvent) => {
+      isDrawingAoi = true;
+      aoiPointsList = [e.latlng];
+      tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
+      map.dragging.disable();
+    };
+
+    const onMouseMove = (e: L.LeafletMouseEvent) => {
+      if (!isDrawingAoi || !tempPolyline) return;
+      aoiPointsList.push(e.latlng);
+      tempPolyline.setLatLngs(aoiPointsList);
+    };
+
+    const onMouseUp = () => {
+      if (!isDrawingAoi) return;
+      isDrawingAoi = false;
+      map.dragging.enable();
+
+      if (aoiPointsList.length > 2) {
+        const closedPoints = [...aoiPointsList, aoiPointsList[0]];
+        const polygon = L.polygon(closedPoints, { 
+          color: 'cyan', 
+          fillColor: '#0ff', 
+          fillOpacity: 0.2, 
+          weight: 2, 
+          dashArray: '5, 5' 
+        });
+        
+        aoiLayerRef.current.clearLayers();
+        polygon.addTo(aoiLayerRef.current);
+
+        const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
+        eventBus.publish('aoiDrawingFinished', geojson);
+      }
+      
+      if (tempPolyline) {
+        map.removeLayer(tempPolyline);
+        tempPolyline = null;
+      }
+      
+      eventBus.publish('deactivateAoiDrawingMode');
+    };
+
     if (piccDrawingConfig && activeTemplateContext || aoiDrawingModeActive) {
       if (typeof L === 'undefined' || !(L as any).Draw || !((L as any).Draw).Polyline || !((L as any).Draw).Polygon || !((L as any).Draw).Marker) {
         console.error("Leaflet.Draw components are not available. Cannot activate drawing tool.");
@@ -1488,57 +1535,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         activeDrawControlRef.current = null;
       }
 
-      let isDrawingAoi = false;
-      let aoiPointsList: L.LatLng[] = [];
-      let tempPolyline: L.Polyline | null = null;
-
-      const onMouseDown = (e: L.LeafletMouseEvent) => {
-        isDrawingAoi = true;
-        aoiPointsList = [e.latlng];
-        tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
-        map.dragging.disable();
-      };
-
-      const onMouseMove = (e: L.LeafletMouseEvent) => {
-        if (!isDrawingAoi || !tempPolyline) return;
-        aoiPointsList.push(e.latlng);
-        tempPolyline.setLatLngs(aoiPointsList);
-      };
-
-      const onMouseUp = () => {
-        if (!isDrawingAoi) return;
-        isDrawingAoi = false;
-        map.dragging.enable();
-
-        if (aoiPointsList.length > 2) {
-          const closedPoints = [...aoiPointsList, aoiPointsList[0]];
-          const polygon = L.polygon(closedPoints, { 
-            color: 'cyan', 
-            fillColor: '#0ff', 
-            fillOpacity: 0.2, 
-            weight: 2, 
-            dashArray: '5, 5' 
-          });
-          
-          aoiLayerRef.current.clearLayers();
-          polygon.addTo(aoiLayerRef.current);
-
-          const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
-          eventBus.publish('aoiDrawingFinished', geojson);
-        }
-        
-        if (tempPolyline) {
-          map.removeLayer(tempPolyline);
-          tempPolyline = null;
-        }
-        
-        eventBus.publish('deactivateAoiDrawingMode');
-      };
-
       if (aoiDrawingModeActive) {
         map.getContainer().style.cursor = 'crosshair';
         
-        // Habilitar Leaflet.Draw también para polígonos precisos si el usuario prefiere clics
         const aoiPolygonTool = new ((L as any).Draw).Polygon(map, {
           shapeOptions: {
             color: 'cyan',
@@ -1554,7 +1553,6 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         map.on('mousedown', onMouseDown);
         map.on('mousemove', onMouseMove);
         map.on('mouseup', onMouseUp);
-
       } else if (piccDrawingConfig && activeTemplateContext) {
         (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
         (aoiLayerRef.current as L.FeatureGroup).clearLayers();
