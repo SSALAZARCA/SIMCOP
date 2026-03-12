@@ -70,7 +70,7 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
             <h1 className="text-xl font-bold tracking-tight hidden sm:block">
               SIM<span className="text-blue-500">COP</span>
             </h1>
-            <span className="text-[9px] font-black text-blue-500/60 tracking-widest leading-none hidden sm:block uppercase">Ver 2.0.9</span>
+            <span className="text-[9px] font-black text-blue-500/60 tracking-widest leading-none hidden sm:block uppercase">Ver 3.0.0</span>
           </div>
         </div>
       </div>
