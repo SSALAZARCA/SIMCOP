@@ -3,7 +3,7 @@ import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 
 interface LoginViewComponentProps {
-  onLogin: (role: any) => void;
+  onLogin: (user: any) => void;
 }
 
 export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin }) => {
@@ -16,7 +16,11 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
     setIsLoading(true);
     // Simulación de login
     setTimeout(() => {
-      onLogin('ADMIN');
+      onLogin({ 
+        id: 'user-' + Math.random().toString(36).substr(2, 9), 
+        username: username || 'Operador Táctico', 
+        role: 'ADMINISTRATOR' 
+      });
       setIsLoading(false);
     }, 1500);
   };
