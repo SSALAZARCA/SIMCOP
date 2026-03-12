@@ -316,6 +316,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
 
     setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi });
     setAoiError(null);
+    // Ahora sí, asignar formalmente al mapa
     eventBus.publish('finalizeAoiLayer', polygonGeoJson);
   };
 
@@ -333,8 +334,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     const onAoiFinished = async (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
       setFinalizedAoiGeoJson(geoJson);
       setAoiError(null);
-      // Notificar al mapa que debe dibujar el polígono permanente inmediatamente
-      eventBus.publish('finalizeAoiLayer', geoJson);
+      // NO publicar finalizeAoiLayer aquí, esperar a que el usuario presione "Aprobar"
 
       // Obtener el sector geográfico automáticamente
       if (geoJson.geometry.coordinates[0].length > 0) {
