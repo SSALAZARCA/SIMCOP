@@ -185,7 +185,7 @@ export const LoginViewComponent: React.FC<LoginViewProps> = ({ onLoginSuccess, l
 
           <div className="flex justify-between items-center pt-8 border-t border-white/5">
             <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">
-              SISTEMA: SIMCOP_PRO_V3.0.0
+              SISTEMA: SIMCOP_PRO_V3.0.1
             </p>
             <p className="text-[8px] font-black text-blue-900/60 uppercase tracking-widest">
               Mil-Tech Industries
@@ -207,7 +207,7 @@ export const LoginViewComponent: React.FC<LoginViewProps> = ({ onLoginSuccess, l
       {/* Marcador de Versión en Esquina */}
       <div className="absolute bottom-4 left-4 z-40">
         <div className="px-2 py-1 bg-blue-950/40 backdrop-blur-md border border-blue-500/30 rounded text-[9px] font-black text-blue-400 tracking-tighter">
-          BUILD: V3.0.0_TACTICAL_GEOCODING
+          BUILD: V3.0.1_TACTICAL_GEOCODING
         </div>
       </div>
 
