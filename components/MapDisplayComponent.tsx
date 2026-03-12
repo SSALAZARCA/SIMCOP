@@ -1476,80 +1476,85 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     map.on('draw:created', handleDrawCreated as any);
 
 
-    if ((piccDrawingConfig && activeTemplateContext) || (aoiDrawingModeActive && aoDrawingUnitId)) {
+    if (piccDrawingConfig && activeTemplateContext || aoiDrawingModeActive) {
       if (typeof L === 'undefined' || !(L as any).Draw || !((L as any).Draw).Polyline || !((L as any).Draw).Polygon || !((L as any).Draw).Marker) {
         console.error("Leaflet.Draw components are not available. Cannot activate drawing tool.");
         if (onPiccDrawingCompleteRef.current) onPiccDrawingCompleteRef.current();
         return;
       }
 
-      map.getContainer().style.cursor = 'crosshair';
       if (activeDrawControlRef.current) {
         map.removeControl(activeDrawControlRef.current);
         activeDrawControlRef.current = null;
       }
 
+      let isDrawingAoi = false;
+      let aoiPointsList: L.LatLng[] = [];
+      let tempPolyline: L.Polyline | null = null;
+
+      const onMouseDown = (e: L.LeafletMouseEvent) => {
+        isDrawingAoi = true;
+        aoiPointsList = [e.latlng];
+        tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
+        map.dragging.disable();
+      };
+
+      const onMouseMove = (e: L.LeafletMouseEvent) => {
+        if (!isDrawingAoi || !tempPolyline) return;
+        aoiPointsList.push(e.latlng);
+        tempPolyline.setLatLngs(aoiPointsList);
+      };
+
+      const onMouseUp = () => {
+        if (!isDrawingAoi) return;
+        isDrawingAoi = false;
+        map.dragging.enable();
+
+        if (aoiPointsList.length > 2) {
+          const closedPoints = [...aoiPointsList, aoiPointsList[0]];
+          const polygon = L.polygon(closedPoints, { 
+            color: 'cyan', 
+            fillColor: '#0ff', 
+            fillOpacity: 0.2, 
+            weight: 2, 
+            dashArray: '5, 5' 
+          });
+          
+          aoiLayerRef.current.clearLayers();
+          polygon.addTo(aoiLayerRef.current);
+
+          const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
+          eventBus.publish('aoiDrawingFinished', geojson);
+        }
+        
+        if (tempPolyline) {
+          map.removeLayer(tempPolyline);
+          tempPolyline = null;
+        }
+        
+        eventBus.publish('deactivateAoiDrawingMode');
+      };
+
       if (aoiDrawingModeActive) {
-        let isDrawingAoi = false;
-        let aoiPointsList: L.LatLng[] = [];
-        let tempPolyline: L.Polyline | null = null;
-
-        const onMouseDown = (e: L.LeafletMouseEvent) => {
-          isDrawingAoi = true;
-          aoiPointsList = [e.latlng];
-          tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
-          map.dragging.disable();
-        };
-
-        const onMouseMove = (e: L.LeafletMouseEvent) => {
-          if (!isDrawingAoi || !tempPolyline) return;
-          aoiPointsList.push(e.latlng);
-          tempPolyline.setLatLngs(aoiPointsList);
-        };
-
-        const onMouseUp = () => {
-          if (!isDrawingAoi) return;
-          isDrawingAoi = false;
-          map.dragging.enable();
-
-          if (aoiPointsList.length > 2) {
-            // Asegurar que el polígono esté cerrado agregando el primer punto al final
-            const closedPoints = [...aoiPointsList, aoiPointsList[0]];
-            const polygon = L.polygon(closedPoints, { 
-              color: 'cyan', 
-              fillColor: '#0ff', 
-              fillOpacity: 0.2, 
-              weight: 2, 
-              dashArray: '5, 5' 
-            });
-            
-            // Dibujar inmediatamente de forma local para evitar el parpadeo de "desaparición"
-            aoiLayerRef.current.clearLayers();
-            polygon.addTo(aoiLayerRef.current);
-
-            const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
-            eventBus.publish('aoiDrawingFinished', geojson);
+        map.getContainer().style.cursor = 'crosshair';
+        
+        // Habilitar Leaflet.Draw también para polígonos precisos si el usuario prefiere clics
+        const aoiPolygonTool = new ((L as any).Draw).Polygon(map, {
+          shapeOptions: {
+            color: 'cyan',
+            fillColor: '#0ff',
+            fillOpacity: 0.2,
+            weight: 2,
+            dashArray: '5, 5'
           }
-          
-          if (tempPolyline) {
-            map.removeLayer(tempPolyline);
-            tempPolyline = null;
-          }
-          
-          eventBus.publish('deactivateAoiDrawingMode');
-        };
+        });
+        currentPICCDrawingToolRef.current = aoiPolygonTool;
+        aoiPolygonTool.enable();
 
         map.on('mousedown', onMouseDown);
         map.on('mousemove', onMouseMove);
         map.on('mouseup', onMouseUp);
 
-        return () => {
-          map.off('mousedown', onMouseDown);
-          map.off('mousemove', onMouseMove);
-          map.off('mouseup', onMouseUp);
-          if (tempPolyline) map.removeLayer(tempPolyline);
-          map.dragging.enable();
-        };
       } else if (piccDrawingConfig && activeTemplateContext) {
         (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
         (aoiLayerRef.current as L.FeatureGroup).clearLayers();
@@ -1589,22 +1594,22 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         currentPICCDrawingToolRef.current = leafletDrawTool;
         currentPICCDrawingToolRef.current?.enable();
       }
-    } else {
-      if (currentPICCDrawingToolRef.current) { 
-        currentPICCDrawingToolRef.current.disable(); 
-        currentPICCDrawingToolRef.current = null; 
-      }
-      if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = '';
+      if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !isTargetSelectionActive && !elevationProfileActive && !isCoordinatePickingActive) map.getContainer().style.cursor = '';
     }
 
     return () => {
       map.off('draw:created', handleDrawCreated as any);
+      map.off('mousedown', onMouseDown);
+      map.off('mousemove', onMouseMove);
+      map.off('mouseup', onMouseUp);
       if (currentPICCDrawingToolRef.current) {
         currentPICCDrawingToolRef.current.disable();
         currentPICCDrawingToolRef.current = null;
       }
+      if (tempPolyline) map.removeLayer(tempPolyline);
+      map.dragging.enable();
     };
-  }, [piccDrawingConfig, activeTemplateContext, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive]);
+  }, [piccDrawingConfig, activeTemplateContext, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive, isCoordinatePickingActive]);
 
 
   useEffect(() => {
