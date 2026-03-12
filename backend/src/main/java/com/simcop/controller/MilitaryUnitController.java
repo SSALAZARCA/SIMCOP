@@ -8,13 +8,19 @@ import com.simcop.repository.MilitaryUnitRepository;
 import com.simcop.dto.SpotReportDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/units")
+@Transactional
 public class MilitaryUnitController {
+
+    private static final Logger logger = LoggerFactory.getLogger(MilitaryUnitController.class);
 
     @Autowired
     private MilitaryUnitRepository repository;
@@ -49,55 +55,74 @@ public class MilitaryUnitController {
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'OFICIAL_INTELIGENCIA')")
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
-        return repository.save(unit);
+        logger.info("📦 Iniciando creación de unidad: {} (ID: {})", unit.getName(), unit.getId());
+        try {
+            MilitaryUnit saved = repository.save(unit);
+            logger.info("✅ Unidad guardada exitosamente: {} (UUID: {})", saved.getName(), saved.getId());
+            return saved;
+        } catch (Exception e) {
+            logger.error("❌ Error persistiendo unidad {}: {}", unit.getName(), e.getMessage());
+            throw e;
+        }
     }
 
     @PutMapping("/{id}")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_BRIGADA', 'COMANDANTE_DIVISION', 'COMANDANTE_EJERCITO')")
     public ResponseEntity<MilitaryUnit> updateUnit(@PathVariable String id, @RequestBody MilitaryUnit unitDetails) {
+        logger.info("🔄 Solicitud de actualización para unidad ID: {}", id);
         return repository.findById(id)
                 .map(unit -> {
-                    if (unitDetails.getName() != null) unit.setName(unitDetails.getName());
-                    unit.setType(unitDetails.getType());
-                    if (unitDetails.getCommander() != null) unit.setCommander(unitDetails.getCommander());
-                    unit.setPersonnelBreakdown(unitDetails.getPersonnelBreakdown());
-                    unit.setLocation(unitDetails.getLocation());
-                    unit.setStatus(unitDetails.getStatus());
-                    unit.setParentId(unitDetails.getParentId());
-                    unit.setRetrainingFocus(unitDetails.getRetrainingFocus());
-                    unit.setRetrainingDurationDays(unitDetails.getRetrainingDurationDays());
-                    unit.setCurrentMission(unitDetails.getCurrentMission());
-                    unit.setUnitSituationType(unitDetails.getUnitSituationType());
+                    try {
+                        if (unitDetails.getName() != null) unit.setName(unitDetails.getName());
+                        unit.setType(unitDetails.getType());
+                        if (unitDetails.getCommander() != null) unit.setCommander(unitDetails.getCommander());
+                        unit.setPersonnelBreakdown(unitDetails.getPersonnelBreakdown());
+                        unit.setLocation(unitDetails.getLocation());
+                        unit.setStatus(unitDetails.getStatus());
+                        unit.setParentId(unitDetails.getParentId());
+                        unit.setRetrainingFocus(unitDetails.getRetrainingFocus());
+                        unit.setRetrainingDurationDays(unitDetails.getRetrainingDurationDays());
+                        unit.setCurrentMission(unitDetails.getCurrentMission());
+                        unit.setUnitSituationType(unitDetails.getUnitSituationType());
 
-                    // Fields for Reports & Logistics
-                    unit.setLastHourlyReportTimestamp(unitDetails.getLastHourlyReportTimestamp());
-                    unit.setLastCommunicationTimestamp(unitDetails.getLastCommunicationTimestamp());
-                    unit.setLastMovementTimestamp(unitDetails.getLastMovementTimestamp());
-                    unit.setLastResupplyDate(unitDetails.getLastResupplyDate());
-                    unit.setDaysOfSupply(unitDetails.getDaysOfSupply());
-                    unit.setFuelLevel(unitDetails.getFuelLevel());
-                    unit.setAmmoLevel(unitDetails.getAmmoLevel());
+                        // Fields for Reports & Logistics
+                        unit.setLastHourlyReportTimestamp(unitDetails.getLastHourlyReportTimestamp());
+                        unit.setLastCommunicationTimestamp(unitDetails.getLastCommunicationTimestamp());
+                        unit.setLastMovementTimestamp(unitDetails.getLastMovementTimestamp());
+                        unit.setLastResupplyDate(unitDetails.getLastResupplyDate());
+                        unit.setDaysOfSupply(unitDetails.getDaysOfSupply());
+                        unit.setFuelLevel(unitDetails.getFuelLevel());
+                        unit.setAmmoLevel(unitDetails.getAmmoLevel());
 
-                    // Fields for Combat
-                    unit.setCombatEndTimestamp(unitDetails.getCombatEndTimestamp());
-                    unit.setCombatEndLocation(unitDetails.getCombatEndLocation());
+                        // Fields for Combat
+                        unit.setCombatEndTimestamp(unitDetails.getCombatEndTimestamp());
+                        unit.setCombatEndLocation(unitDetails.getCombatEndLocation());
 
-                    // Fields for Retraining/Leave
-                    unit.setLeaveStartDate(unitDetails.getLeaveStartDate());
-                    unit.setLeaveDurationDays(unitDetails.getLeaveDurationDays());
-                    unit.setRetrainingStartDate(unitDetails.getRetrainingStartDate());
-                    unit.setToe(unitDetails.getToe());
-                    unit.setAreaOfOperations(unitDetails.getAreaOfOperations());
+                        // Fields for Retraining/Leave
+                        unit.setLeaveStartDate(unitDetails.getLeaveStartDate());
+                        unit.setLeaveDurationDays(unitDetails.getLeaveDurationDays());
+                        unit.setRetrainingStartDate(unitDetails.getRetrainingStartDate());
+                        unit.setToe(unitDetails.getToe());
+                        unit.setAreaOfOperations(unitDetails.getAreaOfOperations());
 
-                    // Fields for Route
-                    if (unitDetails.getRouteHistory() != null) {
-                        unit.getRouteHistory().clear();
-                        unit.getRouteHistory().addAll(unitDetails.getRouteHistory());
+                        // Fields for Route
+                        if (unitDetails.getRouteHistory() != null) {
+                            unit.getRouteHistory().clear();
+                            unit.getRouteHistory().addAll(unitDetails.getRouteHistory());
+                        }
+
+                        MilitaryUnit updated = repository.save(unit);
+                        logger.info("✅ Unidad ID: {} actualizada y persistida correctamente.", id);
+                        return ResponseEntity.ok(updated);
+                    } catch (Exception e) {
+                        logger.error("❌ Fallo crítico al actualizar unidad ID {}: {}", id, e.getMessage());
+                        throw e;
                     }
-
-                    return ResponseEntity.ok(repository.save(unit));
                 })
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> {
+                    logger.warn("⚠️ Intento de actualización de unidad inexistente ID: {}", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     @DeleteMapping("/{id}")

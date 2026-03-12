@@ -7,11 +7,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.io.File;
 import java.util.ArrayList;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -21,6 +25,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        ensureDataDirectoryExists();
         System.out.println("Checking and initializing security data...");
 
         // Ensure default admin exists
@@ -57,6 +62,18 @@ public class DataInitializer implements CommandLineRunner {
             ss.setPermissions(new java.util.ArrayList<>());
             userRepository.save(ss);
             System.out.println("SuperAdmin santiago.salazar created with tactical access credentials.");
+        }
+    }
+
+    private void ensureDataDirectoryExists() {
+        File dataDir = new File("./data");
+        if (!dataDir.exists()) {
+            logger.info("📁 Creando directorio de persistencia /data...");
+            if (dataDir.mkdirs()) {
+                logger.info("✅ Directorio /data creado exitosamente.");
+            } else {
+                logger.error("❌ No se pudo crear el directorio /data. La persistencia podría fallar.");
+            }
         }
     }
 }

@@ -112,6 +112,11 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
   const currentPICCDrawingToolRef = useRef<any | null>(null);
   const lastPannedIdRef = useRef<string | null>(null);
 
+  // AO Drawing Refs (Refactor for robust Pencil mode)
+  const isDrawingAoiRef = useRef<boolean>(false);
+  const aoiPointsListRef = useRef<L.LatLng[]>([]);
+  const tempPolylineRef = useRef<L.Polyline | null>(null);
+
   // Top-level refs for callbacks to avoid re-triggering effects or violating Hook rules
   const onAoFinishDrawingRef = useRef(onAoFinishDrawing);
   const onPiccDrawingCompleteRef = useRef(onPiccDrawingComplete);
@@ -1476,30 +1481,34 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     map.on('draw:created', handleDrawCreated as any);
 
 
-    let isDrawingAoi = false;
-    let aoiPointsList: L.LatLng[] = [];
-    let tempPolyline: L.Polyline | null = null;
-
     const onMouseDown = (e: L.LeafletMouseEvent) => {
-      isDrawingAoi = true;
-      aoiPointsList = [e.latlng];
-      tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
+      if (!aoiDrawingModeActive) return;
+      console.log("✏️ Pencil: Start drawing AO");
+      isDrawingAoiRef.current = true;
+      aoiPointsListRef.current = [e.latlng];
+      
+      if (tempPolylineRef.current) {
+        map.removeLayer(tempPolylineRef.current);
+      }
+      
+      tempPolylineRef.current = L.polyline(aoiPointsListRef.current, { color: 'cyan', weight: 4, dashArray: '5, 5' }).addTo(map);
       map.dragging.disable();
     };
 
     const onMouseMove = (e: L.LeafletMouseEvent) => {
-      if (!isDrawingAoi || !tempPolyline) return;
-      aoiPointsList.push(e.latlng);
-      tempPolyline.setLatLngs(aoiPointsList);
+      if (!isDrawingAoiRef.current || !tempPolylineRef.current) return;
+      aoiPointsListRef.current.push(e.latlng);
+      tempPolylineRef.current.setLatLngs(aoiPointsListRef.current);
     };
 
     const onMouseUp = () => {
-      if (!isDrawingAoi) return;
-      isDrawingAoi = false;
+      if (!isDrawingAoiRef.current) return;
+      console.log("✏️ Pencil: End drawing AO. Points:", aoiPointsListRef.current.length);
+      isDrawingAoiRef.current = false;
       map.dragging.enable();
 
-      if (aoiPointsList.length > 2) {
-        const closedPoints = [...aoiPointsList, aoiPointsList[0]];
+      if (aoiPointsListRef.current.length > 2) {
+        const closedPoints = [...aoiPointsListRef.current, aoiPointsListRef.current[0]];
         const polygon = L.polygon(closedPoints, { 
           color: 'cyan', 
           fillColor: '#0ff', 
@@ -1515,9 +1524,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         eventBus.publish('aoiDrawingFinished', geojson);
       }
       
-      if (tempPolyline) {
-        map.removeLayer(tempPolyline);
-        tempPolyline = null;
+      if (tempPolylineRef.current) {
+        map.removeLayer(tempPolylineRef.current);
+        tempPolylineRef.current = null;
       }
       
       eventBus.publish('deactivateAoiDrawingMode');
@@ -1600,11 +1609,10 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       map.off('mousedown', onMouseDown);
       map.off('mousemove', onMouseMove);
       map.off('mouseup', onMouseUp);
-      if (currentPICCDrawingToolRef.current) {
-        currentPICCDrawingToolRef.current.disable();
-        currentPICCDrawingToolRef.current = null;
+      if (tempPolylineRef.current) {
+        map.removeLayer(tempPolylineRef.current);
+        tempPolylineRef.current = null;
       }
-      if (tempPolyline) map.removeLayer(tempPolyline);
       map.dragging.enable();
     };
   }, [piccDrawingConfig, activeTemplateContext, distanceToolActive, aoiDrawingModeActive, aoDrawingUnitId, enemyInfluenceLayerActive, isTargetSelectionActive, elevationProfileActive, isCoordinatePickingActive]);

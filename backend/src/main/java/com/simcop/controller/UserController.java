@@ -4,6 +4,9 @@ import com.simcop.model.User;
 import com.simcop.repository.UserRepository;
 import com.simcop.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,7 +14,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
+@Transactional
 public class UserController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserRepository repository;
@@ -50,18 +56,22 @@ public class UserController {
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<User> createUser(@RequestBody User user) {
+        logger.info("👤 Iniciando creación de usuario: {}", user.getUsername());
         try {
             // Encode the password before saving
             user.setHashedPassword(passwordEncoder.encode(user.getHashedPassword()));
             User savedUser = repository.save(user);
+            logger.info("✅ Usuario {} guardado exitosamente.", savedUser.getUsername());
             return ResponseEntity.ok(savedUser);
         } catch (Exception e) {
+            logger.error("❌ Error al crear usuario {}: {}", user.getUsername(), e.getMessage());
             return ResponseEntity.status(500).build();
         }
     }
 
     @PostMapping("/login")
     public ResponseEntity<User> login(@RequestBody User loginRequest) {
+        logger.info("🔑 Intento de login para usuario: {}", loginRequest.getUsername());
         var userOpt = repository.findByUsername(loginRequest.getUsername());
         if (userOpt.isPresent()) {
             User u = userOpt.get();
@@ -69,8 +79,13 @@ public class UserController {
                 String role = u.getRole() != null ? u.getRole().name() : "USER";
                 String token = jwtUtil.generateToken(u.getUsername(), role);
                 u.setToken(token);
+                logger.info("✅ Login exitoso para: {}", u.getUsername());
                 return ResponseEntity.ok(u);
+            } else {
+                logger.warn("⚠️ Contraseña incorrecta para: {}", loginRequest.getUsername());
             }
+        } else {
+            logger.warn("⚠️ Usuario no encontrado: {}", loginRequest.getUsername());
         }
         return ResponseEntity.status(403).build();
     }

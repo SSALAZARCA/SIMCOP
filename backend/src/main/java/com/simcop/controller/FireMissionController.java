@@ -6,13 +6,19 @@ import com.simcop.service.FireMissionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/fire-missions")
+@Transactional
 public class FireMissionController {
+
+    private static final Logger logger = LoggerFactory.getLogger(FireMissionController.class);
 
     @Autowired
     private FireMissionService service;
@@ -24,8 +30,16 @@ public class FireMissionController {
 
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_PIEZA_ARTILLERIA', 'COMANDANTE_OBSERVADOR_ADELANTADO')")
-    public FireMission create(@RequestBody FireMission mission) {
-        return service.createMission(mission);
+    public ResponseEntity<FireMission> create(@RequestBody FireMission mission) {
+        try {
+            FireMission saved = service.createMission(mission);
+            logger.info("✅ Misión de fuego creada: ID={}, Artillería Asignada ID={}, Blanco={}", 
+                saved.getId(), saved.getAssignedArtilleryId(), saved.getTargetLocation());
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            logger.error("❌ Error creando misión de fuego: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{id}/status")
@@ -36,7 +50,9 @@ public class FireMissionController {
 
         try {
             FireMissionStatus status = FireMissionStatus.valueOf(statusStr);
-            return ResponseEntity.ok(service.updateStatus(id, status, reason));
+            FireMission updated = service.updateStatus(id, status, reason);
+            logger.info("✅ Estado de misión {} actualizado a {}: {}", id, status, reason);
+            return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }

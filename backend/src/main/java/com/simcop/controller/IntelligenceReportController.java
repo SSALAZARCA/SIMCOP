@@ -6,11 +6,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/intel")
+@Transactional
 public class IntelligenceReportController {
+
+    private static final Logger logger = LoggerFactory.getLogger(IntelligenceReportController.class);
 
     @Autowired
     private IntelligenceReportRepository repository;
@@ -65,8 +71,15 @@ public class IntelligenceReportController {
             // Requirement says "user of intel adequated so creation is assigned to a unit"
             // If user has no unit, we can't assign one.
         }
-
-        return ResponseEntity.ok(repository.save(report));
+        
+        try {
+            IntelligenceReport saved = repository.save(report);
+            logger.info("✅ Reporte de Inteligencia creado: ID={}, Título={}, Usuario={}", saved.getId(), saved.getTitle(), user.getUsername());
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            logger.error("❌ Error persistiendo reporte de inteligencia: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{id}/link/{otherId}")
@@ -87,8 +100,14 @@ public class IntelligenceReportController {
             reportB.getRelatedReportIds().add(id);
         }
 
-        repository.save(reportA);
-        repository.save(reportB);
+        try {
+            repository.save(reportA);
+            repository.save(reportB);
+            logger.info("✅ Reportes vinculados: {} <-> {}", id, otherId);
+        } catch (Exception e) {
+            logger.error("❌ Error vinculando reportes {} y {}: {}", id, otherId, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
         return ResponseEntity.ok().build();
     }
 
