@@ -29,7 +29,7 @@ public class WeatherController {
 
     @GetMapping("/radar-path")
     public java.util.Map<String, String> getRadarPath() {
-        String path = weatherService.getRadarPath();
+        String path = weatherService.getWeatherPath("radar");
         java.util.Map<String, String> res = new java.util.HashMap<>();
         res.put("path", path);
         return res;

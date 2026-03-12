@@ -1417,22 +1417,34 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         };
 
         const onMouseUp = () => {
-          if (!isDrawingAoi || !tempPolyline) return;
+          if (!isDrawingAoi) return;
           isDrawingAoi = false;
           map.dragging.enable();
 
           if (aoiPointsList.length > 2) {
-            const polygon = L.polygon(aoiPointsList);
+            // Asegurar que el polígono esté cerrado agregando el primer punto al final
+            const closedPoints = [...aoiPointsList, aoiPointsList[0]];
+            const polygon = L.polygon(closedPoints, { 
+              color: 'cyan', 
+              fillColor: '#0ff', 
+              fillOpacity: 0.2, 
+              weight: 2, 
+              dashArray: '5, 5' 
+            });
+            
+            // Dibujar inmediatamente de forma local para evitar el parpadeo de "desaparición"
+            aoiLayerRef.current.clearLayers();
+            polygon.addTo(aoiLayerRef.current);
+
             const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
             eventBus.publish('aoiDrawingFinished', geojson);
           }
           
           if (tempPolyline) {
             map.removeLayer(tempPolyline);
+            tempPolyline = null;
           }
           
-          // Deactivate mode after drawing ("y se cierra")
-          // We use eventBus to notify AnalysisView to set state to false
           eventBus.publish('deactivateAoiDrawingMode');
         };
 

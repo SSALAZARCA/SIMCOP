@@ -87,11 +87,11 @@ public class WeatherService {
     public ResponseEntity<byte[]> getWeatherTile(String layer, int z, int x, int y) {
         // Usar NASA GIBS para nubes/satélite (Capa profesional y gratuita)
         if ("clouds".equalsIgnoreCase(layer)) {
-            // Revertir a RainViewer Satellite (Satélite infrarrojo/nubes - Transparente y fiable)
-            String radarPath = getRadarPath();
-            if (radarPath != null) {
+            // Obtener path específico de satélite
+            String satellitePath = getWeatherPath("satellite");
+            if (satellitePath != null) {
                 // RainViewer satellite tiles: /v2/satellite/{path}/512/{z}/{x}/{y}/0/1_1.png
-                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com/v2/satellite/%s/512/%d/%d/%d/0/1_1.png", radarPath, z, x, y);
+                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com/v2/satellite/%s/512/%d/%d/%d/0/1_1.png", satellitePath, z, x, y);
                 try {
                     byte[] image = restTemplate.getForObject(url, byte[].class);
                     if (image != null) {
@@ -106,7 +106,7 @@ public class WeatherService {
 
         // Usar RainViewer para la capa de precipitación (radar)
         if ("precipitation".equalsIgnoreCase(layer)) {
-            String radarPath = getRadarPath();
+            String radarPath = getWeatherPath("radar");
             if (radarPath != null) {
                 // RainViewer tiles: /256/{z}/{x}/{y}/...
                 String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com%s/256/%d/%d/%d/1/1_1.png", radarPath, z, x, y);
@@ -126,21 +126,25 @@ public class WeatherService {
         return ResponseEntity.notFound().build(); 
     }
 
-    public String getRadarPath() {
+    public String getWeatherPath(String type) {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate
                     .getForObject("https://api.rainviewer.com/public/weather-maps.json", Map.class);
-            if (response != null && response.containsKey("radar")) {
+            if (response != null && response.containsKey(type)) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> radar = (Map<String, Object>) response.get("radar");
+                Map<String, Object> data = (Map<String, Object>) response.get(type);
+                String listKey = "satellite".equals(type) ? "infrared" : "past";
                 @SuppressWarnings("unchecked")
-                List<Map<String, Object>> past = (List<Map<String, Object>>) radar.get("past");
-                if (past != null && !past.isEmpty()) {
-                    return (String) past.get(past.size() - 1).get("path");
+                List<Map<String, Object>> list = (List<Map<String, Object>>) data.get(listKey);
+                if (list != null && !list.isEmpty()) {
+                    Object path = list.get(list.size() - 1).get("path");
+                    return path != null ? path.toString() : null;
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.err.println("Error fetching RainViewer paths: " + e.getMessage());
+        }
         return null;
     }
 }
