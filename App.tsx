@@ -26,6 +26,9 @@ import { SpotViewComponent } from './components/SpotViewComponent';
 import { ORDOPViewComponent } from './components/ORDOPViewComponent';
 import { LoginViewComponent } from './components/LoginViewComponent';
 import { UserManagementViewComponent } from './components/UserManagementViewComponent';
+import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
+import { Loader2 } from 'lucide-react';
+import { API_BASE_URL } from './utils/apiConfig';
 import { OrganizationStructureView } from './components/OrganizationStructureView';
 import { PlatoonCommanderView } from './components/platoon/PlatoonCommanderView';
 import { CompanyCommanderView } from './components/company/CompanyCommanderView';
@@ -156,6 +159,9 @@ const App: React.FC = () => {
   const [elevationProfileActive, setElevationProfileActive] = useState<boolean>(false);
   const [osintLayerActive, setOsintLayerActive] = useState<boolean>(false);
   const [aoDrawingUnitId, setAoDrawingUnitId] = useState<string | null>(null);
+  const [pendingAoiGeoJson, setPendingAoiGeoJson] = useState<any | null>(null);
+  const [aoiSector, setAoiSector] = useState<string | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -223,27 +229,60 @@ const App: React.FC = () => {
   }, [updateUnitAo]);
 
   useEffect(() => {
-    const handleAoiFinalized = (geoJsonPolygon: any) => {
-      if (aoDrawingUnitId === 'NEW_UNIT_DRAFT') {
-        eventBus.publish('newUnitAoFinalized', JSON.stringify(geoJsonPolygon));
-        setAoDrawingUnitId(null);
-        setAoiDrawingModeActive(false);
-        return;
-      }
-      if (aoDrawingUnitId) {
-        updateUnitAo(aoDrawingUnitId, JSON.stringify(geoJsonPolygon))
-          .then(res => {
-            if (res.success) {
-              setAoDrawingUnitId(null);
-              setAoiDrawingModeActive(false);
-            }
-          });
+    const handleAoiDrawingFinished = async (_msg: string, geoJson: any) => {
+      setPendingAoiGeoJson(geoJson);
+      setIsGeocoding(true);
+      setAoiSector(null);
+
+      // Perform geocoding to identify the sector
+      try {
+        if (geoJson?.geometry?.coordinates?.[0]?.length > 0) {
+          const center = geoJson.geometry.coordinates[0][0];
+          const resp = await fetch(`${API_BASE_URL}/api/weather/geocode?lat=${center[1]}&lon=${center[0]}`);
+          const data = await resp.json();
+          if (data.sector) setAoiSector(data.sector);
+          else setAoiSector("Sector Colombia");
+        }
+      } catch (e) {
+        console.warn("Geocoding failed", e);
+        setAoiSector("Sector Colombia");
+      } finally {
+        setIsGeocoding(false);
       }
     };
 
-    const token = eventBus.subscribe('finalizeAoiLayer', (_msg: string, data: any) => handleAoiFinalized(data));
-    return () => eventBus.unsubscribe(token);
-  }, [aoDrawingUnitId, updateUnitAo]);
+    const finishedToken = eventBus.subscribe('aoiDrawingFinished', handleAoiDrawingFinished);
+    return () => eventBus.unsubscribe(finishedToken);
+  }, []);
+
+  const handleApproveAo = useCallback(async () => {
+    if (!pendingAoiGeoJson || !aoDrawingUnitId) return;
+
+    const geoJsonStr = JSON.stringify(pendingAoiGeoJson);
+
+    if (aoDrawingUnitId === 'NEW_UNIT_DRAFT') {
+      eventBus.publish('newUnitAoFinalized', geoJsonStr);
+      setPendingAoiGeoJson(null);
+      setAoDrawingUnitId(null);
+      setAoiDrawingModeActive(false);
+      return;
+    }
+
+    try {
+      const result = await updateUnitAo(aoDrawingUnitId, geoJsonStr);
+      if (result.success) {
+        eventBus.publish('finalizeAoiLayer', pendingAoiGeoJson);
+        setPendingAoiGeoJson(null);
+        setAoDrawingUnitId(null);
+        setAoiDrawingModeActive(false);
+      } else {
+        alert("Error al guardar el AO: " + result.message);
+      }
+    } catch (error) {
+      console.error("Error approving AO:", error);
+      alert("Error inesperado al guardar el AO.");
+    }
+  }, [pendingAoiGeoJson, aoDrawingUnitId, updateUnitAo]);
 
   // Voice Command State
   const [isVoiceCommandActive, setIsVoiceCommandActive] = useState(false);
@@ -679,7 +718,7 @@ const App: React.FC = () => {
   };
 
   const analysisViewProps = {
-    units: operationalUnitsForMap, // Use the same filtered units for analysis context if needed
+    units: operationalUnitsForMap,
     intelligenceReports,
     distanceToolActive,
     setDistanceToolActive,
@@ -689,6 +728,7 @@ const App: React.FC = () => {
     setEnemyInfluenceLayerActive,
     elevationProfileActive,
     setElevationProfileActive,
+    onPiccDrawingComplete: () => setPiccDrawingConfig(null),
     piccDrawingConfig,
     setPiccDrawingConfig,
     onSelectEntityOnMap: handleSelectEntity,
@@ -921,7 +961,7 @@ const App: React.FC = () => {
   }, []);
 
   if (!currentUser) {
-    return <LoginViewComponent onLoginSuccess={handleLoginSuccess} loginFunction={login} />;
+    return <LoginViewComponent onLogin={handleLoginSuccess} />;
   }
 
   // Role-based rendering logic
@@ -991,6 +1031,55 @@ const App: React.FC = () => {
         isVoiceCommandActive={isVoiceCommandActive}
         isConnectingVoice={isConnectingVoice}
       />
+
+      {/* AO Drawing Global Banner */}
+      {aoiDrawingModeActive && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
+          <div className={`px-6 md:px-10 py-4 rounded-full shadow-2xl transition-all duration-500 border flex items-center gap-4 backdrop-blur-xl ${pendingAoiGeoJson ? 'bg-cyan-600 border-cyan-400 text-white' : 'bg-blue-600 border-blue-400 text-white animate-pulse'}`}>
+            <div className="flex items-center gap-3">
+              {pendingAoiGeoJson ? (
+                <ShieldCheckIcon className="w-6 h-6 animate-bounce" />
+              ) : (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              )}
+              <div className="flex flex-col">
+                <span className="text-xs md:text-sm font-black uppercase tracking-widest">
+                  {pendingAoiGeoJson ? 'Perímetro Capturado' : 'Dibujando ÁO en el Mapa...'}
+                </span>
+                {pendingAoiGeoJson && (
+                  <span className="text-[10px] opacity-80 font-bold uppercase">
+                    {isGeocoding ? 'Detectando Sector...' : (aoiSector || 'Sector Detectado')}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {pendingAoiGeoJson && (
+                <button
+                  type="button"
+                  onClick={handleApproveAo}
+                  className="px-6 py-2 bg-white text-cyan-700 hover:bg-cyan-50 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                >
+                  Aprobar Sector
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAoiDrawingModeActive(false);
+                  setAoDrawingUnitId(null);
+                  setPendingAoiGeoJson(null);
+                  eventBus.publish('clearAoiLayer');
+                }}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${pendingAoiGeoJson ? 'bg-cyan-800/40 hover:bg-cyan-800/60' : 'bg-white/20 hover:bg-white/40'}`}
+              >
+                {pendingAoiGeoJson ? 'Descartar' : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Elite background effect */}
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(17,24,39,1)_0%,rgba(13,17,23,1)_100%)]"></div>

@@ -270,24 +270,6 @@ export const OrganizationUnitFormModal: React.FC<OrganizationUnitFormModalProps>
 
   return createPortal(
     <div className={`fixed inset-0 flex items-start justify-center z-[5000] p-4 overflow-y-auto custom-scrollbar transition-all duration-500 ${isDrawingMode ? 'pointer-events-none' : 'bg-gray-950/95 backdrop-blur-md'}`} style={{ isolation: 'isolate' }}>
-      {isDrawingMode && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[6000] pointer-events-auto">
-          <div className="bg-blue-600 px-8 py-4 rounded-full shadow-2xl animate-pulse text-white font-black uppercase tracking-widest text-sm flex items-center gap-3 border border-blue-400/30">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            Dibujando AO en el Mapa...
-            <button
-              type="button"
-              onClick={() => {
-                setIsDrawingMode(false);
-                if (onCancelAoDrawing) onCancelAoDrawing();
-              }}
-              className="ml-4 px-4 py-1 bg-white/20 hover:bg-white/40 rounded-full text-[10px] transition-colors"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      )}
       <div className={`bg-gray-900 my-8 p-6 md:p-10 rounded-[32px] shadow-2xl w-full max-w-5xl border border-white/10 relative transition-all duration-500 ${isDrawingMode ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
         <div className="flex justify-between items-start mb-10">
           <div className="flex flex-col gap-3">

@@ -106,6 +106,7 @@ interface AnalysisViewProps {
   setEnemyInfluenceLayerActive: (active: boolean) => void;
   elevationProfileActive: boolean;
   setElevationProfileActive: (active: boolean) => void;
+  onPiccDrawingComplete: () => void;
   piccDrawingConfig: PICCDrawConfig | null;
   setPiccDrawingConfig: (config: PICCDrawConfig | null) => void;
   onSelectEntityOnMap?: (entity: SelectedEntity | null) => void;
@@ -331,37 +332,16 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   };
 
   useEffect(() => {
-    const onAoiFinished = async (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
-      setFinalizedAoiGeoJson(geoJson);
-      setAoiError(null);
-      // NO publicar finalizeAoiLayer aquí, esperar a que el usuario presione "Aprobar"
-
-      // Obtener el sector geográfico automáticamente
-      if (geoJson.geometry.coordinates[0].length > 0) {
-        const center = geoJson.geometry.coordinates[0][0]; // Usar el primer punto como referencia
-        try {
-          const resp = await fetch(`${API_BASE_URL}/api/weather/geocode?lat=${center[1]}&lon=${center[0]}`);
-          const data = await resp.json();
-          if (data.sector) setAoiSector(data.sector);
-        } catch (e) {
-          console.warn("Geocoding failed", e);
-          setAoiSector("Sector Colombia");
-        }
-      }
-    };
-
     const onDeactivateAoiMode = () => {
       setAoiDrawingModeActive(false);
     };
 
-    const finishedToken = eventBus.subscribe('aoiDrawingFinished', onAoiFinished);
     const deactivateToken = eventBus.subscribe('deactivateAoiDrawingMode', onDeactivateAoiMode);
     
     return () => {
-      eventBus.unsubscribe(finishedToken);
       eventBus.unsubscribe(deactivateToken);
     };
-  }, [eventBus]);
+  }, [eventBus, setAoiDrawingModeActive]);
 
   // Elevation Profile Logic (Existing + Fixed)
   const handleElevationProfileLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {
@@ -1063,39 +1043,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               </p>
             </div>
           )}
-
-
           {aoiError && <p className="text-sm text-red-400 bg-red-900/30 p-2 rounded mb-3 border border-red-800/50">{aoiError}</p>}
-
-          {aoiDrawingModeActive && !finalizedAoiGeoJson && (
-            <div className="p-3 bg-sky-900/20 border border-sky-800/30 rounded-md animate-pulse">
-              <p className="text-sm text-sky-200">
-                <strong>Modo Lápiz Activo:</strong> Dibuje el polígono en el mapa haciendo clic en cada vértice. Haga clic en el primer punto para cerrar el área.
-              </p>
-            </div>
-          )}
-
-          {finalizedAoiGeoJson && !aoiStats && (
-            <div className="flex flex-col gap-3 animate-in zoom-in-95 duration-300">
-              <div className="p-3 bg-green-900/20 border border-green-800/30 rounded-md">
-                <p className="text-sm text-green-200 flex items-center gap-2">
-                  <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                  Área capturada correctamente en: <strong>{aoiSector || "Colombia"}</strong>
-                </p>
-              </div>
-              <p className="text-xs text-gray-400">Presione el botón inferior para confirmar la <strong>Asignación de AO</strong> y proceder con el análisis táctico.</p>
-                <button
-                  onClick={handleFinalizeAoi}
-                  className="flex-1 px-4 py-5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-black uppercase tracking-widest rounded-xl shadow-[0_0_25px_rgba(56,189,248,0.4)] transition-all transform hover:scale-[1.03] active:scale-95 flex items-center justify-center gap-3 border-2 border-white/10"
-                >
-                  <ShieldCheckIcon className="w-6 h-6 animate-pulse" /> 
-                  <div className="flex flex-col items-start leading-tight">
-                    <span>APROBAR SECTOR</span>
-                    <span className="text-[9px] opacity-70 font-normal">ASIGNAR AO FORMALMENTE</span>
-                  </div>
-                </button>
-            </div>
-          )}
 
           {aoiStats && finalizedAoiGeoJson && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
