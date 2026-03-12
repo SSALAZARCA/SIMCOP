@@ -4,12 +4,19 @@ import com.simcop.model.ForwardObserver;
 import com.simcop.repository.ForwardObserverRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/observers")
+@Transactional
 public class ForwardObserverController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ForwardObserverController.class);
 
     @Autowired
     private ForwardObserverRepository repository;
@@ -20,8 +27,15 @@ public class ForwardObserverController {
     }
 
     @PostMapping
-    public ForwardObserver createObserver(@RequestBody ForwardObserver observer) {
-        return repository.save(observer);
+    public ResponseEntity<ForwardObserver> createObserver(@RequestBody ForwardObserver observer) {
+        try {
+            ForwardObserver saved = repository.save(observer);
+            logger.info("✅ Observador Avanzado creado: ID={}", saved.getId());
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            logger.error("❌ Error creando observador: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{id}")

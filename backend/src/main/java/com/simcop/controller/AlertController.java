@@ -5,12 +5,18 @@ import com.simcop.repository.AlertRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/alerts")
+@Transactional
 public class AlertController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AlertController.class);
 
     @Autowired
     private AlertRepository repository;
@@ -21,8 +27,15 @@ public class AlertController {
     }
 
     @PostMapping
-    public Alert createAlert(@RequestBody Alert alert) {
-        return repository.save(alert);
+    public ResponseEntity<Alert> createAlert(@RequestBody Alert alert) {
+        try {
+            Alert saved = repository.save(alert);
+            logger.info("✅ Alerta creada: ID={}, Tipo={}", saved.getId(), saved.getType());
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            logger.error("❌ Error creando alerta: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{id}/acknowledge")

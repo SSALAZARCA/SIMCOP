@@ -7,12 +7,19 @@ import com.simcop.service.BMAService;
 import com.simcop.service.DoctrinalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/bma")
+@Transactional
 public class BMAController {
+
+    private static final Logger logger = LoggerFactory.getLogger(BMAController.class);
 
     @Autowired
     private BMAService bmaService;
@@ -47,7 +54,14 @@ public class BMAController {
     }
 
     @PostMapping("/logistics/request/{unitId}")
-    public void requestResupply(@PathVariable String unitId) {
-        bmaService.requestResupply(unitId);
+    public ResponseEntity<Void> requestResupply(@PathVariable String unitId) {
+        try {
+            bmaService.requestResupply(unitId);
+            logger.info("✅ Solicitud de reabastecimiento generada para unidad: {}", unitId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("❌ Error generando solicitud de reabastecimiento para {}: {}", unitId, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

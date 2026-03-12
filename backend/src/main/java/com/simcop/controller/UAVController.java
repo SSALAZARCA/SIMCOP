@@ -5,12 +5,19 @@ import com.simcop.model.embeddable.GeoLocation;
 import com.simcop.service.UAVService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/uav")
+@Transactional
 public class UAVController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UAVController.class);
 
     @Autowired
     private UAVService uavService;
@@ -22,13 +29,20 @@ public class UAVController {
     }
 
     @PostMapping("/request-support")
-    public UAVMission requestSupport(@RequestBody UAVMissionRequest request) {
-        return uavService.requestSupport(
-                request.getRequesterId(),
-                request.getDroneUnitId(),
-                UAVMissionType.valueOf(request.getType()),
-                request.getTarget(),
-                request.getDetails());
+    public ResponseEntity<com.simcop.model.UAVMission> requestSupport(@RequestBody UAVMissionRequest request) {
+        try {
+            com.simcop.model.UAVMission mission = uavService.requestSupport(
+                    request.getRequesterId(),
+                    request.getDroneUnitId(),
+                    UAVMissionType.valueOf(request.getType()),
+                    request.getTarget(),
+                    request.getDetails());
+            logger.info("✅ Misión UAV solicitada: ID={}, Tipo={}, Unidad={}", mission.getId(), mission.getType(), mission.getDroneUnitId());
+            return ResponseEntity.ok(mission);
+        } catch (Exception e) {
+            logger.error("❌ Error solicitando apoyo UAV: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/missions")
@@ -54,8 +68,15 @@ public class UAVController {
     // Webhook for UAV Telemetry (Location, Battery, Stream URL updates)
     // Webhook for UAV Telemetry (Location, Battery, Stream URL updates)
     @PostMapping("/telemetry")
-    public void receiveTelemetry(@RequestBody com.simcop.dto.UAVTelemetryDTO telemetry) {
-        uavService.processTelemetry(telemetry);
+    public ResponseEntity<Void> receiveTelemetry(@RequestBody com.simcop.dto.UAVTelemetryDTO telemetry) {
+        try {
+            uavService.processTelemetry(telemetry);
+            // Reducir ruido de logs para telemetría, solo errores o avisos críticos si fuera necesario
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("❌ Error procesando telemetría UAV {}: {}", telemetry.getUavId(), e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/telemetry")

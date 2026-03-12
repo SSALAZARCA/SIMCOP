@@ -5,11 +5,17 @@ import com.simcop.service.TelegramService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/telegram")
+@Transactional
 public class TelegramController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TelegramController.class);
 
     @Autowired
     private TelegramService telegramService;
@@ -29,6 +35,7 @@ public class TelegramController {
                 .map(user -> {
                     user.setTelegramChatId(chatId);
                     userRepository.save(user);
+                    logger.info("✅ Configuración de Telegram actualizada para usuario: {}", userId);
                     return ResponseEntity.ok().body("Telegram Chat ID updated successfully");
                 })
                 .orElse(ResponseEntity.notFound().build());

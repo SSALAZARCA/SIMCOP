@@ -5,12 +5,18 @@ import com.simcop.service.SoldierService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/soldiers")
+@Transactional
 public class SoldierController {
+
+    private static final Logger logger = LoggerFactory.getLogger(SoldierController.class);
 
     @Autowired
     private SoldierService soldierService;
@@ -37,8 +43,11 @@ public class SoldierController {
     public ResponseEntity<Soldier> createSoldier(@RequestBody Soldier soldier,
             @RequestParam(required = false) String unitId) {
         try {
-            return ResponseEntity.ok(soldierService.createSoldier(soldier, unitId));
-        } catch (RuntimeException e) {
+            Soldier saved = soldierService.createSoldier(soldier, unitId);
+            logger.info("✅ Soldado creado: ID={}, Nombre={}", saved.getId(), saved.getFullName());
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            logger.error("❌ Error creando soldado: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -47,8 +56,11 @@ public class SoldierController {
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES', 'OFICIAL_LOGISTICA')")
     public ResponseEntity<Soldier> updateSoldier(@PathVariable String id, @RequestBody Soldier soldier) {
         try {
-            return ResponseEntity.ok(soldierService.updateSoldier(id, soldier));
-        } catch (RuntimeException e) {
+            Soldier updated = soldierService.updateSoldier(id, soldier);
+            logger.info("✅ Soldado actualizado: ID={}", id);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            logger.error("❌ Error actualizando soldado {}: {}", id, e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
