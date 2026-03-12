@@ -90,8 +90,8 @@ public class WeatherService {
             // Obtener path específico de satélite
             String satellitePath = getWeatherPath("satellite");
             if (satellitePath != null) {
-                // RainViewer satellite tiles: /v2/satellite/{path}/512/{z}/{x}/{y}/0/1_1.png
-                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com/v2/satellite/%s/512/%d/%d/%d/0/1_1.png", satellitePath, z, x, y);
+                // RainViewer satellite tiles: /v2/satellite/{path}/256/{z}/{x}/{y}/0/1_1.png
+                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com/v2/satellite/%s/256/%d/%d/%d/0/1_1.png", satellitePath, z, x, y);
                 try {
                     byte[] image = restTemplate.getForObject(url, byte[].class);
                     if (image != null) {

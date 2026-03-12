@@ -185,7 +185,7 @@ export const LoginViewComponent: React.FC<LoginViewProps> = ({ onLoginSuccess, l
 
           <div className="flex justify-between items-center pt-8 border-t border-white/5">
             <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">
-              SISTEMA: SIMCOP_PRO_V3
+              SISTEMA: SIMCOP_PRO_V2.0.9
             </p>
             <p className="text-[8px] font-black text-blue-900/60 uppercase tracking-widest">
               Mil-Tech Industries
@@ -202,6 +202,13 @@ export const LoginViewComponent: React.FC<LoginViewProps> = ({ onLoginSuccess, l
       {/* Línea de escaneo decorativa */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-30">
         <div className="w-full h-24 bg-gradient-to-b from-transparent via-blue-500/5 to-transparent absolute -top-24 animate-[scanline_6s_linear_infinite]"></div>
+      </div>
+
+      {/* Marcador de Versión en Esquina */}
+      <div className="absolute bottom-4 left-4 z-40">
+        <div className="px-2 py-1 bg-blue-950/40 backdrop-blur-md border border-blue-500/30 rounded text-[9px] font-black text-blue-400 tracking-tighter">
+          BUILD: V2.0.9_OPERATIONAL_RESCUE
+        </div>
       </div>
 
       <style dangerouslySetInnerHTML={{

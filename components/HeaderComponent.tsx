@@ -66,9 +66,12 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/40">
             <span className="text-white font-black text-xl">S</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight hidden sm:block">
-            SIM<span className="text-blue-500">COP</span>
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold tracking-tight hidden sm:block">
+              SIM<span className="text-blue-500">COP</span>
+            </h1>
+            <span className="text-[9px] font-black text-blue-500/60 tracking-widest leading-none hidden sm:block uppercase">Ver 2.0.9</span>
+          </div>
         </div>
       </div>
 
