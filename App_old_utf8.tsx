@@ -1,4 +1,4 @@
-
+﻿
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 // FIX: Import `Type` for function declaration schema.
@@ -56,7 +56,7 @@ const SIMCOP_USER_SESSION_KEY = 'simcop_currentUser_id';
 // const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 // const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 // if (!ai) {
-//   console.warn("API_KEY de Gemini no está configurada. Las funciones de IA, como el comando por voz, no funcionarán.");
+//   console.warn("API_KEY de Gemini no est├í configurada. Las funciones de IA, como el comando por voz, no funcionar├ín.");
 // }
 
 import { configService } from './services/configService';
@@ -71,15 +71,15 @@ const App: React.FC = () => {
       try {
         const apiKey = await configService.getGeminiApiKey();
         if (apiKey) {
-          console.log("✅ [App] Gemini API Key loaded for voice features");
+          console.log("Ô£à [App] Gemini API Key loaded for voice features");
           setAiClient(new GoogleGenAI({ apiKey }));
         } else {
-          console.warn("⚠️ [App] Gemini API Key not found - voice features disabled");
+          console.warn("ÔÜá´©Å [App] Gemini API Key not found - voice features disabled");
         }
       } catch (error: any) {
         // Silently handle 403 errors - they happen when not authenticated yet
         if (error.message && !error.message.includes('403')) {
-          console.error("❌ [App] Error loading Gemini API Key:", error);
+          console.error("ÔØî [App] Error loading Gemini API Key:", error);
         }
       }
     };
@@ -180,7 +180,7 @@ const App: React.FC = () => {
     setAlertsInternal(prev => [{
       id: generateRandomId(),
       type: AlertType.INFO as any,
-      message: `Modo de delimitación de AO activo. Haga clic en el mapa para trazar el perímetro de la unidad y doble clic para finalizar.`,
+      message: `Modo de delimitaci├│n de AO activo. Haga clic en el mapa para trazar el per├¡metro de la unidad y doble clic para finalizar.`,
       timestamp: Date.now(),
       severity: AlertSeverity.INFO,
       acknowledged: false
@@ -206,7 +206,7 @@ const App: React.FC = () => {
         setAoiDrawingModeActive(false);
         setAoDrawingUnitId(null);
       } else {
-        alert("Error al guardar el Área de Operaciones: " + result.message);
+        alert("Error al guardar el ├ürea de Operaciones: " + result.message);
       }
     } catch (error) {
       console.error("Error in handleAoFinishDrawing:", error);
@@ -215,12 +215,12 @@ const App: React.FC = () => {
   }, [updateUnitAo]);
 
   const handleClearAo = useCallback(async (unitId: string) => {
-    if (confirm("¿Está seguro de que desea eliminar el Área de Operaciones de esta unidad?")) {
+    if (confirm("┬┐Est├í seguro de que desea eliminar el ├ürea de Operaciones de esta unidad?")) {
       await updateUnitAo(unitId, "");
       setAlertsInternal(prev => [{
         id: generateRandomId(),
         type: AlertType.INFO as any,
-        message: `Área de Operaciones eliminada.`,
+        message: `├ürea de Operaciones eliminada.`,
         timestamp: Date.now(),
         severity: AlertSeverity.INFO,
         acknowledged: false
@@ -334,7 +334,7 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = useCallback((user: User) => {
     setCurrentUser(user);
-    localStorage.setItem(SIMCOP_USER_SESSION_KEY, user.id); // Restaurada persistencia
+    // localStorage.setItem(SIMCOP_USER_SESSION_KEY, user.id); // Disabled for security
     eventBus.publish('USER_LOGIN_SUCCESS', user);
     const loginFailedAlert = alerts.find(a => a.type === AlertType.USER_LOGIN_FAILED && (a.message.includes(user.username) || a.userId === user.id) && !a.acknowledged);
     if (loginFailedAlert) acknowledgeAlert(loginFailedAlert.id);
@@ -436,15 +436,15 @@ const App: React.FC = () => {
     // Generate a draft ORDOP from BMA recommendation
     const draftOrder = {
       orderNumber: `BMA-${Date.now().toString().slice(-4)}`,
-      title: `Operación de respuesta a: ${intel.title}`,
+      title: `Operaci├│n de respuesta a: ${intel.title}`,
       issuerId: currentUser?.id || '',
       recipientIds: [], // User needs to select
       status: 'borrador',
       situation: `Respuesta sugerida por BMA ante reporte de inteligencia: ${intel.details}. Unidad recomendada: ${rec.unitName}.`,
-      mission: `La unidad ${rec.unitName} procederá a interceptar y neutralizar la amenaza identificada en ${intel.location.lat}, ${intel.location.lon}.`,
-      execution: `1. Desplazamiento inmediato al sector.\n2. Establecimiento de contacto.\n3. Reporte de situación cada 15 minutos.`,
-      logistics: `Mantener carga básica de munición y combustible.`,
-      commandAndSignal: `Comandante de operación: Cmdte ${rec.unitName}. Frecuencia de radio según red de comando.`,
+      mission: `La unidad ${rec.unitName} proceder├í a interceptar y neutralizar la amenaza identificada en ${intel.location.lat}, ${intel.location.lon}.`,
+      execution: `1. Desplazamiento inmediato al sector.\n2. Establecimiento de contacto.\n3. Reporte de situaci├│n cada 15 minutos.`,
+      logistics: `Mantener carga b├ísica de munici├│n y combustible.`,
+      commandAndSignal: `Comandante de operaci├│n: Cmdte ${rec.unitName}. Frecuencia de radio seg├║n red de comando.`,
       creationTimestamp: Date.now()
     };
 
@@ -512,7 +512,7 @@ const App: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!aiClient) {
-        alert("La API KEY de Gemini no está configurada en el backend. Por favor vaya a Configuración y agregue una clave válida.");
+        alert("La API KEY de Gemini no est├í configurada en el backend. Por favor vaya a Configuraci├│n y agregue una clave v├ílida.");
         setIsConnectingVoice(false);
         return;
       }
@@ -526,13 +526,13 @@ const App: React.FC = () => {
           responseModalities: [Modality.AUDIO],
           systemInstruction: {
             parts: [{
-              text: `Eres SIMCOP-VOICE, el asistente táctico de mando. Tienes acceso a datos de Batalla (BMA), Clima y Unidades.
+              text: `Eres SIMCOP-VOICE, el asistente t├íctico de mando. Tienes acceso a datos de Batalla (BMA), Clima y Unidades.
               Tu tono es profesional, militar y eficiente.
               Capacidades actuales:
               - Puedes enfocar unidades en el mapa.
               - Puedes informar sobre el clima (ej. 'Hay lluvia intensa, movilidad reducida').
-              - Estás al tanto de los Puntos Críticos (hotspots).
-              Si el usuario pregunta sobre la situación, resume los puntos clave del BMA.`
+              - Est├ís al tanto de los Puntos Cr├¡ticos (hotspots).
+              Si el usuario pregunta sobre la situaci├│n, resume los puntos clave del BMA.`
             }]
           },
           tools: [{
@@ -662,7 +662,7 @@ const App: React.FC = () => {
       console.error('Error starting voice command session:', error);
       setIsConnectingVoice(false);
       setIsVoiceCommandActive(false);
-      alert("No se pudo iniciar el comando por voz. Asegúrese de haber concedido el permiso para el micrófono.");
+      alert("No se pudo iniciar el comando por voz. Aseg├║rese de haber concedido el permiso para el micr├│fono.");
     }
   }, [isConnectingVoice, isVoiceCommandActive, units]);
 
@@ -1044,7 +1044,7 @@ const App: React.FC = () => {
               )}
               <div className="flex flex-col">
                 <span className="text-xs md:text-sm font-black uppercase tracking-widest">
-                  {pendingAoiGeoJson ? 'Perímetro Capturado' : 'Dibujando ÁO en el Mapa...'}
+                  {pendingAoiGeoJson ? 'Per├¡metro Capturado' : 'Dibujando ├üO en el Mapa...'}
                 </span>
                 {pendingAoiGeoJson && (
                   <span className="text-[10px] opacity-80 font-bold uppercase">

@@ -1,39 +1,24 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
-import { userService } from '../services/userService';
-import { User } from '../types';
 
 interface LoginViewComponentProps {
-  onLogin: (user: any) => void;
+  onLogin: (role: any) => void;
 }
 
 export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
-    try {
-      // Intentar login real con el servicio
-      const user = await userService.login({
-        username,
-        hashedPassword: password // El backend espera esto o password, userService se encarga
-      } as any);
-      
-      onLogin(user);
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Error de conexión con el servidor táctico.');
-      // Fallback para demo si el servidor no responde (opcional, pero mejor ser estrictos si hay backend)
-      // if (err.message === 'Failed to fetch') { ... }
-    } finally {
+    // Simulaci├│n de login
+    setTimeout(() => {
+      onLogin('ADMIN');
       setIsLoading(false);
-    }
+    }, 1500);
   };
 
   return (
@@ -59,13 +44,8 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-shake">
-              <p className="text-red-400 text-[10px] font-black uppercase text-center tracking-widest">{error}</p>
-            </div>
-          )}
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Identificación</label>
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Identificaci├│n</label>
             <div className="relative group">
               <UserCircleIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
               <input
@@ -90,7 +70,7 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
-                placeholder="••••••••"
+                placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó"
                 required
               />
             </div>
@@ -130,7 +110,7 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
         Clasificado
       </div>
 
-      {/* Marcador de Versión en Esquina */}
+      {/* Marcador de Versi├│n en Esquina */}
       <div className="absolute bottom-4 left-4 z-40">
         <div className="px-2 py-1 bg-blue-950/40 backdrop-blur-md border border-blue-500/30 rounded text-[9px] font-black text-blue-400 tracking-tighter">
           BUILD: V4.0.0_TACTICAL_INTELLIGENCE
