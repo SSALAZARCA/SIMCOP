@@ -313,6 +313,22 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       );
       mapInstance.fitBounds(colombiaBounds);
 
+      const fetchWeatherForCenter = async () => {
+        const center = mapInstance.getCenter();
+        try {
+          const info = await weatherService.getCurrentWeather(center.lat, center.lng);
+          if (info) {
+            setWeatherInfo(info);
+            setIsThunderstorm(info.isThunderstorm || false);
+          }
+        } catch (e) {
+          console.warn("Failed to update weather for center:", e);
+        }
+      };
+
+      mapInstance.on('moveend', fetchWeatherForCenter);
+      fetchWeatherForCenter(); // Initial fetch
+
       const resizeObserver = new ResizeObserver(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
@@ -321,6 +337,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       if (mapContainerElement) resizeObserver.observe(mapContainerElement);
 
       return () => {
+        mapInstance.off('moveend', fetchWeatherForCenter);
         if (mapContainerElement) resizeObserver.unobserve(mapContainerElement);
         if (mapRef.current) {
           mapRef.current.remove();
@@ -1382,19 +1399,54 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       }
 
       if (aoiDrawingModeActive) {
-        const polygonDrawTool = new (L as any).Draw.Polygon(map, {
-          shapeOptions: {
-            color: '#3b82f6',
-            fillColor: '#3b82f6',
-            fillOpacity: 0.2,
-            weight: 3,
-            dashArray: '5, 5'
-          },
-          showArea: true,
-          allowIntersection: false
-        });
-        polygonDrawTool.enable();
-        currentPICCDrawingToolRef.current = polygonDrawTool;
+        let isDrawingAoi = false;
+        let aoiPointsList: L.LatLng[] = [];
+        let tempPolyline: L.Polyline | null = null;
+
+        const onMouseDown = (e: L.LeafletMouseEvent) => {
+          isDrawingAoi = true;
+          aoiPointsList = [e.latlng];
+          tempPolyline = L.polyline(aoiPointsList, { color: 'cyan', weight: 2, dashArray: '5, 5' }).addTo(map);
+          map.dragging.disable();
+        };
+
+        const onMouseMove = (e: L.LeafletMouseEvent) => {
+          if (!isDrawingAoi || !tempPolyline) return;
+          aoiPointsList.push(e.latlng);
+          tempPolyline.setLatLngs(aoiPointsList);
+        };
+
+        const onMouseUp = () => {
+          if (!isDrawingAoi || !tempPolyline) return;
+          isDrawingAoi = false;
+          map.dragging.enable();
+
+          if (aoiPointsList.length > 2) {
+            const polygon = L.polygon(aoiPointsList);
+            const geojson = polygon.toGeoJSON() as GeoJSONFeature<GeoJSONPolygon>;
+            eventBus.publish('aoiDrawingFinished', geojson);
+          }
+          
+          if (tempPolyline) {
+            map.removeLayer(tempPolyline);
+          }
+          
+          // Deactivate mode after drawing ("y se cierra")
+          // We use eventBus to notify AnalysisView to set state to false
+          eventBus.publish('deactivateAoiDrawingMode');
+        };
+
+        map.on('mousedown', onMouseDown);
+        map.on('mousemove', onMouseMove);
+        map.on('mouseup', onMouseUp);
+
+        return () => {
+          map.off('mousedown', onMouseDown);
+          map.off('mousemove', onMouseMove);
+          map.off('mouseup', onMouseUp);
+          if (tempPolyline) map.removeLayer(tempPolyline);
+          map.dragging.enable();
+        };
       } else if (piccDrawingConfig && activeTemplateContext) {
         (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
         (aoiLayerRef.current as L.FeatureGroup).clearLayers();

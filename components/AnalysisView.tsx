@@ -16,6 +16,7 @@ import { ChartBarIcon } from './icons/ChartBarIcon';
 import { AcademicCapIcon } from './icons/AcademicCapIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
+import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { PlantillaPICCConfig } from '../utils/piccConfig';
 
 interface EventEmitter {
@@ -329,13 +330,18 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     const onAoiFinished = (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
       setFinalizedAoiGeoJson(geoJson);
       setAoiError(null);
-      // Automatically show stats or wait for approval? 
-      // User said "appear the option to approve AO and it closes"
     };
 
-    const token = eventBus.subscribe('aoiDrawingFinished', onAoiFinished);
+    const onDeactivateAoiMode = () => {
+      setAoiDrawingModeActive(false);
+    };
+
+    const finishedToken = eventBus.subscribe('aoiDrawingFinished', onAoiFinished);
+    const deactivateToken = eventBus.subscribe('deactivateAoiDrawingMode', onDeactivateAoiMode);
+    
     return () => {
-      eventBus.unsubscribe(token);
+      eventBus.unsubscribe(finishedToken);
+      eventBus.unsubscribe(deactivateToken);
     };
   }, [eventBus]);
 
@@ -1041,14 +1047,20 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           )}
 
           {finalizedAoiGeoJson && !aoiStats && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-gray-300">Área trazada correctamente. ¿Desea aprobar este AO para análisis?</p>
+            <div className="flex flex-col gap-3 animate-in zoom-in-95 duration-300">
+              <div className="p-3 bg-green-900/20 border border-green-800/30 rounded-md">
+                <p className="text-sm text-green-200 flex items-center gap-2">
+                  <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                  Área capturada correctamente.
+                </p>
+              </div>
+              <p className="text-xs text-gray-400">Presione el botón inferior para confirmar el Área de Operaciones y proceder con el análisis táctico.</p>
               <div className="flex gap-2">
                 <button
                   onClick={handleFinalizeAoi}
-                  className="flex-1 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-md shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-black uppercase tracking-widest rounded-lg shadow-[0_0_15px_rgba(56,189,248,0.3)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <CheckCircleIcon className="w-5 h-5" /> Aprobar y Calcular AO
+                  <ShieldCheckIcon className="w-5 h-5" /> Aprobar Sector de Misión
                 </button>
               </div>
             </div>

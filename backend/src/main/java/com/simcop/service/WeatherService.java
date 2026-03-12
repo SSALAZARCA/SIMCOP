@@ -15,7 +15,7 @@ public class WeatherService {
     public WeatherInfo getCurrentWeather(double lat, double lon) {
         try {
             // Open-Meteo con dirección de viento para Fase 2
-            String url = String.format("https://api.open-meteo.com/v1/forecast?latitude=%.6f&longitude=%.6f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&wind_speed_unit=kmh&timezone=auto",
+            String url = String.format(java.util.Locale.US, "https://api.open-meteo.com/v1/forecast?latitude=%.6f&longitude=%.6f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&wind_speed_unit=kmh&timezone=auto",
                     lat, lon);
 
             @SuppressWarnings("unchecked")
@@ -71,7 +71,7 @@ public class WeatherService {
 
     public double getElevation(double lat, double lon) {
         try {
-            String url = String.format("https://elevation-api.open-meteo.com/v1/elevation?latitude=%f&longitude=%f", lat, lon);
+            String url = String.format(java.util.Locale.US, "https://elevation-api.open-meteo.com/v1/elevation?latitude=%f&longitude=%f", lat, lon);
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             if (response != null && response.containsKey("elevation")) {
@@ -88,8 +88,8 @@ public class WeatherService {
         // Usar NASA GIBS para nubes/satélite (Capa profesional y gratuita)
         if ("clouds".equalsIgnoreCase(layer)) {
             // Layer: MODIS_Terra_CorrectedReflectance_TrueColor (Satélite + Nubes en tiempo real)
-            // MatrixSet: 250m (Soporta zoom alto)
-            String url = String.format("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/250m/%d/%d/%d.jpg", z, y, x);
+            // MatrixSet: GoogleMapsCompatible_Level9 (Optimo para Leaflet/EPSG:3857)
+            String url = String.format(java.util.Locale.US, "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/%d/%d/%d.jpg", z, y, x);
             try {
                 byte[] image = restTemplate.getForObject(url, byte[].class);
                 if (image != null) {
@@ -106,7 +106,7 @@ public class WeatherService {
             String radarPath = getRadarPath();
             if (radarPath != null) {
                 // RainViewer tiles: /256/{z}/{x}/{y}/...
-                String url = String.format("https://tilecache.rainviewer.com%s/256/%d/%d/%d/1/1_1.png", radarPath, z, x, y);
+                String url = String.format(java.util.Locale.US, "https://tilecache.rainviewer.com%s/256/%d/%d/%d/1/1_1.png", radarPath, z, x, y);
                 try {
                     byte[] image = restTemplate.getForObject(url, byte[].class);
                     if (image != null) {
