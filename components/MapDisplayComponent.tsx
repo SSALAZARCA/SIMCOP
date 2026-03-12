@@ -999,6 +999,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     };
   }, [distanceToolActive, distancePoints, aoiDrawingModeActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive]);
 
+
+
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const clearAoiMapLayer = () => aoiLayerRef.current.clearLayers();
@@ -1011,7 +1013,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       aoiLayerRef.current.clearLayers(); 
       if (geoJsonPolygon?.geometry?.coordinates) { 
         const leafletCoords = (geoJsonPolygon.geometry.coordinates[0] as unknown as Position[]).map(coord => [coord[1], coord[0]] as L.LatLngTuple); 
-        L.polygon(leafletCoords, { color: 'rgba(0, 255, 255, 0.8)', fillColor: 'rgba(0, 255, 255, 0.2)', weight: 2, dashArray: '5, 5' }).addTo(aoiLayerRef.current); 
+        L.polygon(leafletCoords, { color: 'rgba(0, 255, 255, 0.9)', fillColor: 'rgba(0, 255, 255, 0.3)', weight: 3 }).addTo(aoiLayerRef.current); 
       } 
     };
 
@@ -1019,25 +1021,12 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const updateToken = eventBus.subscribe('updateAoiDrawingLayer', updateAoiDrawingLayer);
     const finalizeToken = eventBus.subscribe('finalizeAoiLayer', finalizeAoiLayer);
 
-    if (aoiDrawingModeActive && !aoDrawingUnitId) {
-      map.getContainer().style.cursor = 'crosshair';
-      selectionHighlightLayerRef.current.clearLayers();
-      (distanceToolLayerRef.current as L.FeatureGroup).clearLayers();
-      (searchResultMarkerLayerRef.current as L.FeatureGroup).clearLayers();
-      enemyInfluencePolygonsRef.current.clearLayers();
-      (Object.values(piccTemplateLayersRef.current) as L.FeatureGroup[]).forEach(fg => fg.clearLayers());
-    }
-    else { 
-      if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = ''; 
-    }
-
     return () => {
-      if (!distanceToolActive && !aoiDrawingModeActive && !enemyInfluenceLayerActive && !piccDrawingConfig && !isTargetSelectionActive && !elevationProfileActive) map.getContainer().style.cursor = '';
       eventBus.unsubscribe(clearToken);
       eventBus.unsubscribe(updateToken);
       eventBus.unsubscribe(finalizeToken);
     };
-  }, [aoiDrawingModeActive, aoDrawingUnitId, distanceToolActive, enemyInfluenceLayerActive, piccDrawingConfig, isTargetSelectionActive, elevationProfileActive, eventBus]);
+  }, [eventBus]);
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return;

@@ -1084,14 +1084,16 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                 </p>
               </div>
               <p className="text-xs text-gray-400">Presione el botón inferior para confirmar la <strong>Asignación de AO</strong> y proceder con el análisis táctico.</p>
-              <div className="flex gap-2">
                 <button
                   onClick={handleFinalizeAoi}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-black uppercase tracking-widest rounded-lg shadow-[0_0_15px_rgba(56,189,248,0.3)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-black uppercase tracking-widest rounded-xl shadow-[0_0_25px_rgba(56,189,248,0.4)] transition-all transform hover:scale-[1.03] active:scale-95 flex items-center justify-center gap-3 border-2 border-white/10"
                 >
-                  <ShieldCheckIcon className="w-5 h-5" /> Aprobar Sector de Misión
+                  <ShieldCheckIcon className="w-6 h-6 animate-pulse" /> 
+                  <div className="flex flex-col items-start leading-tight">
+                    <span>APROBAR SECTOR</span>
+                    <span className="text-[9px] opacity-70 font-normal">ASIGNAR AO FORMALMENTE</span>
+                  </div>
                 </button>
-              </div>
             </div>
           )}
 
