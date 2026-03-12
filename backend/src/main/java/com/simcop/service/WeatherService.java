@@ -147,4 +147,29 @@ public class WeatherService {
         }
         return null;
     }
+
+    public String getReverseGeocoding(double lat, double lon) {
+        try {
+            // Usar Nominatim (OpenStreetMap) para geocodificación inversa
+            String url = String.format(java.util.Locale.US, "https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=es&zoom=10", lat, lon);
+            
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "SIMCOP-Tactical-App/1.0");
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            
+            org.springframework.http.ResponseEntity<java.util.Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, java.util.Map.class);
+            
+            if (response.getBody() != null && response.getBody().containsKey("display_name")) {
+                String fullName = (String) response.getBody().get("display_name");
+                String[] parts = fullName.split(",");
+                if (parts.length >= 2) {
+                    return parts[0].trim() + ", " + parts[1].trim();
+                }
+                return parts[0].trim();
+            }
+        } catch (Exception e) {
+            System.err.println("Geocoding failed: " + e.getMessage());
+        }
+        return "Sector de Colombia (No Identificado)";
+    }
 }

@@ -42,4 +42,12 @@ public class WeatherController {
         res.put("elevation", elevation);
         return res;
     }
+
+    @GetMapping("/geocode")
+    public java.util.Map<String, String> reverseGeocode(@RequestParam double lat, @RequestParam double lon) {
+        String sector = weatherService.getReverseGeocoding(lat, lon);
+        java.util.Map<String, String> res = new java.util.HashMap<>();
+        res.put("sector", sector);
+        return res;
+    }
 }

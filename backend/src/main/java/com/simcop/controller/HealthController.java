@@ -10,6 +10,6 @@ public class HealthController {
 
     @GetMapping
     public String healthCheck() {
-        return "SIMCOP Backend is running - Version 2.0.9 (Final Rescue)";
+        return "SIMCOP Backend is running - Version 3.0.0 (Tactical Geocoding)";
     }
 }

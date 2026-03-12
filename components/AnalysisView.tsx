@@ -18,6 +18,7 @@ import { EyeIcon } from './icons/EyeIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { PlantillaPICCConfig } from '../utils/piccConfig';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 interface EventEmitter {
   publish(event: string, data?: any): void;
@@ -145,6 +146,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   const [aoiPoints, setAoiPoints] = useState<L.LatLng[]>([]);
   const [finalizedAoiGeoJson, setFinalizedAoiGeoJson] = useState<GeoJSONFeature<GeoJSONPolygon> | null>(null);
   const [aoiStats, setAoiStats] = useState<AoiStats | null>(null);
+  const [aoiSector, setAoiSector] = useState<string | null>(null);
   const [aoiError, setAoiError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<NominatimResult[] | null>(null);
@@ -323,15 +325,29 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     setFinalizedAoiGeoJson(null);
     setAoiStats(null);
     setAoiError(null);
+    setAoiSector(null);
     eventBus.publish('clearAoiLayer');
   };
 
   useEffect(() => {
-    const onAoiFinished = (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
+    const onAoiFinished = async (_msg: string, geoJson: GeoJSONFeature<GeoJSONPolygon>) => {
       setFinalizedAoiGeoJson(geoJson);
       setAoiError(null);
       // Notificar al mapa que debe dibujar el polígono permanente inmediatamente
       eventBus.publish('finalizeAoiLayer', geoJson);
+
+      // Obtener el sector geográfico automáticamente
+      if (geoJson.geometry.coordinates[0].length > 0) {
+        const center = geoJson.geometry.coordinates[0][0]; // Usar el primer punto como referencia
+        try {
+          const resp = await fetch(`${API_BASE_URL}/api/weather/geocode?lat=${center[1]}&lon=${center[0]}`);
+          const data = await resp.json();
+          if (data.sector) setAoiSector(data.sector);
+        } catch (e) {
+          console.warn("Geocoding failed", e);
+          setAoiSector("Sector Colombia");
+        }
+      }
     };
 
     const onDeactivateAoiMode = () => {
@@ -1023,20 +1039,31 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       </div>
 
       {(aoiDrawingModeActive || finalizedAoiGeoJson || aoiError) && (
-        <div className="bg-gray-800 p-4 rounded-lg shadow-md border-t-2 border-sky-500/30">
+        <div className="bg-gray-800 p-4 rounded-lg shadow-md border-t-2 border-sky-500/30 animate-in fade-in duration-500">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold text-sky-300 flex items-center">
-              <span className="mr-2">📐</span> Análisis de Área de Operaciones (AO)
+              <span className="mr-2">📐</span> Área de Operaciones {aoiStats ? <span className="ml-2 px-1.5 py-0.5 bg-sky-950 text-sky-400 text-[9px] font-black rounded border border-sky-800/50 uppercase">Asignada</span> : ''}
             </h3>
             {finalizedAoiGeoJson && (
               <button 
                 onClick={handleClearAoi}
                 className="text-gray-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors"
+                title="Limpiar Área"
               >
-                <TrashIcon className="w-3.5 h-3.5" /> Limpiar
+                <TrashIcon className="w-4 h-4" /> <span>Descartar</span>
               </button>
             )}
           </div>
+
+          {(aoiSector || finalizedAoiGeoJson) && (
+            <div className="mb-4 p-2 bg-sky-900/10 border border-sky-800/20 rounded flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"></div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Sector: <span className="text-sky-300">{aoiSector || "Identificando..."}</span>
+              </p>
+            </div>
+          )}
+
 
           {aoiError && <p className="text-sm text-red-400 bg-red-900/30 p-2 rounded mb-3 border border-red-800/50">{aoiError}</p>}
 
@@ -1053,10 +1080,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               <div className="p-3 bg-green-900/20 border border-green-800/30 rounded-md">
                 <p className="text-sm text-green-200 flex items-center gap-2">
                   <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                  Área capturada correctamente.
+                  Área capturada correctamente en: <strong>{aoiSector || "Colombia"}</strong>
                 </p>
               </div>
-              <p className="text-xs text-gray-400">Presione el botón inferior para confirmar el Área de Operaciones y proceder con el análisis táctico.</p>
+              <p className="text-xs text-gray-400">Presione el botón inferior para confirmar la <strong>Asignación de AO</strong> y proceder con el análisis táctico.</p>
               <div className="flex gap-2">
                 <button
                   onClick={handleFinalizeAoi}
