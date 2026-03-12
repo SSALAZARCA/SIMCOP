@@ -115,3 +115,4 @@ tools/
 backend_*.log
 startup_*.log
 compile_*.log
+backend/data/
