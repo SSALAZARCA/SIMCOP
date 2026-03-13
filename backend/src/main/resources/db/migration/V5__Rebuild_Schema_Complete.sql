@@ -1,7 +1,6 @@
--- Simcop 3.0: Definitive Total Schema Rebuild (FIXED)
--- This script drops all tables and recreates them with complete field sets.
+-- Simcop 3.0: Definitive Total Schema Rebuild (FIXED MAPPING)
+-- This script fixes discrepancies between SQL column names and JPA naming strategies.
 
--- Disable foreign key checks for clean wiping
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1. Drop existing tables
@@ -57,20 +56,22 @@ CREATE TABLE military_units (
     commander_rank VARCHAR(50),
     commander_name VARCHAR(255),
     
-    -- Personnel Breakdown
+    -- Personnel Breakdown (PersonnelBreakdown.java)
     officers INTEGER DEFAULT 0,
     ncos INTEGER DEFAULT 0,
     professional_soldiers INTEGER DEFAULT 0,
     sl_regulars INTEGER DEFAULT 0,
     
-    location_lat DOUBLE PRECISION,
-    location_lon DOUBLE PRECISION,
-    status VARCHAR(50),
+    -- Main Location (GeoLocation - No override means basic column names)
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
     
+    status VARCHAR(50),
     last_movement_timestamp BIGINT,
     last_communication_timestamp BIGINT,
     last_hourly_report_timestamp BIGINT,
     
+    -- Destination Location (With overrides in MilitaryUnit.java)
     destination_lat DOUBLE PRECISION,
     destination_lon DOUBLE PRECISION,
     
@@ -80,6 +81,8 @@ CREATE TABLE military_units (
     days_of_supply DOUBLE PRECISION,
     last_resupply_date BIGINT,
     combat_end_timestamp BIGINT,
+    
+    -- Combat End Location (With overrides)
     combat_end_lat DOUBLE PRECISION,
     combat_end_lon DOUBLE PRECISION,
     
@@ -93,7 +96,7 @@ CREATE TABLE military_units (
     unit_situation_type VARCHAR(50),
     parent_id VARCHAR(36),
     
-    -- TOE Information
+    -- TOE Information (TOEInformation.java -> AuthorizedPersonnel.java with overrides)
     toe_officers INTEGER DEFAULT 0,
     toe_ncos INTEGER DEFAULT 0,
     toe_prof_soldiers INTEGER DEFAULT 0,
@@ -113,8 +116,9 @@ CREATE TABLE intelligence_reports (
     source_details VARCHAR(255),
     reliability VARCHAR(50),
     credibility VARCHAR(50),
-    location_lat DOUBLE PRECISION,
-    location_lon DOUBLE PRECISION,
+    -- GeoLocation location (No override)
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
     event_timestamp BIGINT,
     report_timestamp BIGINT,
     details TEXT,
@@ -136,8 +140,9 @@ CREATE TABLE report_links (
 CREATE TABLE fire_missions (
     id VARCHAR(36) PRIMARY KEY,
     requester_id VARCHAR(255),
-    target_lat DOUBLE PRECISION,
-    target_lon DOUBLE PRECISION,
+    -- GeoLocation targetLocation (No override)
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
     status VARCHAR(50),
     assigned_artillery_id VARCHAR(36),
     request_timestamp BIGINT,
@@ -164,6 +169,7 @@ CREATE TABLE after_action_reports (
     unit_name VARCHAR(255),
     combat_end_timestamp BIGINT,
     report_timestamp BIGINT,
+    -- GeoLocation location (With overrides in AfterActionReport.java)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
     casualties_kia INTEGER DEFAULT 0,
@@ -188,6 +194,7 @@ CREATE TABLE unit_history_events (
     event_type VARCHAR(100),
     timestamp BIGINT,
     details VARCHAR(1000),
+    -- GeoLocation location (With overrides)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
     related_entity_id VARCHAR(36),
@@ -243,7 +250,7 @@ CREATE TABLE alerts (
     related_id VARCHAR(36)
 );
 
--- 4. Collection Tables (Associations)
+-- 4. Collection Tables
 CREATE TABLE unit_route_history (
     unit_id VARCHAR(36) NOT NULL,
     lat DOUBLE PRECISION NOT NULL,
@@ -260,8 +267,9 @@ CREATE TABLE unit_uav_assets (
     current_payload DOUBLE PRECISION,
     stream_url VARCHAR(255),
     operational_radius DOUBLE PRECISION,
-    location_lat DOUBLE PRECISION,
-    location_lon DOUBLE PRECISION,
+    -- GeoLocation location (No override)
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -317,5 +325,4 @@ CREATE TABLE civilian_specialties (
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
--- Restore foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
