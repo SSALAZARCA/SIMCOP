@@ -53,7 +53,7 @@ export const OrganizationStructureView: React.FC<OrganizationStructureViewProps>
   });
 
   const topLevelUnits = useMemo(() => {
-    return organizationalUnits.filter(u => !u.parentId);
+    return organizationalUnits.filter(u => !u.parentId || u.parentId === 'null');
   }, [organizationalUnits]);
 
   const handleAddSubUnit = (parent: MilitaryUnit) => {

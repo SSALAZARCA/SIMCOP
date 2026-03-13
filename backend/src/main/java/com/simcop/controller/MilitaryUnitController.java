@@ -63,10 +63,20 @@ public class MilitaryUnitController {
 
     @PostMapping
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
-        logger.info("📦 Iniciando creación de unidad: {} (ID: {})", unit.getName(), unit.getId());
+        logger.info("📦 Iniciando creación de unidad: {} (Tipo: {})", unit.getName(), unit.getType());
+        
+        // Normalización de parentId para asegurar persistencia de nodos raíz
+        if (unit.getParentId() == null || unit.getParentId().trim().isEmpty() || unit.getParentId().equalsIgnoreCase("null")) {
+            logger.info("ℹ️ Detectada unidad raíz (Division/Top-level), seteando parentId a null");
+            unit.setParentId(null);
+        } else {
+            logger.info("🔗 Unidad con superior ID: {}", unit.getParentId());
+        }
+
         try {
             MilitaryUnit saved = repository.save(unit);
-            logger.info("✅ Unidad guardada exitosamente: {} (UUID: {})", saved.getName(), saved.getId());
+            logger.info("✅ Unidad guardada exitosamente: {} (UUID: {}) - ParentId: {}", 
+                saved.getName(), saved.getId(), saved.getParentId());
             return saved;
         } catch (Exception e) {
             logger.error("❌ Error persistiendo unidad {}: {}", unit.getName(), e.getMessage());

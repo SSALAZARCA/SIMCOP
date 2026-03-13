@@ -38,11 +38,9 @@ public class VisibilityService {
     public List<MilitaryUnit> getVisibleUnits(User user) {
         List<MilitaryUnit> allUnits = unitRepository.findAll();
 
-        if (user.getRole() == UserRole.ADMINISTRATOR || user.getRole() == UserRole.COMANDANTE_EJERCITO) {
-            return allUnits;
-        }
-
-        if (user.getPermissions() != null && (user.getPermissions().contains("NATIONAL_VIEW") || user.getPermissions().contains("VISTA_NACIONAL"))) {
+        if (user.getRole() == UserRole.ADMINISTRATOR || 
+            user.getRole() == UserRole.COMANDANTE_EJERCITO ||
+            (user.getPermissions() != null && (user.getPermissions().contains("NATIONAL_VIEW") || user.getPermissions().contains("VISTA_NACIONAL")))) {
             return allUnits;
         }
 

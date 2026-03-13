@@ -36,7 +36,7 @@ export const useUnitsManagement = (
         const newUnitSkeleton: any = {
             name: unitData.name,
             type: unitData.type,
-            parentId: unitData.parentId,
+            parentId: (!unitData.parentId || unitData.parentId === 'null') ? null : unitData.parentId,
             commander: commanderInfo,
             personnelBreakdown,
             equipment: [],
