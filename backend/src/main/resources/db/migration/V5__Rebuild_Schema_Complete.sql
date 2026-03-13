@@ -1,5 +1,5 @@
--- Simcop 3.0: Definitive Total Schema Rebuild (FIXED MAPPING)
--- This script fixes discrepancies between SQL column names and JPA naming strategies.
+-- Simcop 3.0: Definitive Total Schema Rebuild (PERFECT MAPPING)
+-- This script drops all tables and recreates them with complete field sets.
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -46,6 +46,7 @@ CREATE TABLE users (
 CREATE TABLE user_permissions (
     user_id VARCHAR(36) NOT NULL,
     permissions VARCHAR(255),
+    INDEX (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -62,7 +63,7 @@ CREATE TABLE military_units (
     professional_soldiers INTEGER DEFAULT 0,
     sl_regulars INTEGER DEFAULT 0,
     
-    -- Main Location (GeoLocation - No override means basic column names)
+    -- GeoLocation location
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     
@@ -71,7 +72,7 @@ CREATE TABLE military_units (
     last_communication_timestamp BIGINT,
     last_hourly_report_timestamp BIGINT,
     
-    -- Destination Location (With overrides in MilitaryUnit.java)
+    -- Destination GeoLocation (Overrides)
     destination_lat DOUBLE PRECISION,
     destination_lon DOUBLE PRECISION,
     
@@ -82,7 +83,7 @@ CREATE TABLE military_units (
     last_resupply_date BIGINT,
     combat_end_timestamp BIGINT,
     
-    -- Combat End Location (With overrides)
+    -- Combat End GeoLocation (Overrides)
     combat_end_lat DOUBLE PRECISION,
     combat_end_lon DOUBLE PRECISION,
     
@@ -96,7 +97,7 @@ CREATE TABLE military_units (
     unit_situation_type VARCHAR(50),
     parent_id VARCHAR(36),
     
-    -- TOE Information (TOEInformation.java -> AuthorizedPersonnel.java with overrides)
+    -- TOE Information (Overrides)
     toe_officers INTEGER DEFAULT 0,
     toe_ncos INTEGER DEFAULT 0,
     toe_prof_soldiers INTEGER DEFAULT 0,
@@ -116,7 +117,6 @@ CREATE TABLE intelligence_reports (
     source_details VARCHAR(255),
     reliability VARCHAR(50),
     credibility VARCHAR(50),
-    -- GeoLocation location (No override)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     event_timestamp BIGINT,
@@ -128,19 +128,20 @@ CREATE TABLE intelligence_reports (
 CREATE TABLE intelligence_report_keywords (
     intelligence_report_id VARCHAR(36) NOT NULL,
     keywords VARCHAR(255),
+    INDEX (intelligence_report_id),
     FOREIGN KEY (intelligence_report_id) REFERENCES intelligence_reports(id) ON DELETE CASCADE
 );
 
 CREATE TABLE report_links (
     report_id VARCHAR(36) NOT NULL,
     related_report_id VARCHAR(36),
+    INDEX (report_id),
     FOREIGN KEY (report_id) REFERENCES intelligence_reports(id) ON DELETE CASCADE
 );
 
 CREATE TABLE fire_missions (
     id VARCHAR(36) PRIMARY KEY,
     requester_id VARCHAR(255),
-    -- GeoLocation targetLocation (No override)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     status VARCHAR(50),
@@ -169,7 +170,6 @@ CREATE TABLE after_action_reports (
     unit_name VARCHAR(255),
     combat_end_timestamp BIGINT,
     report_timestamp BIGINT,
-    -- GeoLocation location (With overrides in AfterActionReport.java)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
     casualties_kia INTEGER DEFAULT 0,
@@ -194,7 +194,6 @@ CREATE TABLE unit_history_events (
     event_type VARCHAR(100),
     timestamp BIGINT,
     details VARCHAR(1000),
-    -- GeoLocation location (With overrides)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
     related_entity_id VARCHAR(36),
@@ -256,6 +255,7 @@ CREATE TABLE unit_route_history (
     lat DOUBLE PRECISION NOT NULL,
     lon DOUBLE PRECISION NOT NULL,
     timestamp BIGINT NOT NULL,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -267,21 +267,23 @@ CREATE TABLE unit_uav_assets (
     current_payload DOUBLE PRECISION,
     stream_url VARCHAR(255),
     operational_radius DOUBLE PRECISION,
-    -- GeoLocation location (No override)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
 CREATE TABLE military_unit_equipment (
     military_unit_id VARCHAR(36) NOT NULL,
     equipment VARCHAR(255),
+    INDEX (military_unit_id),
     FOREIGN KEY (military_unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
 CREATE TABLE military_unit_capabilities (
     military_unit_id VARCHAR(36) NOT NULL,
     capabilities VARCHAR(255),
+    INDEX (military_unit_id),
     FOREIGN KEY (military_unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -290,6 +292,7 @@ CREATE TABLE officer_specialties (
     code VARCHAR(50),
     name VARCHAR(255),
     quantity INTEGER,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -298,6 +301,7 @@ CREATE TABLE nco_specialties (
     code VARCHAR(50),
     name VARCHAR(255),
     quantity INTEGER,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -306,6 +310,7 @@ CREATE TABLE professional_soldier_specialties (
     code VARCHAR(50),
     name VARCHAR(255),
     quantity INTEGER,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -314,6 +319,7 @@ CREATE TABLE regular_soldier_specialties (
     code VARCHAR(50),
     name VARCHAR(255),
     quantity INTEGER,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
@@ -322,6 +328,7 @@ CREATE TABLE civilian_specialties (
     code VARCHAR(50),
     name VARCHAR(255),
     quantity INTEGER,
+    INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
 
