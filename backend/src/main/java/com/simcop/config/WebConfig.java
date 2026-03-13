@@ -23,7 +23,6 @@ public class WebConfig {
                 "http://localhost:5173",
                 "http://localhost:3000"
         ));
-        config.setAllowedOriginPatterns(Arrays.asList("*")); // Fallback matching
         config.setAllowedHeaders(Arrays.asList("*")); // Permitir todas las cabeceras para evitar bloqueos por cabeceras personalizadas
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setExposedHeaders(Arrays.asList("Authorization"));
