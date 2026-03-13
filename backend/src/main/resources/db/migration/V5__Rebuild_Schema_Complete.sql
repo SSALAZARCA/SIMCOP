@@ -1,7 +1,10 @@
--- Simcop 3.0: Definitive Total Schema Rebuild
+-- Simcop 3.0: Definitive Total Schema Rebuild (FIXED)
 -- This script drops all tables and recreates them with complete field sets.
 
--- 1. Drop existing tables (safety first, reverse order of dependency)
+-- Disable foreign key checks for clean wiping
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 1. Drop existing tables
 DROP TABLE IF EXISTS report_links;
 DROP TABLE IF EXISTS report_keywords;
 DROP TABLE IF EXISTS intelligence_report_keywords;
@@ -54,7 +57,7 @@ CREATE TABLE military_units (
     commander_rank VARCHAR(50),
     commander_name VARCHAR(255),
     
-    -- Personnel Breakdown (PersonnelBreakdown.java)
+    -- Personnel Breakdown
     officers INTEGER DEFAULT 0,
     ncos INTEGER DEFAULT 0,
     professional_soldiers INTEGER DEFAULT 0,
@@ -90,7 +93,7 @@ CREATE TABLE military_units (
     unit_situation_type VARCHAR(50),
     parent_id VARCHAR(36),
     
-    -- TOE Information (TOEInformation.java -> AuthorizedPersonnel.java)
+    -- TOE Information
     toe_officers INTEGER DEFAULT 0,
     toe_ncos INTEGER DEFAULT 0,
     toe_prof_soldiers INTEGER DEFAULT 0,
@@ -240,7 +243,7 @@ CREATE TABLE alerts (
     related_id VARCHAR(36)
 );
 
--- 4. Collection Tables
+-- 4. Collection Tables (Associations)
 CREATE TABLE unit_route_history (
     unit_id VARCHAR(36) NOT NULL,
     lat DOUBLE PRECISION NOT NULL,
@@ -313,3 +316,6 @@ CREATE TABLE civilian_specialties (
     quantity INTEGER,
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
+
+-- Restore foreign key checks
+SET FOREIGN_KEY_CHECKS = 1;
