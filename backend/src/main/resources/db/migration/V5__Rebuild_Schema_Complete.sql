@@ -208,7 +208,7 @@ CREATE TABLE unit_history_events (
 CREATE TABLE soldiers (
     id VARCHAR(36) PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
-    rank VARCHAR(50) NOT NULL,
+    `rank` VARCHAR(50) NOT NULL,
     moce_code VARCHAR(50) NOT NULL,
     status VARCHAR(50),
     health_status VARCHAR(50),
