@@ -49,10 +49,6 @@ public class MilitaryUnit {
     private List<String> capabilities = new ArrayList<>();
 
     @Embedded
-    @AttributeOverrides({
-            @AttributeOverride(name = "lat", column = @Column(name = "lat")),
-            @AttributeOverride(name = "lon", column = @Column(name = "lon"))
-    })
     private GeoLocation location;
 
     @Enumerated(EnumType.STRING)
