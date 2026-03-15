@@ -32,10 +32,8 @@ public class GeminiService {
         content.put("parts", Collections.singletonList(part));
         requestBody.put("contents", Collections.singletonList(content));
 
-        // Use a simpler generation config for faster JSON responses
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("response_mime_type", "application/json");
-        requestBody.put("generationConfig", generationConfig);
+        // generationConfig.put("response_mime_type", "application/json"); // Removed to allow plain text / markdown
+        // requestBody.put("generationConfig", generationConfig);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

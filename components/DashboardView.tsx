@@ -26,8 +26,9 @@ const ProactiveAnalysisComponent: React.FC<ProactiveAnalysisComponentProps> = ({
     setError(null);
     try {
       const result = await getProactiveAnalysis(units, alerts, intelligenceReports);
-      // Split by markdown list items
-      const points = result.text.split(/-\s+/).map(p => p.trim()).filter(p => p.length > 0);
+      // Split by markdown list items safely
+      const text = result.text || "";
+      const points = text.split(/-\s+/).map(p => p.trim()).filter(p => p.length > 0);
       setAnalysis(points);
     } catch (err: any) {
       setError(err.message || 'Error al obtener análisis.');

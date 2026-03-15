@@ -726,7 +726,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner text-sm">
             <div
               className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap break-words"
-              dangerouslySetInnerHTML={{ __html: doctrinalResponse.text.replace(/\n/g, '<br />') }}
+              dangerouslySetInnerHTML={{ __html: (doctrinalResponse.text || "").replace(/\n/g, '<br />') }}
             />
           </div>
         )}
@@ -790,7 +790,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                   </h5>
                   <div
                     className="prose prose-sm prose-invert max-w-none text-gray-200"
-                    dangerouslySetInnerHTML={{ __html: simulationResult.text.replace(/\n/g, '<br />') }}
+                    dangerouslySetInnerHTML={{ __html: (simulationResult.text || "").replace(/\n/g, '<br />') }}
                   />
                 </div>
               )}
