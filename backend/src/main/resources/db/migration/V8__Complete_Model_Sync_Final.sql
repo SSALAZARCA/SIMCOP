@@ -8,6 +8,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS report_links;
 DROP TABLE IF EXISTS report_keywords;
 DROP TABLE IF EXISTS intelligence_report_keywords;
+DROP TABLE IF EXISTS intelligence_reports;
 DROP TABLE IF EXISTS user_permissions;
 DROP TABLE IF EXISTS professional_soldier_specialties;
 DROP TABLE IF EXISTS regular_soldier_specialties;
