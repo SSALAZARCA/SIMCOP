@@ -155,7 +155,9 @@ const formatAlertsForPrompt = (alerts: Alert[]): string => {
 
 // FIX: Implement and export getCommandFromGemini, which was missing.
 export const getCommandFromGemini = async (command: string, unitNames: string[]): Promise<{ name: string, args: any } | null> => {
-  if (!ai) {
+  // Ensure AI client is initialized
+  const isInitialized = await ensureInitialized();
+  if (!isInitialized || !ai) {
     throw new Error("Gemini AI client no inicializado. Verifique la configuración de API_KEY.");
   }
 
@@ -178,7 +180,7 @@ export const getCommandFromGemini = async (command: string, unitNames: string[])
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: command,
       config: {
         systemInstruction,
@@ -206,7 +208,9 @@ export const getProactiveAnalysis = async (
   alerts: Alert[],
   intelligenceReports: IntelligenceReport[]
 ): Promise<GeminiAnalysisResult> => {
-  if (!ai) {
+  // Ensure AI client is initialized
+  const isInitialized = await ensureInitialized();
+  if (!isInitialized || !ai) {
     return Promise.reject(new Error("Gemini AI client no inicializado."));
   }
 
@@ -234,7 +238,7 @@ Identifica los puntos más críticos de la situación actual.
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: fullPrompt,
       config: {
         systemInstruction,
@@ -294,7 +298,7 @@ Consulta del Usuario:
 
 Solicitud de Análisis AI: Proporcione su evaluación y perspectivas. Si la capa de Amenaza Enemiga está activa y la consulta implica un área en Colombia, incluya el análisis histórico/de riesgo solicitado en las instrucciones del sistema.`;
 
-  const model = 'gemini-2.5-flash';
+  const model = 'gemini-1.5-flash';
 
   const genAIConfig: {
     systemInstruction: string;
@@ -306,7 +310,7 @@ Solicitud de Análisis AI: Proporcione su evaluación y perspectivas. Si la capa
   if (useGoogleSearch) {
     genAIConfig.tools = [{ googleSearch: {} }];
   } else {
-    if (model === 'gemini-2.5-flash') {
+    if (model === 'gemini-1.5-flash') {
       genAIConfig.thinkingConfig = { thinkingBudget: 0 };
     }
   }
@@ -420,7 +424,7 @@ Genera un plan de Curso de Acción (COA) en formato JSON. El plan debe tener un 
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
@@ -507,7 +511,7 @@ Responde SOLAMENTE con el objeto JSON. No incluyas explicaciones adicionales.
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
@@ -553,7 +557,7 @@ export const getDoctrinalAssistantResponse = async (query: string): Promise<Gemi
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: query,
       config: {
         systemInstruction,
@@ -628,7 +632,7 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
@@ -691,7 +695,7 @@ Simula el desarrollo de este plan. ¿Qué resistencia se espera? ¿Cuáles son l
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
@@ -731,7 +735,7 @@ Simula el encuentro y proporciona el reporte de resultados.
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: { systemInstruction },
     });
@@ -766,7 +770,7 @@ Genera el Resumen Ejecutivo de Situación.
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: { systemInstruction },
     });
