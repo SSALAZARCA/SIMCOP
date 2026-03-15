@@ -1,9 +1,9 @@
--- Simcop 3.0: Definitive Total Schema Rebuild (PERFECT MAPPING)
--- This script drops all tables and recreates them with complete field sets.
+-- Simcop 3.0: Definitive Total Schema Rebuild (ULTRA-PERFECT MAPPING)
+-- This script drops all tables and recreates them with EXACT field matching for JPA entities.
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- 1. Drop existing tables
+-- 1. Drop existing tables (in dependency order)
 DROP TABLE IF EXISTS report_links;
 DROP TABLE IF EXISTS report_keywords;
 DROP TABLE IF EXISTS intelligence_report_keywords;
@@ -57,22 +57,22 @@ CREATE TABLE military_units (
     commander_rank VARCHAR(50),
     commander_name VARCHAR(255),
     
-    -- Personnel Breakdown (PersonnelBreakdown.java)
+    -- Personnel Breakdown (Embedded PersonnelBreakdown)
     officers INTEGER DEFAULT 0,
     ncos INTEGER DEFAULT 0,
     professional_soldiers INTEGER DEFAULT 0,
     sl_regulars INTEGER DEFAULT 0,
     
-    -- GeoLocation location
+    -- GeoLocation location (Embedded)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
     
     status VARCHAR(50),
-    last_movement_timestamp BIGINT,
-    last_communication_timestamp BIGINT,
+    last_movement_timestamp BIGINT NOT NULL DEFAULT 0,
+    last_communication_timestamp BIGINT NOT NULL DEFAULT 0,
     last_hourly_report_timestamp BIGINT,
     
-    -- Destination GeoLocation (Overrides)
+    -- Destination GeoLocation (Embedded with AttributeOverrides)
     destination_lat DOUBLE PRECISION,
     destination_lon DOUBLE PRECISION,
     
@@ -83,7 +83,7 @@ CREATE TABLE military_units (
     last_resupply_date BIGINT,
     combat_end_timestamp BIGINT,
     
-    -- Combat End GeoLocation (Overrides)
+    -- Combat End GeoLocation (Embedded with AttributeOverrides)
     combat_end_lat DOUBLE PRECISION,
     combat_end_lon DOUBLE PRECISION,
     
@@ -97,7 +97,7 @@ CREATE TABLE military_units (
     unit_situation_type VARCHAR(50),
     parent_id VARCHAR(36),
     
-    -- TOE Information (Overrides)
+    -- TOE Information (Embedded TOEInformation with Overrides)
     toe_officers INTEGER DEFAULT 0,
     toe_ncos INTEGER DEFAULT 0,
     toe_prof_soldiers INTEGER DEFAULT 0,
@@ -109,7 +109,7 @@ CREATE TABLE military_units (
     area_of_operations TEXT
 );
 
--- 3. Operational & Support Tables
+-- 3. Operational Tables
 CREATE TABLE intelligence_reports (
     id VARCHAR(36) PRIMARY KEY,
     title VARCHAR(255),
@@ -117,10 +117,13 @@ CREATE TABLE intelligence_reports (
     source_details VARCHAR(255),
     reliability VARCHAR(50),
     credibility VARCHAR(50),
+    
+    -- GeoLocation (Embedded)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
-    event_timestamp BIGINT,
-    report_timestamp BIGINT,
+    
+    event_timestamp BIGINT NOT NULL DEFAULT 0,
+    report_timestamp BIGINT NOT NULL DEFAULT 0,
     details TEXT,
     reporting_unit_id VARCHAR(36)
 );
@@ -142,8 +145,11 @@ CREATE TABLE report_links (
 CREATE TABLE fire_missions (
     id VARCHAR(36) PRIMARY KEY,
     requester_id VARCHAR(255),
+    
+    -- GeoLocation targetLocation (Embedded)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
+    
     status VARCHAR(50),
     assigned_artillery_id VARCHAR(36),
     request_timestamp BIGINT,
@@ -170,8 +176,11 @@ CREATE TABLE after_action_reports (
     unit_name VARCHAR(255),
     combat_end_timestamp BIGINT,
     report_timestamp BIGINT,
+    
+    -- GeoLocation location (Embedded)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
+    
     casualties_kia INTEGER DEFAULT 0,
     casualties_wia INTEGER DEFAULT 0,
     casualties_mia INTEGER DEFAULT 0,
@@ -194,8 +203,11 @@ CREATE TABLE unit_history_events (
     event_type VARCHAR(100),
     timestamp BIGINT,
     details VARCHAR(1000),
+    
+    -- GeoLocation location (Embedded)
     location_lat DOUBLE PRECISION,
     location_lon DOUBLE PRECISION,
+    
     related_entity_id VARCHAR(36),
     related_entity_type VARCHAR(100),
     user_id VARCHAR(36),
@@ -219,6 +231,26 @@ CREATE TABLE soldiers (
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE SET NULL
 );
 
+CREATE TABLE alerts (
+    id VARCHAR(36) PRIMARY KEY,
+    type VARCHAR(50),
+    unit_id VARCHAR(36),
+    intel_id VARCHAR(36),
+    q5_id VARCHAR(36),
+    ordop_id VARCHAR(36),
+    user_id VARCHAR(36),
+    message TEXT,
+    timestamp BIGINT NOT NULL DEFAULT 0,
+    severity VARCHAR(50),
+    acknowledged BOOLEAN DEFAULT FALSE,
+    
+    -- GeoLocation (Embedded)
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
+    
+    data TEXT
+);
+
 CREATE TABLE osint_events (
     id VARCHAR(36) PRIMARY KEY,
     title VARCHAR(255),
@@ -226,27 +258,22 @@ CREATE TABLE osint_events (
     event_type VARCHAR(50),
     severity VARCHAR(50),
     timestamp BIGINT,
+    
+    -- GeoLocation (Embedded)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
+    
     source VARCHAR(255),
     is_verified BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE app_configuration (
-    config_key VARCHAR(100) PRIMARY KEY,
-    config_value TEXT,
-    description VARCHAR(255)
-);
-
-CREATE TABLE alerts (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(255),
-    message TEXT,
-    type VARCHAR(50),
-    severity VARCHAR(50),
-    timestamp BIGINT,
-    is_read BOOLEAN DEFAULT FALSE,
-    related_id VARCHAR(36)
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    config_key VARCHAR(100) UNIQUE NOT NULL,
+    config_value TEXT NOT NULL,
+    description VARCHAR(255),
+    updated_at DATETIME,
+    updated_by VARCHAR(100)
 );
 
 -- 4. Collection Tables
@@ -267,8 +294,11 @@ CREATE TABLE unit_uav_assets (
     current_payload DOUBLE PRECISION,
     stream_url VARCHAR(255),
     operational_radius DOUBLE PRECISION,
+    
+    -- GeoLocation (Embedded)
     lat DOUBLE PRECISION,
     lon DOUBLE PRECISION,
+    
     INDEX (unit_id),
     FOREIGN KEY (unit_id) REFERENCES military_units(id) ON DELETE CASCADE
 );
