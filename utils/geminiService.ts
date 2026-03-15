@@ -25,21 +25,39 @@ export const initializeApiKey = async (): Promise<void> => {
       const data = await response.json();
       API_KEY = data.apiKey;
       if (API_KEY) {
-        console.log('[Gemini] ✅ API key cargada desde backend');
+        console.log('[Gemini] ✅ API key cargada (para voz)');
         ai = new GoogleGenAI({ apiKey: API_KEY });
-        console.log('[Gemini] ✅ Cliente GoogleGenAI inicializado');
       } else {
-        console.warn('[Gemini] ⚠️ No se encontró API key en la respuesta del backend');
+        console.warn('[Gemini] ⚠️ No se encontró API key');
         ai = null;
       }
     } else {
-      console.error('[Gemini] ❌ Error al obtener API key. Status:', response.status);
       ai = null;
     }
   } catch (error) {
-    console.error('[Gemini] ❌ Error al conectar con el backend:', error);
     ai = null;
   }
+};
+
+/**
+ * Proxy function to call Gemini through our backend
+ */
+const generateContentViaBackend = async (prompt: string): Promise<string> => {
+  const response = await apiClient.fetch(`${API_BASE_URL}/api/ai/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || `Backend AI Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.text;
 };
 
 // Initialize on module load
@@ -237,15 +255,8 @@ Identifica los puntos más críticos de la situación actual.
 `;
 
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: fullPrompt,
-      config: {
-        systemInstruction
-      },
-    });
-
-    return { text: response.text };
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${fullPrompt}`);
+    return { text };
   } catch (error: unknown) {
     console.error("Error en getProactiveAnalysis:", error);
     let errorMessage = "Fallo al obtener análisis proactivo.";
@@ -297,54 +308,14 @@ Consulta del Usuario:
 
 Solicitud de Análisis AI: Proporcione su evaluación y perspectivas. Si la capa de Amenaza Enemiga está activa y la consulta implica un área en Colombia, incluya el análisis histórico/de riesgo solicitado en las instrucciones del sistema.`;
 
-  const model = 'gemini-2.0-flash';
-
-  const genAIConfig: {
-    systemInstruction: string;
-    tools?: any[];
-    responseMimeType?: string;
-  } = { systemInstruction };
-
-  if (useGoogleSearch) {
-    genAIConfig.tools = [{ googleSearch: {} }];
-  } else {
-    if (model === 'gemini-2.0-flash') {
-      // No config needed here
-    }
-  }
-
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model,
-      contents: fullPrompt,
-      config: genAIConfig,
-    });
-
-    const analysisText = response.text;
-    let sources: GroundingSource[] | undefined;
-
-    if (useGoogleSearch && response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-      sources = response.candidates[0].groundingMetadata.groundingChunks
-        .filter(chunk => chunk.web && chunk.web.uri)
-        .map(chunk => ({
-          uri: chunk.web!.uri!,
-          title: chunk.web!.title || chunk.web!.uri!
-        }));
-    }
-
-    return { text: analysisText, sources };
-
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${fullPrompt}${useGoogleSearch ? '\n(Usar Google Search para este análisis)' : ''}`);
+    return { text };
   } catch (error: unknown) {
     console.error("Error llamando a la API Gemini:", error);
     let errorMessage = "Fallo al obtener análisis de Gemini.";
     if (error instanceof Error) {
-      if (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID")) {
-        errorMessage = "Solicitud API Gemini falló: La clave API es inválida o faltante. Por favor, asegúrese que el entorno del servidor esté configurado correctamente.";
-      } else if (error.message.includes("permission")) {
-        errorMessage = "Solicitud API Gemini falló: Permiso denegado. Verifique los permisos de la clave API.";
-      } else {
-        errorMessage += ` Detalles: ${error.message}`;
-      }
+      errorMessage += ` Detalles: ${error.message}`;
     }
     throw new Error(errorMessage);
   }
@@ -508,23 +479,15 @@ Responde SOLAMENTE con el objeto JSON. No incluyas explicaciones adicionales.
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json"
-      },
-    });
-
-    let jsonStr = response.text.trim();
+    const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`);
+    let cleanedJson = jsonStr.trim();
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-    const match = jsonStr.match(fenceRegex);
+    const match = cleanedJson.match(fenceRegex);
     if (match && match[2]) {
-      jsonStr = match[2].trim();
+      cleanedJson = match[2].trim();
     }
 
-    const parsedData = JSON.parse(jsonStr) as Q5ContentPayload;
+    const parsedData = JSON.parse(cleanedJson) as Q5ContentPayload;
     return parsedData;
 
   } catch (error) {
@@ -553,28 +516,8 @@ export const getDoctrinalAssistantResponse = async (query: string): Promise<Gemi
   const systemInstruction = `Eres un asistente experto en la doctrina militar del Ejército Nacional de Colombia (EJC). Tu propósito es responder preguntas y proporcionar resúmenes basados en los manuales de doctrina, regulaciones y tácticas del EJC. Basa tus respuestas en la información disponible y utiliza Google Search para encontrar documentos y referencias doctrinales relevantes. Si usas fuentes externas, cítalas.`;
 
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: query,
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-      },
-    });
-
-    const analysisText = response.text;
-    let sources: GroundingSource[] | undefined;
-
-    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-      sources = response.candidates[0].groundingMetadata.groundingChunks
-        .filter(chunk => chunk.web && chunk.web.uri)
-        .map(chunk => ({
-          uri: chunk.web!.uri!,
-          title: chunk.web!.title || chunk.web!.uri!
-        }));
-    }
-
-    return { text: analysisText, sources };
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${query}\n(Usar Google Search para referencias doctrinales EJC)`);
+    return { text };
   } catch (error: unknown) {
     console.error("Error llamando a Gemini para asistente doctrinal:", error);
     let errorMessage = "Fallo al obtener respuesta doctrinal.";
@@ -628,24 +571,15 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema,
-      },
-    });
-
-    let jsonStr = response.text.trim();
+    const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}\nResponder en formato JSON siguiendo este esquema: ${JSON.stringify(responseSchema)}`);
+    let cleanedJson = jsonStr.trim();
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-    const match = jsonStr.match(fenceRegex);
+    const match = cleanedJson.match(fenceRegex);
     if (match && match[2]) {
-      jsonStr = match[2].trim();
+      cleanedJson = match[2].trim();
     }
 
-    const predictions = JSON.parse(jsonStr) as PredictedLogisticsNeed[];
+    const predictions = JSON.parse(cleanedJson) as PredictedLogisticsNeed[];
     return predictions;
 
   } catch (error: unknown) {
@@ -691,15 +625,8 @@ Simula el desarrollo de este plan. ¿Qué resistencia se espera? ¿Cuáles son l
 `;
 
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: {
-        systemInstruction
-      },
-    });
-
-    return { text: response.text };
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`);
+    return { text };
   } catch (error: unknown) {
     console.error("Error en simulateCOAOutcome:", error);
     throw new Error("Fallo al simular el resultado del COA.");
@@ -730,12 +657,8 @@ Simula el encuentro y proporciona el reporte de resultados.
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: { systemInstruction },
-    });
-    return { text: response.text };
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`);
+    return { text };
   } catch (error) {
     console.error("Error en simulateBMAInterception:", error);
     throw new Error("Fallo la simulación de intercepción.");
@@ -765,12 +688,8 @@ Genera el Resumen Ejecutivo de Situación.
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: { systemInstruction },
-    });
-    return response.text;
+    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`);
+    return text;
   } catch (error) {
     console.error("Error en getBMASituationBrief:", error);
     return "Error al generar el resumen de situación.";
