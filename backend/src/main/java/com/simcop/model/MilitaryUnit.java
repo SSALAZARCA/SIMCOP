@@ -60,6 +60,10 @@ public class MilitaryUnit {
 
     @ElementCollection
     @CollectionTable(name = "unit_route_history", joinColumns = @JoinColumn(name = "unit_id"))
+    @AttributeOverrides({
+            @AttributeOverride(name = "lat", column = @Column(name = "location_lat")),
+            @AttributeOverride(name = "lon", column = @Column(name = "location_lon"))
+    })
     private List<RoutePoint> routeHistory = new ArrayList<>();
 
     @Embedded
@@ -112,6 +116,10 @@ public class MilitaryUnit {
 
     @ElementCollection
     @CollectionTable(name = "unit_uav_assets", joinColumns = @JoinColumn(name = "unit_id"))
+    @AttributeOverrides({
+            @AttributeOverride(name = "location.lat", column = @Column(name = "location_lat")),
+            @AttributeOverride(name = "location.lon", column = @Column(name = "location_lon"))
+    })
     @Fetch(FetchMode.SUBSELECT)
     private List<UAVAsset> uavAssets = new ArrayList<>();
 
