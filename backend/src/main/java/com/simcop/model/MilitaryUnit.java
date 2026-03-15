@@ -32,6 +32,12 @@ public class MilitaryUnit {
     private CommanderInfo commander;
 
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "officers", column = @Column(name = "officers")),
+            @AttributeOverride(name = "ncos", column = @Column(name = "ncos")),
+            @AttributeOverride(name = "professionalSoldiers", column = @Column(name = "professional_soldiers")),
+            @AttributeOverride(name = "slRegulars", column = @Column(name = "sl_regulars"))
+    })
     private PersonnelBreakdown personnelBreakdown;
 
     @ElementCollection
@@ -43,6 +49,10 @@ public class MilitaryUnit {
     private List<String> capabilities = new ArrayList<>();
 
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "lat", column = @Column(name = "lat")),
+            @AttributeOverride(name = "lon", column = @Column(name = "lon"))
+    })
     private GeoLocation location;
 
     @Enumerated(EnumType.STRING)
