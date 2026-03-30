@@ -1,9 +1,14 @@
 # MySQL connection parameters
-$server = "srv1196.hstgr.io"
-$port = 3306
-$database = "u689528678_SIMCOP"
-$user = "u689528678_SIMCOP"
-$password = "Ssc841209*"
+$server = if ($env:DB_HOST) { $env:DB_HOST } else { "srv1196.hstgr.io" }
+$port = if ($env:DB_PORT) { $env:DB_PORT } else { 3306 }
+$database = if ($env:DB_NAME) { $env:DB_NAME } else { "u689528678_SIMCOP" }
+$user = if ($env:DB_USER) { $env:DB_USER } else { "u689528678_SIMCOP" }
+$password = $env:DB_PASSWORD
+
+if (-not $password) {
+    Write-Host "Error: DB_PASSWORD environment variable must be set." -ForegroundColor Red
+    throw "DB_PASSWORD environment variable must be set."
+}
 
 # SQL commands
 $sql = @"

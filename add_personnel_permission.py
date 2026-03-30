@@ -1,13 +1,19 @@
+import os
 import mysql.connector
+
+if not os.environ.get('DB_PASSWORD'):
+    print("Error: DB_PASSWORD environment variable must be set.")
+    exit(1)
+
 import json
 
 # Conectar a la base de datos
 try:
     connection = mysql.connector.connect(
-        host='srv1196.hstgr.io',
-        user='u689528678_SIMCOP',
-        password='Ssc841209*',
-        database='u689528678_SIMCOP'
+        host=os.environ.get('DB_HOST', 'srv1196.hstgr.io'),
+        user=os.environ.get('DB_USER', 'u689528678_SIMCOP'),
+        password=os.environ.get('DB_PASSWORD'),
+        database=os.environ.get('DB_NAME', 'u689528678_SIMCOP')
     )
     
     cursor = connection.cursor()

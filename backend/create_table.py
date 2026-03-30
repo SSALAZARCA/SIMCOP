@@ -1,17 +1,22 @@
 import sys
+import os
 
 try:
     import mysql.connector
     
     # Connection parameters
     config = {
-        'host': '193.203.175.58',
-        'port': 3306,
-        'user': 'u689528678_SIMCOP',
-        'password': 'Ssc841209*',
-        'database': 'u689528678_SIMCOP'
+        'host': os.environ.get('DB_HOST', '193.203.175.58'),
+        'port': int(os.environ.get('DB_PORT', 3306)),
+        'user': os.environ.get('DB_USER', 'u689528678_SIMCOP'),
+        'password': os.environ.get('DB_PASSWORD'),
+        'database': os.environ.get('DB_NAME', 'u689528678_SIMCOP')
     }
     
+    if not config['password']:
+        print("Error: DB_PASSWORD environment variable must be set.")
+        sys.exit(1)
+
     print("Connecting to MySQL...")
     conn = mysql.connector.connect(**config)
     cursor = conn.cursor()

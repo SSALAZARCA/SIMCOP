@@ -6,9 +6,16 @@ import java.sql.Statement;
 
 public class DropAllTables {
     public static void main(String[] args) {
-        String url = "jdbc:mysql://srv1196.hstgr.io:3306/u689528678_SIMCOP";
-        String user = "u689528678_SIMCOP";
-        String password = "Ssc841209*";
+        String host = System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "srv1196.hstgr.io";
+        String dbName = System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "u689528678_SIMCOP";
+        String url = "jdbc:mysql://" + host + ":3306/" + dbName;
+        String user = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "u689528678_SIMCOP";
+        String password = System.getenv("DB_PASSWORD");
+
+        if (password == null) {
+            System.err.println("Error: DB_PASSWORD environment variable must be set.");
+            System.exit(1);
+        }
 
         try (Connection conn = DriverManager.getConnection(url, user, password);
                 Statement stmt = conn.createStatement()) {
