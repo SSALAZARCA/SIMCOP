@@ -23,6 +23,22 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      sourcemap: false,
+      chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('cesium')) return 'cesium';
+              if (id.includes('leaflet')) return 'leaflet';
+              if (id.includes('react')) return 'vendor';
+              return 'deps';
+            }
+          }
+        }
+      }
     }
   };
 });
