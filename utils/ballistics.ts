@@ -7,7 +7,8 @@ const R_EARTH = 6371e3; // Earth radius in meters
 // CALCULO DE DISTANCIA Y AZIMUT
 // ========================================
 
-export const calculateDistanceAndAzimuth = (start: GeoLocation, end: GeoLocation): { distance: number, azimuth: number } => {
+export const calculateDistanceAndAzimuth = (start: GeoLocation | undefined | null, end: GeoLocation | undefined | null): { distance: number, azimuth: number } => {
+    if (!start || !end) return { distance: 0, azimuth: 0 };
     const lat1 = start.lat * Math.PI / 180;
     const lat2 = end.lat * Math.PI / 180;
     const lon1 = start.lon * Math.PI / 180;
