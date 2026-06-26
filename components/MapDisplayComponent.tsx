@@ -689,7 +689,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
     activeFireMissions.forEach(mission => {
       const gun = artilleryPieces.find(p => p.id === mission.artilleryId);
-      if (!gun) return;
+      if (!gun || !gun.location || !mission.target) return;
 
       const targetSIDC = 'GHGPGP----'; // Hostile Ground Target Point
       const symbolSvg = new ms.Symbol(targetSIDC, { size: 25, outlineColor: "black", outlineWidth: 1 }).asSVG();
