@@ -1,0 +1,27 @@
+﻿components/InsitopViewComponent.tsx(73,18): error TS2339: Property 'officers' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(74,14): error TS2339: Property 'ncos' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(75,30): error TS2339: Property 'professionalSoldiers' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(76,25): error TS2339: Property 'slRegulars' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(93,30): error TS2339: Property 'officers' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(93,51): error TS2339: Property 'ncos' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(93,68): error TS2339: Property 'professionalSoldiers' does not exist on type '{}'.
+components/InsitopViewComponent.tsx(93,101): error TS2339: Property 'slRegulars' does not exist on type '{}'.
+components/OrganizationStructureView.tsx(21,7): error TS2739: Type '{ Divisi├│n: string; Brigada: string; Batall├│n: string; Compa├▒├¡a: string; Pelot├│n: string; Equipo: string; Escuadra: string; "Puesto de Mando": string; }' is missing the following properties from type 'Record<UnitType, string>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+components/OrganizationUnitFormModal.tsx(18,7): error TS2739: Type '{ Divisi├│n: null; Brigada: UnitType.DIVISION; Batall├│n: UnitType.BRIGADE; Compa├▒├¡a: UnitType.BATTALION; Pelot├│n: UnitType.COMPANY; Equipo: UnitType.PLATOON; Escuadra: UnitType.PLATOON; "Puesto de Mando": null; }' is missing the following properties from type 'Record<UnitType, UnitType>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+components/OrganizationUnitFormModal.tsx(30,7): error TS2739: Type '{ Divisi├│n: UnitType.BRIGADE[]; Brigada: UnitType.BATTALION[]; Batall├│n: UnitType.COMPANY[]; Compa├▒├¡a: UnitType.PLATOON[]; Pelot├│n: undefined[]; Equipo: undefined[]; Escuadra: undefined[]; "Puesto de Mando": undefined[]; }' is missing the following properties from type 'Record<UnitType, UnitType[]>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+components/OrganizationUnitNode.tsx(21,7): error TS2739: Type '{ Divisi├│n: string; Brigada: string; Batall├│n: string; Compa├▒├¡a: string; Pelot├│n: string; Equipo: string; Escuadra: string; "Puesto de Mando": string; }' is missing the following properties from type 'Record<UnitType, string>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+components/PersonnelStatus.tsx(25,30): error TS2339: Property 'toe' does not exist on type 'MilitaryUnit'.
+components/PersonnelStatus.tsx(42,105): error TS2339: Property 'slPeasant' does not exist on type 'PersonnelBreakdown | { officers: number; ncos: number; professionalSoldiers: number; slRegulars: number; slPeasant: number; slBaccalaureate: number; }'.
+  Property 'slPeasant' does not exist on type 'PersonnelBreakdown'.
+components/PersonnelStatus.tsx(42,131): error TS2339: Property 'slBaccalaureate' does not exist on type 'PersonnelBreakdown | { officers: number; ncos: number; professionalSoldiers: number; slRegulars: number; slPeasant: number; slBaccalaureate: number; }'.
+  Property 'slBaccalaureate' does not exist on type 'PersonnelBreakdown'.
+constants.ts(187,14): error TS2739: Type '{ Escuadra: string; Equipo: string; Pelot├│n: string; Compa├▒├¡a: string; Batall├│n: string; Brigada: string; Divisi├│n: string; "Puesto de Mando": string; }' is missing the following properties from type 'Record<UnitType, string>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+constants.ts(199,14): error TS2739: Type '{ Escuadra: string; Equipo: string; Pelot├│n: string; Compa├▒├¡a: string; Batall├│n: string; Brigada: string; Divisi├│n: string; "Puesto de Mando": string; }' is missing the following properties from type 'Record<UnitType, string>': "Equipo Drone Ataque", "Equipo Drone Inteligencia"
+hooks/useSimulatedData.ts(1746,3): error TS2739: Type '{ users: User[]; login: (u: string, p: string) => Promise<User>; addUser: (d: NewUserData) => Promise<{ success: boolean; message?: string; }>; ... 60 more ...; dismissPendingMission: (missionId: string) => void; }' is missing the following properties from type 'UseSimulatedDataReturn': assignUAVAsset, removeUAVAsset
+LoginViewComponent.tsx(2,27): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(2,83): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(3,40): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(4,27): error TS2307: Cannot find module './icons/TruckIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(5,31): error TS2307: Cannot find module './icons/LightBulbIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(6,47): error TS2307: Cannot find module './LogisticsRequestCardComponent' or its corresponding type declarations.
+LogisticsViewComponent.tsx(8,48): error TS2307: Cannot find module '../utils/geminiService' or its corresponding type declarations.

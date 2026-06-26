@@ -1,0 +1,7 @@
+{
+    "username": "admin",
+    "displayName": "Administrador",
+    "hashedPassword": "admin123",
+    "role": "ADMINISTRATOR",
+    "permissions": []
+}

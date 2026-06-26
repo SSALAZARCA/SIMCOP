@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPOT Sender - SIMCOP</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #d1d5db; /* text-gray-300 */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #374151; /* bg-gray-700 */
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+        }
+        h1 {
+            color: #fbbf24; /* text-amber-400 */
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+        h2 {
+            color: #9ca3af; /* text-gray-400 */
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1em;
+            font-weight: normal;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+            color: #e5e7eb; /* text-gray-200 */
+        }
+        input[type="number"], input[type="text"] {
+            width: calc(100% - 18px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #4b5563; /* border-gray-600 */
+            border-radius: 4px;
+            background-color: #4b5563; /* bg-gray-600 */
+            color: #e5e7eb; /* text-gray-200 */
+            font-size: 0.95em;
+        }
+        input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #60a5fa; /* border-blue-400 */
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+        }
+        button {
+            background-color: #2563eb; /* bg-blue-600 */
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1d4ed8; /* bg-blue-700 */
+        }
+        button:disabled {
+            background-color: #4b5563; /* bg-gray-600 */
+            cursor: not-allowed;
+        }
+        #feedback {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.9em;
+            min-height: 1.2em;
+        }
+        .error { color: #f87171; /* text-red-400 */ }
+        .success { color: #34d399; /* text-green-400 */ }
+        .info { color: #60a5fa; /* text-blue-400 */ }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SPOT Report Sender</h1>
+        <h2 id="unitNameDisplay">Para Unidad: <span id="unitIdDisplay">Cargando...</span></h2>
+
+        <form id="senderForm">
+            <div>
+                <label for="latitude">Latitud (Decimal):</label>
+                <input type="number" step="any" id="latitude" name="latitude" placeholder="Ej: 4.60971" required>
+            </div>
+            <div>
+                <label for="longitude">Longitud (Decimal):</label>
+                <input type="number" step="any" id="longitude" name="longitude" placeholder="Ej: -74.08175" required>
+            </div>
+            <div>
+                <label for="timestamp">Timestamp (Segundos Unix Epoch, opcional):</label>
+                <input type="number" id="timestamp" name="timestamp" placeholder="Ej: 1678886400 (si se omite, usa actual)">
+            </div>
+            <button type="submit" id="sendButton">Enviar Reporte a SIMCOP</button>
+        </form>
+        <div id="feedback"></div>
+        <p style="font-size: 0.75em; text-align: center; margin-top: 20px; color: #9ca3af;">
+            Esta página enviará datos a la aplicación SIMCOP principal si fue abierta desde ella.
+        </p>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const unitId = params.get('unitId');
+        const targetOrigin = params.get('targetOrigin'); // Origin of the main SIMCOP app
+
+        const unitIdDisplayEl = document.getElementById('unitIdDisplay');
+        const feedbackEl = document.getElementById('feedback');
+        const formEl = document.getElementById('senderForm');
+        const sendButtonEl = document.getElementById('sendButton');
+        const unitNameDisplayEl = document.getElementById('unitNameDisplay'); // For potential future use with unit name
+
+        if (unitIdDisplayEl) {
+            unitIdDisplayEl.textContent = unitId || 'ID de Unidad Desconocido';
+        }
+        // if (unitNameDisplayEl && unitName) { // If unitName was passed
+        //    unitNameDisplayEl.textContent = `Para Unidad: ${unitName} (ID: ${unitId || 'Desconocido'})`;
+        // }
+
+
+        if (!targetOrigin) {
+            if (feedbackEl) feedbackEl.textContent = 'Error: targetOrigin no especificado en la URL. Esta página no funcionará.';
+            if (feedbackEl) feedbackEl.className = 'error';
+            if (formEl) formEl.style.display = 'none';
+        } else if (!window.opener) {
+             if (feedbackEl) feedbackEl.textContent = 'Advertencia: Esta página parece no haber sido abierta por la aplicación SIMCOP (window.opener no disponible). El envío podría fallar.';
+             if (feedbackEl) feedbackEl.className = 'info';
+        }
+
+        if (formEl) {
+            formEl.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
+                const latInput = document.getElementById('latitude');
+                const lonInput = document.getElementById('longitude');
+                const timestampInput = document.getElementById('timestamp');
+
+                const lat = parseFloat(latInput.value);
+                const lon = parseFloat(lonInput.value);
+                let timestampValue = timestampInput.value.trim() === '' ? null : parseInt(timestampInput.value, 10);
+
+                if (isNaN(lat) || lat < -90 || lat > 90) {
+                    if (feedbackEl) feedbackEl.textContent = 'Error: Latitud inválida. Debe ser un número entre -90 y 90.';
+                    if (feedbackEl) feedbackEl.className = 'error';
+                    return;
+                }
+                if (isNaN(lon) || lon < -180 || lon > 180) {
+                    if (feedbackEl) feedbackEl.textContent = 'Error: Longitud inválida. Debe ser un número entre -180 y 180.';
+                    if (feedbackEl) feedbackEl.className = 'error';
+                    return;
+                }
+                
+                if (timestampValue === null) {
+                    timestampValue = Math.floor(Date.now() / 1000); 
+                }
+
+                const payload = {
+                    lat: lat,
+                    lon: lon,
+                    timestamp: timestampValue * 1000 
+                };
+                
+                sendButtonEl.disabled = true;
+                if (feedbackEl) {
+                    feedbackEl.textContent = 'Enviando reporte a la API...';
+                    feedbackEl.className = 'info';
+                }
+
+                try {
+                    // Determinar la URL de la API basándose en la ubicación de esta página
+                    // La página se sirve desde la raíz del frontend (o similar)
+                    // El backend suele estar en el mismo host o configurado en el proxy
+                    const apiUrl = `/api/units/${unitId}/spot`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        if (feedbackEl) feedbackEl.textContent = '¡Reporte enviado exitosamente a la API real!';
+                        if (feedbackEl) feedbackEl.className = 'success';
+                        
+                        // Opcional: Notificar a la ventana padre si existe
+                        if (window.opener && targetOrigin) {
+                            window.opener.postMessage({ 
+                                type: 'SPOT_REPORT_REAL_SENT', 
+                                payload: { unitId, ...payload } 
+                            }, targetOrigin);
+                        }
+                    } else {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.message || `Error del servidor: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.error("Error sending report:", e);
+                    if (feedbackEl) feedbackEl.textContent = `Error al enviar: ${e.message || 'Error desconocido'}`;
+                    if (feedbackEl) feedbackEl.className = 'error';
+                } finally {
+                    sendButtonEl.disabled = false;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

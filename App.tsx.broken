@@ -1,0 +1,808 @@
+
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+// FIX: Import `Type` for function declaration schema.
+import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenaiBlob, Type } from "@google/genai";
+import { HeaderComponent } from './components/HeaderComponent';
+import { SidebarComponent } from './components/SidebarComponent';
+import { ResizableDivider } from './components/ResizableDivider';
+import { DashboardView } from './components/DashboardView';
+import { UnitsView } from './components/UnitsView';
+import { IntelView } from './components/IntelView';
+import { AlertsView } from './components/AlertsView';
+import { AnalysisView } from './components/AnalysisView';
+import { CommunicationsView } from './components/CommunicationsView';
+import { ArtilleryViewComponent } from './components/ArtilleryViewComponent';
+import { HistoricalViewComponent } from './components/HistoricalViewComponent';
+import { Q5ViewComponent } from './components/Q5ViewComponent';
+import { RetrainingAreaViewComponent } from './components/RetrainingAreaViewComponent';
+import { UnitHistoryViewComponent } from './components/UnitHistoryViewComponent';
+import { InsitopViewComponent } from './components/InsitopViewComponent';
+import { SpotViewComponent } from './components/SpotViewComponent';
+import { ORDOPViewComponent } from './components/ORDOPViewComponent';
+import { LoginViewComponent } from './components/LoginViewComponent';
+import { UserManagementViewComponent } from './components/UserManagementViewComponent';
+import { OrganizationStructureView } from './components/OrganizationStructureView';
+import { PlatoonCommanderView } from './components/platoon/PlatoonCommanderView';
+import { CompanyCommanderView } from './components/company/CompanyCommanderView';
+import { LogisticsViewComponent } from './components/LogisticsViewComponent';
+import SettingsView from './components/SettingsView';
+import { PersonnelView } from './components/PersonnelView';
+import { ViewErrorBoundary } from './components/ViewErrorBoundary';
+import { PlaceholderView } from './components/PlaceholderView';
+import { useBackendData } from './hooks/useBackendData';
+import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
+import { eventBus } from './utils/eventEmitter';
+import { ViewType, MapEntityType, UnitStatus, PlantillaType, UserRole, UnitType as UnitTypeEnum, AlertType } from './types';
+import type { MilitaryUnit, IntelligenceReport, Alert, SelectedEntity, AfterActionReport, Q5Report, PICCDrawConfig, SpotReportPayload, OperationsOrder, User, TargetSelectionRequest, GeoLocation, ForwardObserver, NewArtilleryPieceData, LogisticsRequest, PendingFireMission, ActiveFireMission, FiringSolution, ProjectileType, UserTelegramConfig } from './types';
+import { MapDisplayComponent } from './components/MapDisplayComponent';
+
+const SIMCOP_USER_SESSION_KEY = 'simcop_currentUser_id';
+
+// Remove static initialization
+// const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// if (!ai) {
+//   console.warn("API_KEY de Gemini no está configurada. Las funciones de IA, como el comando por voz, no funcionarán.");
+// }
+
+import { configService } from './services/configService';
+
+const App: React.FC = () => {
+  const [aiClient, setAiClient] = useState<GoogleGenAI | null>(null);
+
+  // Fetch API Key from backend on mount
+  useEffect(() => {
+    const initAi = async () => {
+      try {
+        const apiKey = await configService.getGeminiApiKey();
+        if (apiKey) {
+          console.log("Gemini API Key loaded from backend.");
+          setAiClient(new GoogleGenAI({ apiKey }));
+        } else {
+          console.warn("Gemini API Key not found in backend. AI features will be disabled.");
+        }
+      } catch (error) {
+        console.error("Error loading Gemini API Key:", error);
+      }
+    };
+    initAi();
+  }, []);
+  const [currentView, setCurrentView] = useState<ViewType>(ViewType.DASHBOARD);
+
+  useEffect(() => {
+    console.log('Current view changed to:', currentView);
+  }, [currentView]);
+
+  const data = useBackendData();
+  const {
+    units, intelligenceReports, alerts, afterActionReports, q5Reports, operationsOrders,
+    artilleryPieces, forwardObservers, activeFireMissions, pendingFireMissions,
+    logisticsRequests, userTelegramConfigs,
+    q5GeneratingStatus, q5SendingStatus, unitHistoryLog, users, login, addUser: addSystemUser,
+    updateUser: updateSystemUser, deleteUser: deleteSystemUser,
+    acknowledgeAlert, addIntelReport, addManualRoutePoint, updateUnitLogistics,
+    updateUnitAttributes, markUnitHourlyReport, reportUnitEngaged, reportUnitCeasefire,
+    addAfterActionReport, sendTestTelegramAlert, addUnit, generateAndAddQ5Report,
+    sendQ5ReportViaTelegram, sendUnitToRetraining, returnUnitFromRetraining,
+    startUnitLeave, startUnitRetraining, updateUnitMission, updateUnitSituation,
+    processSpotReport, addOperationsOrder, updateOperationsOrder, publishOperationsOrder,
+    addUnitHierarchy, updateUnitHierarchyDetails, deleteUnitHierarchy, assignCommanderToOrganizationalUnit,
+    addArtilleryPiece, acknowledgeOperationsOrder, submitAmmoExpenditureReport, logPlatoonNovelty,
+    approvePlatoonNovelty, approveAmmoReport, rejectAmmoReport, rejectPlatoonNovelty,
+    fulfillLogisticsRequest, addForwardObserver, confirmShotFired,
+    requestFireMission, acceptFireMission, updateUserTelegramConfig,
+    rejectFireMission, dismissPendingMission, addLogisticsRequest
+  } = data;
+
+  const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null);
+  const [selectedAAR, setSelectedAAR] = useState<AfterActionReport | null>(null);
+  const [selectedQ5Report, setSelectedQ5Report] = useState<Q5Report | null>(null);
+  const [selectedORDOP, setSelectedORDOP] = useState<OperationsOrder | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [entityToPanTo, setEntityToPanTo] = useState<SelectedEntity | null>(null);
+
+  const [distanceToolActive, setDistanceToolActive] = useState<boolean>(false);
+  const [aoiDrawingModeActive, setAoiDrawingModeActive] = useState<boolean>(false);
+  const [enemyInfluenceLayerActive, setEnemyInfluenceLayerActive] = useState<boolean>(false);
+  const [elevationProfileActive, setElevationProfileActive] = useState<boolean>(false);
+  const [piccDrawingConfig, setPiccDrawingConfig] = useState<PICCDrawConfig | null>(null);
+  const [activePICCPlantillaContext, setActivePICCPlantillaContext] = useState<PlantillaType | null>(null);
+  const [targetSelectionRequest, setTargetSelectionRequest] = useState<TargetSelectionRequest | null>(null);
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // Voice Command State
+  const [isVoiceCommandActive, setIsVoiceCommandActive] = useState(false);
+  const [isConnectingVoice, setIsConnectingVoice] = useState(false);
+  const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const inputAudioContextRef = useRef<AudioContext | null>(null);
+  const outputAudioContextRef = useRef<AudioContext | null>(null);
+  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const audioPlaybackSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const nextStartTimeRef = useRef<number>(0);
+
+
+  const MIN_PANEL_WIDTH = 280;
+  const DIVIDER_WIDTH = 8;
+
+  const calculateInitialContentWidth = () => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1024) return 0;
+      let initialFraction = 0.33;
+      if (window.innerWidth >= 1280) {
+        initialFraction = 0.28;
+      }
+      return Math.max(MIN_PANEL_WIDTH, Math.floor(window.innerWidth * initialFraction));
+    }
+    return 450;
+  };
+
+  const [contentWidth, setContentWidth] = useState<number>(calculateInitialContentWidth);
+  // FIX: Initialize useRef with null to prevent using the variable before declaration.
+  const mainContainerRef = useRef<HTMLElement | null>(null);
+
+  // Removed session restoration for security reasons (User Request)
+  // useEffect(() => {
+  //   const storedUserId = localStorage.getItem(SIMCOP_USER_SESSION_KEY);
+  //   if (storedUserId && users.length > 0) {
+  //     // Fix: Convert ID to string for comparison as backend IDs are now numbers (Long)
+  //     const userFromStorage = users.find(u => String(u.id) === storedUserId);
+  //     if (userFromStorage) {
+  //       setCurrentUser(userFromStorage);
+  //       eventBus.publish('USER_LOGIN_SUCCESS', userFromStorage);
+  //     } else {
+  //       localStorage.removeItem(SIMCOP_USER_SESSION_KEY);
+  //     }
+  //   }
+  // }, [users]);
+
+  const handleLoginSuccess = useCallback((user: User) => {
+    setCurrentUser(user);
+    // localStorage.setItem(SIMCOP_USER_SESSION_KEY, user.id); // Disabled for security
+    eventBus.publish('USER_LOGIN_SUCCESS', user);
+    const loginFailedAlert = alerts.find(a => a.type === AlertType.USER_LOGIN_FAILED && (a.message.includes(user.username) || a.userId === user.id) && !a.acknowledged);
+    if (loginFailedAlert) acknowledgeAlert(loginFailedAlert.id);
+  }, [alerts, acknowledgeAlert]);
+
+  const handleLogout = useCallback(() => {
+    if (currentUser) {
+      eventBus.publish('USER_LOGOUT', { userId: currentUser.id, username: currentUser.username });
+    }
+    setCurrentUser(null);
+    localStorage.removeItem(SIMCOP_USER_SESSION_KEY);
+    setCurrentView(ViewType.DASHBOARD);
+  }, [currentUser]);
+
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobileCheck = window.innerWidth < 1024;
+      if (mobileCheck !== isMobile) {
+        setIsMobile(mobileCheck);
+        if (!mobileCheck) {
+          setIsMobileNavOpen(false);
+          setContentWidth(calculateInitialContentWidth());
+        }
+      } else if (!mobileCheck) {
+        setContentWidth(prevWidth => {
+          const newProportionalWidth = calculateInitialContentWidth();
+          if (mainContainerRef.current) {
+            const mainContainerTotalWidth = mainContainerRef.current.offsetWidth;
+            const maxPossibleWidth = mainContainerTotalWidth - MIN_PANEL_WIDTH - DIVIDER_WIDTH;
+            return Math.min(newProportionalWidth, maxPossibleWidth);
+          }
+          return newProportionalWidth;
+        });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobile]);
+
+  const handleSelectEntity = useCallback((entity: SelectedEntity | null) => {
+    setSelectedEntity(entity);
+    setSelectedORDOP(null);
+    if (entity?.type === MapEntityType.AAR) {
+      const aar = afterActionReports.find(r => r.id === entity.id);
+      setSelectedAAR(aar || null);
+      setSelectedQ5Report(null);
+    } else if (entity?.type === MapEntityType.UNIT) {
+      setSelectedAAR(null);
+      setSelectedQ5Report(null);
+    } else {
+      setSelectedAAR(null);
+    }
+    if (entity && isMobile && currentView !== ViewType.MAP) {
+      setCurrentView(ViewType.MAP);
+    }
+  }, [afterActionReports, isMobile, currentView]);
+
+  const handleSelectAARFromList = useCallback((aar: AfterActionReport) => {
+    setSelectedAAR(aar);
+    setSelectedEntity({ type: MapEntityType.AAR, id: aar.id });
+    setSelectedQ5Report(null);
+    setSelectedORDOP(null);
+    if (isMobile && currentView !== ViewType.MAP) {
+      setCurrentView(ViewType.MAP);
+    }
+  }, [isMobile, currentView]);
+
+  const handleSelectQ5ReportFromList = useCallback((q5: Q5Report) => {
+    setSelectedQ5Report(q5);
+    setSelectedORDOP(null);
+    const aar = afterActionReports.find(r => r.id === q5.aarId);
+    if (aar) {
+      setSelectedAAR(aar);
+      setSelectedEntity({ type: MapEntityType.AAR, id: aar.id });
+    } else {
+      setSelectedAAR(null);
+      setSelectedEntity(null);
+    }
+    if (isMobile && currentView !== ViewType.MAP) {
+      setCurrentView(ViewType.MAP);
+    }
+  }, [afterActionReports, isMobile, currentView]);
+
+  const handleSelectORDOPFromList = useCallback((ordop: OperationsOrder) => {
+    setSelectedORDOP(ordop);
+    setSelectedEntity({ type: MapEntityType.ORDOP, id: ordop.id });
+    setSelectedAAR(null);
+    setSelectedQ5Report(null);
+  }, []);
+
+  const handleCallForFire = useCallback((requester: ForwardObserver | MilitaryUnit) => {
+    setTargetSelectionRequest({ requester });
+    // Deactivate other tools
+    setDistanceToolActive(false);
+    setAoiDrawingModeActive(false);
+    setElevationProfileActive(false);
+    setPiccDrawingConfig(null);
+  }, []);
+
+  const handleTargetSelected = useCallback((location: GeoLocation) => {
+    if (targetSelectionRequest) {
+      requestFireMission(targetSelectionRequest.requester.id, location);
+      setTargetSelectionRequest(null); // Mission request sent, clear the state
+    }
+  }, [targetSelectionRequest, requestFireMission]);
+
+  const handleCancelFireMission = useCallback(() => {
+    setTargetSelectionRequest(null);
+  }, []);
+
+  const handleAiCommand = useCallback(async (command: string) => {
+    try {
+      const result = await getCommandFromGemini(command, units.map(u => u.name));
+      if (result && result.name === 'focusOnUnit' && result.args.unitName) {
+        const unitNameToFind = result.args.unitName.toLowerCase();
+        const foundUnit = units.find(u => u.name.toLowerCase().includes(unitNameToFind));
+        if (foundUnit) {
+          setEntityToPanTo({ type: MapEntityType.UNIT, id: foundUnit.id });
+        } else {
+          console.warn(`AI command: Unit "${result.args.unitName}" not found.`);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing AI command:", error);
+    }
+  }, [units]);
+
+  const handleToggleVoiceCommand = useCallback(async () => {
+    if (isConnectingVoice) return;
+
+    if (isVoiceCommandActive) {
+      if (sessionPromiseRef.current) {
+        sessionPromiseRef.current.then(session => {
+          session.close();
+        });
+        sessionPromiseRef.current = null;
+      }
+      return; // onclose callback will handle state updates
+    }
+
+    setIsConnectingVoice(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!aiClient) {
+        alert("La API KEY de Gemini no está configurada en el backend. Por favor vaya a Configuración y agregue una clave válida.");
+        setIsConnectingVoice(false);
+        return;
+      }
+
+      if (!inputAudioContextRef.current) inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      if (!outputAudioContextRef.current) outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+
+      const sessionPromise = aiClient.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        callbacks: {
+          onopen: async () => {
+            setIsConnectingVoice(false);
+            setIsVoiceCommandActive(true);
+
+            const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
+            mediaStreamSourceRef.current = source;
+
+            const audioProcessorWorklet = `
+              class AudioProcessor extends AudioWorkletProcessor {
+                process(inputs) {
+                  const inputData = inputs[0][0];
+                  if (inputData) {
+                    const buffer = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                      buffer[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+                    }
+                    this.port.postMessage(buffer, [buffer.buffer]);
+                  }
+                  return true;
+                }
+              }
+              registerProcessor('audio-processor', AudioProcessor);
+            `;
+
+            const blob = new Blob([audioProcessorWorklet], { type: 'application/javascript' });
+            const workletURL = URL.createObjectURL(blob);
+            let workletNode;
+
+            try {
+              await inputAudioContextRef.current!.audioWorklet.addModule(workletURL);
+              workletNode = new AudioWorkletNode(inputAudioContextRef.current!, 'audio-processor');
+              audioWorkletNodeRef.current = workletNode;
+            } catch (e) {
+              console.error("Error adding AudioWorklet module:", e);
+              stream.getTracks().forEach(track => track.stop());
+              if (sessionPromiseRef.current) {
+                sessionPromiseRef.current.then(session => session.close());
+              }
+              return;
+            } finally {
+              URL.revokeObjectURL(workletURL);
+            }
+
+            workletNode.port.onmessage = (event) => {
+              const int16Array = event.data as Int16Array;
+              const pcmBlob: GenaiBlob = {
+                data: encode(new Uint8Array(int16Array.buffer)),
+                mimeType: 'audio/pcm;rate=16000',
+              };
+              if (sessionPromiseRef.current) {
+                sessionPromiseRef.current.then((session) => {
+                  session.sendRealtimeInput({ media: pcmBlob });
+                });
+              }
+            };
+            source.connect(workletNode);
+            workletNode.connect(inputAudioContextRef.current!.destination);
+          },
+          onmessage: async (message: LiveServerMessage) => {
+            if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
+              const base64Audio = message.serverContent.modelTurn.parts[0].inlineData.data;
+              const outputCtx = outputAudioContextRef.current!;
+
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
+              const audioBuffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
+
+              const source = outputCtx.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(outputCtx.destination);
+              source.addEventListener('ended', () => {
+                audioPlaybackSourcesRef.current.delete(source);
+              });
+
+              source.start(nextStartTimeRef.current);
+              nextStartTimeRef.current += audioBuffer.duration;
+              audioPlaybackSourcesRef.current.add(source);
+            }
+            if (message.toolCall?.functionCalls) {
+              for (const fc of message.toolCall.functionCalls) {
+                if (fc.name === 'focusOnUnit' && fc.args.unitName) {
+                  const unitNameToFind = String(fc.args.unitName).toLowerCase();
+                  const foundUnit = units.find(u => u.name.toLowerCase().includes(unitNameToFind));
+                  if (foundUnit) {
+                    setEntityToPanTo({ type: MapEntityType.UNIT, id: foundUnit.id });
+                  } else {
+                    console.warn(`Voice command: Unit "${fc.args.unitName}" not found.`);
+                  }
+                }
+              }
+            }
+          },
+          onerror: (e: ErrorEvent) => {
+            console.error('Voice command error:', e);
+            setIsConnectingVoice(false);
+            setIsVoiceCommandActive(false);
+          },
+          onclose: () => {
+            stream.getTracks().forEach(track => track.stop());
+            audioWorkletNodeRef.current?.disconnect();
+            mediaStreamSourceRef.current?.disconnect();
+            audioWorkletNodeRef.current = null;
+            mediaStreamSourceRef.current = null;
+            setIsConnectingVoice(false);
+            setIsVoiceCommandActive(false);
+          },
+        },
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction: 'Eres un asistente de mando y control. Responde a las preguntas del usuario y ejecuta funciones como enfocar en unidades en el mapa.',
+          tools: [{
+            functionDeclarations: [
+              {
+                name: 'focusOnUnit',
+                parameters: {
+                  // FIX: Use `Type.OBJECT` and `Type.STRING` from the SDK enum instead of string literals.
+                  type: Type.OBJECT,
+                  properties: { unitName: { type: Type.STRING } },
+                  required: ['unitName'],
+                },
+              }
+            ]
+          }]
+        },
+      });
+      sessionPromiseRef.current = sessionPromise;
+
+    } catch (error) {
+      console.error('Error starting voice command session:', error);
+      setIsConnectingVoice(false);
+      setIsVoiceCommandActive(false);
+      alert("No se pudo iniciar el comando por voz. Asegúrese de haber concedido el permiso para el micrófono.");
+    }
+  }, [isConnectingVoice, isVoiceCommandActive, units]);
+
+
+  const operationalUnitsForMap = units.filter(u =>
+    u.status !== UnitStatus.ON_LEAVE_RETRAINING &&
+    (
+      u.type === UnitTypeEnum.PLATOON ||
+      u.type === UnitTypeEnum.TEAM ||
+      u.type === UnitTypeEnum.SQUAD
+    )
+  );
+  const retrainingUnitsForView = units.filter(u => u.status === UnitStatus.ON_LEAVE_RETRAINING);
+
+  const mapDisplayProps = {
+    units: operationalUnitsForMap,
+    intelligenceReports,
+    artilleryPieces,
+    forwardObservers,
+    activeFireMissions: activeFireMissions as ActiveFireMission[],
+    afterActionReports,
+    selectedEntity,
+    onSelectEntityOnMap: handleSelectEntity,
+    distanceToolActive,
+    aoiDrawingModeActive,
+    enemyInfluenceLayerActive,
+    elevationProfileActive,
+    piccDrawingConfig,
+    onPiccDrawingComplete: () => setPiccDrawingConfig(null),
+    activeTemplateContext: activePICCPlantillaContext,
+    isTargetSelectionActive: !!targetSelectionRequest,
+    onTargetSelected: handleTargetSelected,
+    eventBus: eventBus,
+    entityToPanTo: entityToPanTo,
+  };
+
+  const analysisViewProps = {
+    units: operationalUnitsForMap, // Use the same filtered units for analysis context if needed
+    intelligenceReports,
+    distanceToolActive,
+    setDistanceToolActive,
+    aoiDrawingModeActive,
+    setAoiDrawingModeActive,
+    enemyInfluenceLayerActive,
+    setEnemyInfluenceLayerActive,
+    elevationProfileActive,
+    setElevationProfileActive,
+    piccDrawingConfig,
+    setPiccDrawingConfig,
+    onSelectEntityOnMap: handleSelectEntity,
+    activeTemplateContext: activePICCPlantillaContext,
+    setActiveTemplateContext: setActivePICCPlantillaContext,
+    eventBus: eventBus,
+  };
+
+  const renderView = () => {
+    // Check both enum value and enum key for administrator role
+    const isAdmin = currentUser?.role === UserRole.ADMINISTRATOR || currentUser?.role === 'ADMINISTRATOR';
+
+    if (!isAdmin && (currentView === ViewType.USER_MANAGEMENT || currentView === ViewType.SETTINGS)) {
+      setCurrentView(ViewType.DASHBOARD);
+      return <DashboardView units={units} alerts={alerts} intelCount={intelligenceReports.length} onSelectEntity={handleSelectEntity} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} intelligenceReports={intelligenceReports} allUnits={units} />;
+    }
+
+    // Helper to get the enum key from the enum value
+    const getViewTypeKey = (viewTypeValue: ViewType): string => {
+      const entries = Object.entries(ViewType) as [string, ViewType][];
+      const entry = entries.find(([_, value]) => value === viewTypeValue);
+      return entry ? entry[0] : viewTypeValue;
+    };
+
+    // Check permissions with both enum value (Spanish) and enum key (English)
+    if (currentUser && currentView !== ViewType.DASHBOARD) {
+      const hasPermission = currentUser.permissions?.includes(currentView as any) ||
+        currentUser.permissions?.includes(getViewTypeKey(currentView) as any);
+
+      if (!hasPermission && currentView !== ViewType.MAP) { // MAP is a special case
+        setCurrentView(ViewType.DASHBOARD);
+        return <DashboardView units={units} alerts={alerts} intelCount={intelligenceReports.length} onSelectEntity={handleSelectEntity} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} intelligenceReports={intelligenceReports} allUnits={units} />;
+      }
+    }
+
+
+    switch (currentView) {
+      case ViewType.DASHBOARD:
+        return <DashboardView units={units} alerts={alerts} intelCount={intelligenceReports.length} onSelectEntity={handleSelectEntity} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} intelligenceReports={intelligenceReports} allUnits={units} />;
+      case ViewType.UNITS:
+        return <UnitsView
+          allUnits={units}
+          units={units.filter(u => u.type === UnitTypeEnum.PLATOON || u.type === UnitTypeEnum.TEAM || u.type === UnitTypeEnum.SQUAD)}
+          onSelectUnit={(unit) => handleSelectEntity({ type: MapEntityType.UNIT, id: unit.id })}
+          addManualRoutePoint={addManualRoutePoint}
+          updateUnitLogistics={updateUnitLogistics}
+          updateUnitAttributes={updateUnitAttributes}
+          updateUnitMission={updateUnitMission}
+          updateUnitSituation={updateUnitSituation}
+          addUnit={addUnit}
+          sendUnitToRetraining={sendUnitToRetraining}
+          artilleryPieces={artilleryPieces}
+          targetSelectionRequest={targetSelectionRequest}
+          onCallForFire={handleCallForFire}
+          onCancelFireMission={handleCancelFireMission}
+          pendingFireMissions={pendingFireMissions}
+          dismissPendingMission={dismissPendingMission}
+        />;
+      case ViewType.INTEL:
+        return <IntelView intelReports={intelligenceReports} onSelectIntel={(intel) => handleSelectEntity({ type: MapEntityType.INTEL, id: intel.id })} addIntelReport={addIntelReport} />;
+      case ViewType.ALERTS:
+        return <AlertsView alerts={alerts} acknowledgeAlert={acknowledgeAlert} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} />;
+      case ViewType.ANALYSIS:
+        return <AnalysisView {...analysisViewProps} />;
+      case ViewType.COMMUNICATIONS:
+        return (
+          <CommunicationsView
+            units={units.filter(u => u.status !== UnitStatus.ON_LEAVE_RETRAINING)}
+            markUnitHourlyReport={markUnitHourlyReport}
+            reportUnitEngaged={reportUnitEngaged}
+            reportUnitCeasefire={reportUnitCeasefire}
+            addAfterActionReport={addAfterActionReport}
+            sendTestTelegramAlert={sendTestTelegramAlert}
+            currentUser={currentUser}
+            userTelegramConfigs={userTelegramConfigs}
+            updateUserTelegramConfig={updateUserTelegramConfig}
+          />
+        );
+      case ViewType.ARTILLERY_OBSERVATION:
+        return <ArtilleryViewComponent
+          artilleryPieces={artilleryPieces}
+          forwardObservers={forwardObservers}
+          activeFireMissions={activeFireMissions as ActiveFireMission[]}
+          pendingFireMissions={pendingFireMissions}
+          onSelectEntity={(entity) => handleSelectEntity(entity)}
+          targetSelectionRequest={targetSelectionRequest}
+          onCallForFire={handleCallForFire}
+          onCancelFireMission={handleCancelFireMission}
+          addArtilleryPiece={addArtilleryPiece}
+          addForwardObserver={addForwardObserver}
+          allUnits={units}
+          allUsers={users}
+          acceptFireMission={acceptFireMission}
+          currentUser={currentUser}
+          userTelegramConfigs={userTelegramConfigs}
+          updateUserTelegramConfig={updateUserTelegramConfig}
+          sendTestTelegramAlert={sendTestTelegramAlert}
+          rejectFireMission={rejectFireMission}
+          dismissPendingMission={dismissPendingMission}
+          confirmShotFired={confirmShotFired}
+        />;
+      case ViewType.ORDOP:
+        return <ORDOPViewComponent
+          operationsOrders={operationsOrders}
+          addOperationsOrder={addOperationsOrder}
+          updateOperationsOrder={updateOperationsOrder}
+          selectedORDOP={selectedORDOP}
+          onSelectORDOP={handleSelectORDOPFromList}
+          publishOperationsOrder={publishOperationsOrder}
+          allUsers={users}
+          allUnits={units}
+        />;
+      case ViewType.ORGANIZATION_STRUCTURE:
+        return <OrganizationStructureView
+          allUnits={units}
+          allUsers={users}
+          addUnitHierarchy={addUnitHierarchy}
+          updateUnitHierarchyDetails={updateUnitHierarchyDetails}
+          deleteUnitHierarchy={deleteUnitHierarchy}
+          assignCommanderToOrganizationalUnit={assignCommanderToOrganizationalUnit}
+        />;
+      case ViewType.HISTORICAL:
+        return <HistoricalViewComponent afterActionReports={afterActionReports} units={units} onSelectAAR={handleSelectAARFromList} selectedAAR={selectedAAR} generateAndAddQ5Report={generateAndAddQ5Report} q5Reports={q5Reports} q5GeneratingStatus={q5GeneratingStatus} unitHistoryLog={unitHistoryLog} alerts={alerts} />;
+      case ViewType.Q5_REPORT:
+        return <Q5ViewComponent q5Reports={q5Reports} selectedQ5Report={selectedQ5Report} onSelectQ5Report={handleSelectQ5ReportFromList} sendQ5ReportViaTelegram={sendQ5ReportViaTelegram} q5SendingStatus={q5SendingStatus} />;
+      case ViewType.RETRAINING_AREA:
+        return <RetrainingAreaViewComponent retrainingUnits={retrainingUnitsForView} returnUnitFromRetraining={returnUnitFromRetraining} startUnitLeave={startUnitLeave} startUnitRetraining={startUnitRetraining} />;
+      case ViewType.UNIT_HISTORY:
+        return <UnitHistoryViewComponent units={units} unitHistoryLog={unitHistoryLog} />;
+      case ViewType.INSITOP:
+        return <InsitopViewComponent operationalUnits={units.filter(u => u.status !== UnitStatus.ON_LEAVE_RETRAINING)} />;
+      case ViewType.SPOT:
+        return <SpotViewComponent units={units} processSpotReport={processSpotReport} />;
+      case ViewType.LOGISTICS:
+        return <LogisticsViewComponent requests={logisticsRequests} fulfillRequest={fulfillLogisticsRequest} currentUser={currentUser} allUnits={units} addLogisticsRequest={addLogisticsRequest} />;
+      case ViewType.USER_MANAGEMENT:
+        return <UserManagementViewComponent
+          users={users}
+          addUser={addSystemUser}
+          updateUser={updateSystemUser}
+          deleteUser={deleteSystemUser}
+          currentUser={currentUser}
+          allUnits={units}
+        />;
+      case ViewType.PERSONNEL:
+        return <PersonnelView />;
+      case ViewType.SETTINGS:
+        return <SettingsView />;
+      case ViewType.MAP:
+        return <div className="text-gray-400 p-4">Cargando Mapa... (La vista de mapa principal se muestra en el panel derecho en escritorio)</div>;
+      default:
+        return <DashboardView units={units} alerts={alerts} intelCount={intelligenceReports.length} onSelectEntity={handleSelectEntity} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} intelligenceReports={intelligenceReports} allUnits={units} />;
+    }
+  })();
+
+  return (
+    <ViewErrorBoundary viewName={currentView || 'Unknown'}>
+      {viewContent}
+    </ViewErrorBoundary>
+  );
+};
+
+const handleDividerDrag = useCallback((deltaX: number) => {
+  setContentWidth(prevWidth => {
+    if (!mainContainerRef.current) return prevWidth;
+
+    const mainContainerTotalWidth = mainContainerRef.current.offsetWidth;
+    let newWidth = prevWidth + deltaX;
+
+    newWidth = Math.max(MIN_PANEL_WIDTH, newWidth);
+
+    const maxContentWidth = mainContainerTotalWidth - MIN_PANEL_WIDTH - DIVIDER_WIDTH;
+    newWidth = Math.min(newWidth, maxContentWidth);
+
+    return newWidth;
+  });
+}, []);
+
+if (!currentUser) {
+  return <LoginViewComponent onLoginSuccess={handleLoginSuccess} loginFunction={login} />;
+}
+
+// Role-based rendering logic
+if (currentUser.role === UserRole.COMANDANTE_PELOTON) {
+  return (
+    <PlatoonCommanderView
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      allUnits={units}
+      operationsOrders={operationsOrders}
+      artilleryPieces={artilleryPieces}
+      forwardObservers={forwardObservers}
+      activeFireMissions={activeFireMissions as ActiveFireMission[]}
+      unitHistoryLog={unitHistoryLog}
+      acknowledgeOperationsOrder={acknowledgeOperationsOrder}
+      submitAmmoExpenditureReport={submitAmmoExpenditureReport}
+      logPlatoonNovelty={logPlatoonNovelty}
+      onCallForFire={handleCallForFire}
+      onCancelFireMission={handleCancelFireMission}
+      targetSelectionRequest={targetSelectionRequest}
+      onTargetSelected={handleTargetSelected}
+      pendingFireMissions={pendingFireMissions}
+      dismissPendingMission={dismissPendingMission}
+    />
+  );
+}
+
+if (currentUser.role === UserRole.COMANDANTE_COMPANIA) {
+  return (
+    <CompanyCommanderView
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      allUnits={units}
+      operationsOrders={operationsOrders}
+      alerts={alerts}
+      unitHistoryLog={unitHistoryLog}
+      acknowledgeOperationsOrder={acknowledgeOperationsOrder}
+      approveAmmoReport={approveAmmoReport}
+      rejectAmmoReport={rejectAmmoReport}
+      approvePlatoonNovelty={approvePlatoonNovelty}
+      rejectPlatoonNovelty={rejectPlatoonNovelty}
+    />
+  );
+}
+
+const handleSetView = (view: ViewType) => {
+  console.log('App: handleSetView called with:', view);
+  setCurrentView(view);
+};
+
+// Default view for other roles
+return (
+  <div className="flex flex-col h-screen bg-gray-900 text-gray-100 antialiased">
+    <HeaderComponent
+      isMobile={isMobile}
+      onToggleMobileNav={() => setIsMobileNavOpen(!isMobileNavOpen)}
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      onAiCommand={handleAiCommand}
+      onToggleVoiceCommand={handleToggleVoiceCommand}
+      isVoiceCommandActive={isVoiceCommandActive}
+      isConnectingVoice={isConnectingVoice}
+      currentView={currentView}
+    />
+    <div className="flex flex-1 overflow-hidden">
+      {!isMobile && (
+        <SidebarComponent
+          currentView={currentView}
+          setCurrentView={handleSetView}
+          currentUser={currentUser}
+        />
+      )}
+      {isMobile && isMobileNavOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black bg-opacity-50 backdrop-blur-sm"
+          onClick={() => setIsMobileNavOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="fixed top-0 left-0 h-full z-40 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <SidebarComponent
+              currentView={currentView}
+              setCurrentView={(view) => { setCurrentView(view); setIsMobileNavOpen(false); }}
+              currentUser={currentUser}
+            />
+          </div>
+        </div>
+      )}
+
+      {isMobile ? (
+        currentView === ViewType.MAP ? (
+          <main className="flex-1 flex h-full w-full">
+            <div className="w-full h-full">
+              <MapDisplayComponent {...mapDisplayProps} />
+            </div>
+          </main>
+        ) : (
+          <main className="flex-1 flex p-3 md:p-4 overflow-y-auto h-full w-full">
+            <div className="w-full h-full">
+              {renderView()}
+            </div>
+          </main>
+        )
+      ) : (
+        <main ref={mainContainerRef} className="flex-1 flex overflow-hidden">
+          <div className="h-full overflow-hidden" style={{ flex: `0 0 ${contentWidth}px` }}>
+            <div className="p-4 h-full overflow-y-auto pr-2">
+              {renderView()}
+            </div>
+          </div>
+
+          <ResizableDivider onDrag={handleDividerDrag} />
+
+          <div className="h-full overflow-hidden" style={{ flex: '1 1 0px' }}>
+            <div className="bg-gray-800 p-2 rounded-lg shadow-lg h-full">
+              <MapDisplayComponent {...mapDisplayProps} />
+            </div>
+          </div>
+        </main>
+      )}
+    </div>
+  </div>
+);
+};
+
+export default App;

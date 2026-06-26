@@ -1,0 +1,29 @@
+﻿components/SimpleErrorBoundary.tsx(24,55): error TS2339: Property 'props' does not exist on type 'SimpleErrorBoundary'.
+components/SimpleErrorBoundary.tsx(31,105): error TS2339: Property 'props' does not exist on type 'SimpleErrorBoundary'.
+components/SimpleErrorBoundary.tsx(38,45): error TS2339: Property 'setState' does not exist on type 'SimpleErrorBoundary'.
+components/SimpleErrorBoundary.tsx(46,21): error TS2339: Property 'props' does not exist on type 'SimpleErrorBoundary'.
+ErrorBoundary.tsx(20,10): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(35,10): error TS2339: Property 'setState' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(41,14): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(64,17): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(88,47): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(89,23): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(93,27): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(96,23): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(96,47): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(100,27): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+ErrorBoundary.tsx(110,17): error TS2339: Property 'props' does not exist on type 'ErrorBoundary'.
+index.tsx(3,8): error TS1192: Module '"C:/Users/Personal/Documents/desarrollos/simcop 3.0/App"' has no default export.
+LoginViewComponent.tsx(2,27): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(2,83): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(3,40): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(4,27): error TS2307: Cannot find module './icons/TruckIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(5,31): error TS2307: Cannot find module './icons/LightBulbIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(6,47): error TS2307: Cannot find module './LogisticsRequestCardComponent' or its corresponding type declarations.
+LogisticsViewComponent.tsx(8,48): error TS2307: Cannot find module '../utils/geminiService' or its corresponding type declarations.
+MapDisplayComponent.tsx(12,263): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(13,209): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(14,517): error TS2307: Cannot find module '../constants' or its corresponding type declarations.
+MapDisplayComponent.tsx(15,30): error TS2307: Cannot find module '../utils/coordinateUtils' or its corresponding type declarations.
+MapDisplayComponent.tsx(16,37): error TS2307: Cannot find module '../utils/piccConfig' or its corresponding type declarations.
+MapDisplayComponent.tsx(17,43): error TS2307: Cannot find module './icons/AdjustmentsHorizontalIcon' or its corresponding type declarations.

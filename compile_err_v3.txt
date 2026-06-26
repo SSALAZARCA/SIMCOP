@@ -1,0 +1,25 @@
+﻿LoginViewComponent.tsx(2,27): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(2,83): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(3,40): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+LogisticsViewComponent.tsx(4,27): error TS2307: Cannot find module './icons/TruckIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(5,31): error TS2307: Cannot find module './icons/LightBulbIcon' or its corresponding type declarations.
+LogisticsViewComponent.tsx(6,47): error TS2307: Cannot find module './LogisticsRequestCardComponent' or its corresponding type declarations.
+LogisticsViewComponent.tsx(8,48): error TS2307: Cannot find module '../utils/geminiService' or its corresponding type declarations.
+MapDisplayComponent.tsx(12,263): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(13,209): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+MapDisplayComponent.tsx(14,517): error TS2307: Cannot find module '../constants' or its corresponding type declarations.
+MapDisplayComponent.tsx(15,30): error TS2307: Cannot find module '../utils/coordinateUtils' or its corresponding type declarations.
+MapDisplayComponent.tsx(16,37): error TS2307: Cannot find module '../utils/piccConfig' or its corresponding type declarations.
+MapDisplayComponent.tsx(17,43): error TS2307: Cannot find module './icons/AdjustmentsHorizontalIcon' or its corresponding type declarations.
+MapDisplayComponent.tsx(324,41): error TS2538: Type 'unknown' cannot be used as an index type.
+MapDisplayComponent.tsx(741,43): error TS2345: Argument of type 'Map' is not assignable to parameter of type 'DrawMap'.
+  Type 'Map' is missing the following properties from type 'DrawMap': mergeOptions, addInitHook
+MapDisplayComponent.tsx(1079,78): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1079,91): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1079,106): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+MapDisplayComponent.tsx(1088,78): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1088,89): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1088,102): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+MapDisplayComponent.tsx(1097,85): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+MapDisplayComponent.tsx(1097,95): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+MapDisplayComponent.tsx(1097,107): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
