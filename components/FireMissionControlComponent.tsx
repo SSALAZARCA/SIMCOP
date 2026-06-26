@@ -37,6 +37,7 @@ export const FireMissionControlComponent: React.FC<FireMissionControlProps> = ({
     }
 
     return availablePieces.some(piece => {
+      if (!piece.location || !requester.location) return false;
       const { distance } = calculateDistanceAndAzimuth(piece.location, requester.location);
       return distance >= piece.minRange && distance <= piece.maxRange;
     });
