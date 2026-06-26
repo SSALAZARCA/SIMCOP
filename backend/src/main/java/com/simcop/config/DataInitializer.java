@@ -33,10 +33,14 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private MilitaryUnitRepository militaryUnitRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @Override
     public void run(String... args) throws Exception {
         ensureDataDirectoryExists();
         System.out.println("Checking and initializing security data...");
+        healDatabaseSchema();
 
         // Ensure default admin exists
         if (userRepository.findByUsername("admin").isEmpty()) {
@@ -84,6 +88,38 @@ public class DataInitializer implements CommandLineRunner {
             } else {
                 logger.error("❌ No se pudo crear el directorio /data. La persistencia podría fallar.");
             }
+        }
+    }
+
+    private void healDatabaseSchema() {
+        try {
+            logger.info("Y" Verificando consistencia de esquema (Migracin silenciosa de lat/lon a location_lat/location_lon)...");
+            
+            // Check if old columns exist
+            Integer latCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'military_units' AND COLUMN_NAME = 'lat'", 
+                Integer.class
+            );
+            
+            Integer locationLatCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'military_units' AND COLUMN_NAME = 'location_lat'", 
+                Integer.class
+            );
+
+            if (latCount != null && latCount > 0 && locationLatCount != null && locationLatCount > 0) {
+                int updated = jdbcTemplate.update(
+                    "UPDATE military_units SET location_lat = lat, location_lon = lon WHERE location_lat IS NULL AND lat IS NOT NULL"
+                );
+                if (updated > 0) {
+                    logger.info("o. Migracin de coordenadas completada. {} unidades curadas (Fantasmas resucitados).", updated);
+                } else {
+                    logger.info("Y"- No se requiri migracin de coordenadas, todas están sincronizadas.");
+                }
+            } else {
+                logger.info("Y"- Columnas heredadas 'lat/lon' no detectadas o ya reemplazadas. Omitiendo curación.");
+            }
+        } catch (Exception e) {
+            logger.error("?O Error durante la curación de la base de datos (Ignorando para continuar el inicio): {}", e.getMessage());
         }
     }
 }
