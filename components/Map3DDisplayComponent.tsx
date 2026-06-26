@@ -1078,6 +1078,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // 3. Render Military Units
     units.forEach(unit => {
+      if (!unit || !unit.location) return;
       const sidc = generateUnitSIDC(unit);
       const symbol = new ms.Symbol(sidc, {
         size: 40,
@@ -1278,6 +1279,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // 5. Render Artillery Pieces
     artilleryPieces.forEach(piece => {
+      if (!piece || !piece.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.ARTILLERY && selectedEntity.id === piece.id;
       const typeDetails = ARTILLERY_TYPE_DETAILS[piece.type];
       const sidcFunctionId = typeDetails ? typeDetails.sidcFunctionId : 'E-F-A';
@@ -1380,6 +1382,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // 6. Render Forward Observers
     forwardObservers.forEach(obs => {
+      if (!obs || !obs.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.FORWARD_OBSERVER && selectedEntity.id === obs.id;
       const sidc = `S${SIDC_AFFILIATION_FRIEND}${SIDC_DIMENSION_GROUND}${SIDC_STATUS_PRESENT}${SIDC_FORWARD_OBSERVER}-A---`;
 
@@ -1426,7 +1429,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     // 7. Render Active Fire Missions (AFAT Trajectories & Target SIDC)
     activeFireMissions.forEach(mission => {
       const gun = artilleryPieces.find(p => p.id === mission.artilleryId);
-      if (!gun) return;
+      if (!gun || !gun.location || !mission.target) return;
 
       const targetSIDC = 'GHGPGP----';
       const targetSymbol = new ms.Symbol(targetSIDC, {
@@ -1534,6 +1537,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
 
       forwardObservers.forEach(obs => {
+        if (!obs || !obs.location) return;
         const obsPos = Cesium.Cartesian3.fromDegrees(obs.location.lon, obs.location.lat);
         const distanceToTarget = Cesium.Cartesian3.distance(obsPos, targetPos);
         if (distanceToTarget < 12000.0) {
@@ -1601,6 +1605,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // 9. Render Hotspots (BMA Critical Points)
     if (showHotspotsLayer) hotspots.forEach((hotspot, idx) => {
+      if (!hotspot || !hotspot.center) return;
       const center = Cesium.Cartesian3.fromDegrees(hotspot.center.lon, hotspot.center.lat);
       const radius = hotspot.radius * 1000.0;
       
@@ -1631,6 +1636,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // 10. Render Historical Hotspots
     if (showHistoricalHotspots) historicalHotspots.forEach((hotspot, idx) => {
+      if (!hotspot || !hotspot.center) return;
       const center = Cesium.Cartesian3.fromDegrees(hotspot.center.lon, hotspot.center.lat);
       const radius = hotspot.radius * 1000.0;
 
@@ -2574,6 +2580,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       );
 
       relevantIntelReports.forEach(intel => {
+        if (!intel || !intel.location) return;
         const threatLevel = assessThreatLevel(intel);
         if (threatLevel === 'Ninguno') return;
         const style = getThreatStyle(threatLevel);
