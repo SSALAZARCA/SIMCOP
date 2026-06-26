@@ -2,8 +2,6 @@
 -- Add missing q5id column to alerts table
 DROP PROCEDURE IF EXISTS add_q5id_if_not_exists;
 
-DELIMITER $$
-
 CREATE PROCEDURE add_q5id_if_not_exists()
 BEGIN
     IF NOT EXISTS(
@@ -14,9 +12,8 @@ BEGIN
     ) THEN
         ALTER TABLE alerts ADD COLUMN q5id VARCHAR(255);
     END IF;
-END $$
-
-DELIMITER ;
+END;
 
 CALL add_q5id_if_not_exists();
+
 DROP PROCEDURE add_q5id_if_not_exists;
