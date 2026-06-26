@@ -19,8 +19,6 @@ services:
       - "5005:8080"
     depends_on:
       - mysql
-    networks:
-      - simcop-network
 
   frontend:
     build:
@@ -32,8 +30,6 @@ services:
       - "5006:80"
     depends_on:
       - backend
-    networks:
-      - simcop-network
 
   mysql:
     image: mysql:8.0
@@ -44,12 +40,7 @@ services:
       - mysql_data:/var/lib/mysql
     ports:
       - "5007:3306"
-    networks:
-      - simcop-network
-
-networks:
-  simcop-network:
-    driver: bridge
 
 volumes:
   mysql_data:
+
