@@ -16,7 +16,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
     ports:
-      - "5005:80"
+      - "5005:8080"
     depends_on:
       - mysql
     networks:
