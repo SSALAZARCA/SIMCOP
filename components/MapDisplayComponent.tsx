@@ -463,6 +463,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
 
     filteredUnits.forEach(unit => {
+      if (!unit || !unit.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === unit.id;
       const sidc = generateUnitSIDC(unit);
       const symbolSize = isSelected ? 30 : 25;
@@ -499,6 +500,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     layer.clearLayers();
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
     filteredIntel.forEach(intel => {
+      if (!intel || !intel.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.INTEL && selectedEntity.id === intel.id;
       const marker = L.marker([intel.location.lat, intel.location.lon], {
         icon: L.divIcon({
@@ -543,6 +545,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const processedLinks = new Set<string>();
 
     filteredIntel.forEach(report => {
+      if (!report || !report.location) return;
       if (!report.relatedReportIds) return;
 
       report.relatedReportIds.forEach(targetId => {
@@ -572,6 +575,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     layer.clearLayers();
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
     afterActionReports.forEach(aar => {
+      if (!aar || !aar.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.AAR && selectedEntity.id === aar.id;
       const marker = L.marker([aar.location.lat, aar.location.lon], {
         icon: L.divIcon({
@@ -593,6 +597,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
 
     artilleryPieces.forEach(piece => {
+      if (!piece || !piece.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.ARTILLERY && selectedEntity.id === piece.id;
       const sidc = `S${SIDC_AFFILIATION_FRIEND}${SIDC_DIMENSION_GROUND}${SIDC_STATUS_PRESENT}${ARTILLERY_TYPE_DETAILS[piece.type].sidcFunctionId}-A---`;
       const symbolSize = isSelected ? 30 : 25;
@@ -621,6 +626,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       if (!unit.uavAssets || unit.uavAssets.length === 0) return;
 
       unit.uavAssets.forEach(asset => {
+        if (!asset || !asset.location) return;
         if (!asset.location) return; // Skip if no location
 
         const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === asset.id; // Or specific UAV entity type if we had one
@@ -665,6 +671,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
 
     forwardObservers.forEach(observer => {
+      if (!observer || !observer.location) return;
       const isSelected = selectedEntity?.type === MapEntityType.FORWARD_OBSERVER && selectedEntity.id === observer.id;
       const sidc = `S${SIDC_AFFILIATION_FRIEND}${SIDC_DIMENSION_GROUND}${SIDC_STATUS_PRESENT}${SIDC_FORWARD_OBSERVER}-A---`;
       const symbolSize = isSelected ? 30 : 25;
@@ -1170,6 +1177,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       setDistancePoints([]);
       const relevantIntelReports = intelligenceReports.filter(report => INITIAL_ENEMY_FILTER_KEYWORDS.some(keyword => `${report.title.toLowerCase()} ${report.details.toLowerCase()}`.includes(keyword)));
       relevantIntelReports.forEach(intel => {
+        if (!intel || !intel.location) return;
         const threatLevel = assessThreatLevel(intel); if (threatLevel === 'Ninguno') return; const style = getThreatStyle(threatLevel);
         try {
           const center = turfPoint([intel.location.lon, intel.location.lat]); const buffered = turf.buffer(center, style.radiusKm, { units: 'kilometers' });
@@ -1674,6 +1682,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     layer.clearLayers();
 
     hotspots.forEach(hotspot => {
+      if (!hotspot || !hotspot.center) return;
       const circle = L.circle([hotspot.center.lat, hotspot.center.lon], {
         radius: hotspot.radius * 1000,
         color: '#7C3AED', // Purple
@@ -1753,6 +1762,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     const timeLimitAdjusted = Date.now() - (timeOffsetHours * 60 * 60 * 1000);
 
     historicalHotspots.forEach(hotspot => {
+      if (!hotspot || !hotspot.center) return;
       // Historical hotspots in BMA normally don't have individual timestamps in the DTO, 
       // but the service filters them. We'll show them as ghosts if the slider is moved.
       if (timeOffsetHours > 48) return; // Hide if we're looking older than the historical window
