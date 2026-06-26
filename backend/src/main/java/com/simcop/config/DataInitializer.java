@@ -93,7 +93,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void healDatabaseSchema() {
         try {
-            logger.info("Y" Verificando consistencia de esquema (Migracin silenciosa de lat/lon a location_lat/location_lon)...");
+            logger.info("Verificando consistencia de esquema (Migracion silenciosa de lat/lon a location_lat/location_lon)...");
             
             // Check if old columns exist
             Integer latCount = jdbcTemplate.queryForObject(
@@ -111,15 +111,15 @@ public class DataInitializer implements CommandLineRunner {
                     "UPDATE military_units SET location_lat = lat, location_lon = lon WHERE location_lat IS NULL AND lat IS NOT NULL"
                 );
                 if (updated > 0) {
-                    logger.info("o. Migracin de coordenadas completada. {} unidades curadas (Fantasmas resucitados).", updated);
+                    logger.info("Migracion de coordenadas completada. {} unidades curadas (Fantasmas resucitados).", updated);
                 } else {
-                    logger.info("Y"- No se requiri migracin de coordenadas, todas están sincronizadas.");
+                    logger.info("No se requirio migracion de coordenadas, todas estan sincronizadas.");
                 }
             } else {
-                logger.info("Y"- Columnas heredadas 'lat/lon' no detectadas o ya reemplazadas. Omitiendo curación.");
+                logger.info("Columnas heredadas lat/lon no detectadas o ya reemplazadas. Omitiendo curacion.");
             }
         } catch (Exception e) {
-            logger.error("?O Error durante la curación de la base de datos (Ignorando para continuar el inicio): {}", e.getMessage());
+            logger.error("Error durante la curacion de la base de datos (Ignorando para continuar el inicio): {}", e.getMessage());
         }
     }
 }
