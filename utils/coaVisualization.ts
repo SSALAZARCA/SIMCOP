@@ -37,7 +37,12 @@ export function coaGraphicToLayer(
     }
 
     const phaseColor = PHASE_COLORS[phaseIndex % PHASE_COLORS.length];
-    const latlngs = graphic.locations.map(loc => L.latLng(loc.lat, loc.lon));
+    
+    // Filtramos locACIONES nulas antes de mapear
+    const validLocations = graphic.locations.filter(loc => loc && loc.lat != null && loc.lon != null);
+    if (validLocations.length === 0) return null;
+    
+    const latlngs = validLocations.map(loc => L.latLng(loc.lat, loc.lon));
 
     try {
         let layer: L.Layer;
@@ -244,9 +249,13 @@ export function getCOAPlanBounds(plan: COAPlan): L.LatLngBounds | null {
 
     plan.phases.forEach(phase => {
         phase.graphics.forEach(graphic => {
-            graphic.locations.forEach(loc => {
-                allPoints.push(L.latLng(loc.lat, loc.lon));
-            });
+            if (graphic && graphic.locations) {
+                graphic.locations.forEach(loc => {
+                    if (loc && loc.lat != null && loc.lon != null) {
+                        allPoints.push(L.latLng(loc.lat, loc.lon));
+                    }
+                });
+            }
         });
     });
 
