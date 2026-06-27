@@ -5,6 +5,7 @@ import { ArrowLeftOnRectangleIcon } from './icons/ArrowLeftOnRectangleIcon';
 import type { User } from '../types';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import { MicrophoneIcon } from './icons/MicrophoneIcon';
+import { TwoFactorSetupModal } from './TwoFactorSetupModal';
 
 interface HeaderProps {
   isMobile: boolean;
@@ -29,6 +30,7 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
 }) => {
   const [aiCommand, setAiCommand] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [is2FAOpen, setIs2FAOpen] = useState(false);
 
   const handleAiCommandSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,10 +120,14 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
           <>
             <div className="flex flex-col items-end">
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-gray-100 uppercase tracking-tight">
+                <span className="text-xs font-bold text-gray-100 uppercase tracking-tight cursor-pointer hover:text-blue-400 transition-colors" onClick={() => setIs2FAOpen(true)} title="Configurar 2FA">
                   {currentUser.displayName}
                 </span>
-                <UserCircleIcon className="w-6 h-6 text-blue-500/80" />
+                <UserCircleIcon 
+                  className="w-6 h-6 text-blue-500/80 cursor-pointer hover:scale-110 transition-transform" 
+                  onClick={() => setIs2FAOpen(true)}
+                  title="Configurar 2FA"
+                />
               </div>
               <span className="text-[10px] font-bold text-blue-400/70 uppercase tracking-widest -mt-1">
                 {currentUser.role}
@@ -139,6 +145,16 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
           <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nivel de Acceso: Ninguno</span>
         )}
       </div>
+
+      {is2FAOpen && currentUser && (
+        <TwoFactorSetupModal 
+          currentUser={currentUser}
+          onClose={() => setIs2FAOpen(false)}
+          onSuccess={() => {
+            setIs2FAOpen(false);
+          }}
+        />
+      )}
     </header>
   );
 };

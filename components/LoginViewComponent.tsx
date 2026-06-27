@@ -11,6 +11,7 @@ interface LoginViewComponentProps {
 export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,15 +23,19 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
       // Intentar login real con el servicio
       const user = await userService.login({
         username,
-        hashedPassword: password // El backend espera esto o password, userService se encarga
+        hashedPassword: password, // El backend espera esto o password, userService se encarga
+        totpCode
       } as any);
       
       onLogin(user);
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Error de conexión con el servidor táctico.');
-      // Fallback para demo si el servidor no responde (opcional, pero mejor ser estrictos si hay backend)
-      // if (err.message === 'Failed to fetch') { ... }
+      if (err.message === '2FA_REQUIRED') {
+        setError('Este usuario tiene 2FA activado. Por favor ingrese el Código 2FA.');
+      } else if (err.message === 'INVALID_2FA_CODE') {
+        setError('El Código 2FA es incorrecto o ha expirado.');
+      } else {
+        setError(err.message || 'Error de conexión. Intente nuevamente.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +97,23 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
                 placeholder="••••••••"
                 required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Código 2FA (Opcional)</label>
+            <div className="relative group">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors">
+                <path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="text"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                maxLength={6}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
+                placeholder="Ej. 123456"
               />
             </div>
           </div>

@@ -39,6 +39,16 @@ public class User {
     @Column(name = "telegram_chat_id")
     private String telegramChatId;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "two_factor_secret")
+    private String twoFactorSecret;
+
+    @Column(name = "is_two_factor_enabled")
+    private boolean isTwoFactorEnabled = false;
+
+    @Transient
+    private String totpCode;
+
     public User() {
     }
 
@@ -113,5 +123,29 @@ public class User {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String getTwoFactorSecret() {
+        return twoFactorSecret;
+    }
+
+    public void setTwoFactorSecret(String twoFactorSecret) {
+        this.twoFactorSecret = twoFactorSecret;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return isTwoFactorEnabled;
+    }
+
+    public void setTwoFactorEnabled(boolean twoFactorEnabled) {
+        this.isTwoFactorEnabled = twoFactorEnabled;
+    }
+
+    public String getTotpCode() {
+        return totpCode;
+    }
+
+    public void setTotpCode(String totpCode) {
+        this.totpCode = totpCode;
     }
 }

@@ -28,6 +28,9 @@ public class UserController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private com.simcop.service.TwoFactorService twoFactorService;
+
     @GetMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('EJERCITO') or hasAnyRole('COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA')")
     public List<User> getAllUsers() {
@@ -70,12 +73,26 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<User> login(@RequestBody User loginRequest) {
+    public ResponseEntity<?> login(@RequestBody User loginRequest) {
         logger.info("🔑 Intento de login para usuario: {}", loginRequest.getUsername());
         var userOpt = repository.findByUsername(loginRequest.getUsername());
         if (userOpt.isPresent()) {
             User u = userOpt.get();
             if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
+                
+                // 2FA Verification
+                if (u.isTwoFactorEnabled()) {
+                    if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
+                        logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
+                        return ResponseEntity.status(403).body("{\"error\": \"2FA_REQUIRED\"}");
+                    }
+                    boolean isValid = twoFactorService.isOtpValid(u.getTwoFactorSecret(), loginRequest.getTotpCode());
+                    if (!isValid) {
+                        logger.warn("Login fallido: Código 2FA inválido para {}", u.getUsername());
+                        return ResponseEntity.status(403).body("{\"error\": \"INVALID_2FA_CODE\"}");
+                    }
+                }
+
                 String role = u.getRole() != null ? u.getRole().name() : "USER";
                 String token = jwtUtil.generateToken(u.getUsername(), role);
                 u.setToken(token);

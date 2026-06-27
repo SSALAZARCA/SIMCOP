@@ -37,10 +37,18 @@ export const userService = {
             body: JSON.stringify(user),
         });
         if (!response.ok) {
-            if (response.status === 403 || response.status === 401) {
-                throw new Error('Credenciales inválidas');
+            let errorMsg = 'Login failed';
+            try {
+                const errData = await response.json();
+                if (errData && errData.error) {
+                    errorMsg = errData.error;
+                }
+            } catch (e) {
+                if (response.status === 403 || response.status === 401) {
+                    errorMsg = 'Credenciales inválidas';
+                }
             }
-            throw new Error('Login failed');
+            throw new Error(errorMsg);
         }
         const loggedUser: User = await response.json();
         if (loggedUser.token) {

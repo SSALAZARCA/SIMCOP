@@ -21,6 +21,7 @@ import { CrosshairsIcon } from './icons/CrosshairsIcon';
 import { TruckIcon } from './icons/TruckIcon';
 import { Cog6ToothIcon } from './icons/Cog6ToothIcon';
 import { VideoCameraIcon } from './icons';
+import { ShieldExclamationIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
   currentView: ViewType;
@@ -47,9 +48,10 @@ const navItemsConfig = [
   { view: ViewType.UNIT_HISTORY, icon: ClipboardDocumentListIcon },
   { view: ViewType.INSITOP, icon: TableCellsIcon },
   { view: ViewType.SPOT, icon: RssIcon },
-  { view: ViewType.PERSONNEL, icon: UsersIcon },  // Módulo de Personal
+  { view: ViewType.PERSONNEL, icon: UserGroupIcon },
   { view: ViewType.USER_MANAGEMENT, icon: UsersIcon },
   { view: ViewType.SETTINGS, icon: Cog6ToothIcon },
+  { view: ViewType.ADMIN_DASHBOARD, icon: ShieldExclamationIcon },
 ];
 
 export const SidebarComponent: React.FC<SidebarProps> = ({ currentView, setCurrentView, currentUser }) => {
@@ -65,11 +67,12 @@ export const SidebarComponent: React.FC<SidebarProps> = ({ currentView, setCurre
     if (!currentUser) return false;
 
     // Grant full access to ADMINISTRATOR
-    const isAdmin = currentUser?.role === (UserRole as any).ADMINISTRATOR || currentUser?.role === ('ADMINISTRATOR' as any);
+    const isAdmin = currentUser.role === UserRole.ADMINISTRATOR;
     if (isAdmin) return true;
 
-    if (viewType === ViewType.USER_MANAGEMENT || viewType === ViewType.SETTINGS) {
-      return isAdmin;
+    // Restrictions for normal users
+    if (viewType === ViewType.USER_MANAGEMENT || viewType === ViewType.SETTINGS || viewType === ViewType.ADMIN_DASHBOARD) {
+      return false; // Only admins can access these
     }
 
     // Check if permissions array contains the enum value (which is now the key)

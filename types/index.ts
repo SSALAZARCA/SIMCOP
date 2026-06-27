@@ -276,6 +276,7 @@ export enum ViewType {
   PERSONNEL = 'Personal',  // Módulo de gestión de personal y especialidades
   BMA = 'Algoritmo de Gestión de Batalla (BMA)',
   USER_MANAGEMENT = 'Gestión de Usuarios',
+  ADMIN_DASHBOARD = 'Base de Datos (Admin)',
   SETTINGS = 'Configuración',
   NATIONAL_VIEW = 'Vista Nacional (Todo el País)',
 }
@@ -711,8 +712,6 @@ export const UserRoleLabels: Record<UserRole, string> = {
   [UserRole.DIRECTOR_TIRO_M120]: 'Director de Tiro - M120',
   [UserRole.DIRECTOR_TIRO_HY112]: 'Director de Tiro - HY1-12',
   [UserRole.DIRECTOR_TIRO_MLRS]: 'Director de Tiro - MLRS',
-};
-
 export interface User {
   id: string;
   username: string;
@@ -723,6 +722,29 @@ export interface User {
   assignedUnitId: string | null;
   telegramChatId?: string;
   token?: string;
+  isTwoFactorEnabled?: boolean;
+}
+
+export interface TwoFactorSetupResponse {
+  qrCodeUri: string;
+  manualSecret: string;
+}
+
+export interface DatabaseStats {
+  totalUsers: number;
+  totalUnits: number;
+  totalAlerts: number;
+  totalOsintEvents: number;
+  totalFireMissions: number;
+}
+
+export interface AdminAuditLog {
+  id: number;
+  timestamp: number;
+  username: string;
+  action: string;
+  target: string;
+  details: string;
 }
 
 export interface NewUserData {

@@ -38,6 +38,7 @@ import { PersonnelView } from './components/PersonnelView';
 import { UAVManagementView } from './components/UAVManagementView';
 import { SimpleErrorBoundary } from './components/SimpleErrorBoundary';
 import { BMAPanel } from './components/BMAPanel';
+import { AdminDashboardComponent } from './components/AdminDashboardComponent';
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
 import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
@@ -974,6 +975,8 @@ const App: React.FC = () => {
         return <PersonnelView units={units} />;
       case ViewType.SETTINGS:
         return <SettingsView />;
+      case ViewType.ADMIN_DASHBOARD:
+        return <AdminDashboardComponent />;
       case ViewType.MAP:
         return <div className="text-gray-400 p-4">Cargando Mapa... (La vista de mapa principal se muestra en el panel derecho en escritorio)</div>;
       default:
