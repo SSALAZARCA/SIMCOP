@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { adminService } from '../services/adminService';
 import { XMarkIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
@@ -73,8 +74,8 @@ export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onS
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md relative animate-in fade-in zoom-in-95">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
           <XMarkIcon className="w-6 h-6" />
@@ -167,6 +168,7 @@ export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onS
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
