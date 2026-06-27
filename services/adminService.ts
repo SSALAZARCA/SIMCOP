@@ -1,7 +1,8 @@
 import { DatabaseStats, AdminAuditLog } from '../types';
+import { API_BASE_URL } from '../utils/apiConfig';
 
-const BASE_URL = '/api/admin';
-const TWO_FA_URL = '/api/2fa';
+const BASE_URL = `${API_BASE_URL}/api/admin`;
+const TWO_FA_URL = `${API_BASE_URL}/api/2fa`;
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
