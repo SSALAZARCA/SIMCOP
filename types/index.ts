@@ -712,6 +712,8 @@ export const UserRoleLabels: Record<UserRole, string> = {
   [UserRole.DIRECTOR_TIRO_M120]: 'Director de Tiro - M120',
   [UserRole.DIRECTOR_TIRO_HY112]: 'Director de Tiro - HY1-12',
   [UserRole.DIRECTOR_TIRO_MLRS]: 'Director de Tiro - MLRS',
+};
+
 export interface User {
   id: string;
   username: string;

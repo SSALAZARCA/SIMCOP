@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@heroicons/react": "^2.2.0",
     "@stomp/stompjs": "^7.2.1",
     "@turf/helpers": "^7.2.0",
     "@turf/turf": "6.5.0",
