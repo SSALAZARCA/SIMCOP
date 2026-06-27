@@ -102,7 +102,7 @@ public class AdminController {
         User admin = userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!admin.isTwoFactorEnabled()) {
+        if (!admin.getTwoFactorEnabled()) {
             return ResponseEntity.status(403).body("2FA must be enabled to perform destructive actions.");
         }
 

@@ -81,7 +81,7 @@ public class UserController {
             if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
                 
                 // 2FA Verification
-                if (u.isTwoFactorEnabled()) {
+                if (u.getTwoFactorEnabled()) {
                     if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
                         logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
                         return ResponseEntity.status(403).body("{\"error\": \"2FA_REQUIRED\"}");

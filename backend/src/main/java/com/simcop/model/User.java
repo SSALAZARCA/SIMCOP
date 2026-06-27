@@ -44,7 +44,7 @@ public class User {
     private String twoFactorSecret;
 
     @Column(name = "is_two_factor_enabled")
-    private Boolean isTwoFactorEnabled = false;
+    private Boolean twoFactorEnabled = false;
 
     @Transient
     private String totpCode;
@@ -133,12 +133,12 @@ public class User {
         this.twoFactorSecret = twoFactorSecret;
     }
 
-    public boolean isTwoFactorEnabled() {
-        return isTwoFactorEnabled != null && isTwoFactorEnabled;
+    public Boolean getTwoFactorEnabled() {
+        return twoFactorEnabled != null ? twoFactorEnabled : false;
     }
 
     public void setTwoFactorEnabled(Boolean twoFactorEnabled) {
-        this.isTwoFactorEnabled = twoFactorEnabled;
+        this.twoFactorEnabled = twoFactorEnabled;
     }
 
     public String getTotpCode() {
