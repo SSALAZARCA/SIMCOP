@@ -9,9 +9,10 @@ interface Props {
   onClose: () => void;
   currentUser: User;
   onSuccess: () => void;
+  forceSetup?: boolean;
 }
 
-export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onSuccess }) => {
+export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onSuccess, forceSetup = false }) => {
   const [step, setStep] = useState<1 | 2>(currentUser.isTwoFactorEnabled ? 2 : 1);
   const [qrUri, setQrUri] = useState('');
   const [manualSecret, setManualSecret] = useState('');
@@ -77,9 +78,11 @@ export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onS
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md relative animate-in fade-in zoom-in-95">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
-          <XMarkIcon className="w-6 h-6" />
-        </button>
+        {!forceSetup && (
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        )}
 
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">

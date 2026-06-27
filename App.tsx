@@ -20,9 +20,9 @@ import { ArtilleryViewComponent } from './components/ArtilleryViewComponent';
 import { HistoricalViewComponent } from './components/HistoricalViewComponent';
 import { Q5ViewComponent } from './components/Q5ViewComponent';
 import { RetrainingAreaViewComponent } from './components/RetrainingAreaViewComponent';
-import { UnitHistoryViewComponent } from './components/UnitHistoryViewComponent';
 import { InsitopViewComponent } from './components/InsitopViewComponent';
 import { SpotViewComponent } from './components/SpotViewComponent';
+import { TwoFactorSetupModal } from './components/TwoFactorSetupModal';
 import { ORDOPViewComponent } from './components/ORDOPViewComponent';
 import { LoginViewComponent } from './components/LoginViewComponent';
 import { UserManagementViewComponent } from './components/UserManagementViewComponent';
@@ -1002,6 +1002,31 @@ const App: React.FC = () => {
 
   if (!currentUser) {
     return <LoginViewComponent onLogin={handleLoginSuccess} />;
+  }
+
+  // Force 2FA Setup if not enabled
+  if (!currentUser.isTwoFactorEnabled) {
+    return (
+      <div className="flex flex-col h-screen bg-[#0d1117] text-gray-100 antialiased font-sans">
+        <HeaderComponent
+          isMobile={isMobile}
+          onToggleMobileNav={() => {}}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <TwoFactorSetupModal 
+            currentUser={currentUser}
+            onClose={handleLogout} // They can't close it, but if they could, it would log them out
+            forceSetup={true}
+            onSuccess={() => {
+              // Once 2FA is set up, update the currentUser state to unlock the app
+              setCurrentUser({ ...currentUser, isTwoFactorEnabled: true });
+            }}
+          />
+        </main>
+      </div>
+    );
   }
 
   // Role-based rendering logic
