@@ -58,17 +58,29 @@ public class AdminController {
     }
 
     @GetMapping("/table/{tableName}")
-    public ResponseEntity<List<Map<String, Object>>> getTableData(@PathVariable String tableName) {
+    public ResponseEntity<?> getTableData(@PathVariable String tableName) {
         // Validate table name to prevent SQL injection
         if (!tableName.matches("^[a-zA-Z0-9_]+$")) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body("Invalid table name");
         }
         
         try {
             List<Map<String, Object>> data = jdbcTemplate.queryForList("SELECT * FROM " + tableName + " LIMIT 1000");
-            return ResponseEntity.ok(data);
+            
+            // Convert everything to string to prevent Jackson serialization errors (e.g., with binary or date types)
+            List<Map<String, String>> safeData = new java.util.ArrayList<>();
+            for (Map<String, Object> row : data) {
+                Map<String, String> stringRow = new java.util.HashMap<>();
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    stringRow.put(entry.getKey(), entry.getValue() == null ? "NULL" : entry.getValue().toString());
+                }
+                safeData.add(stringRow);
+            }
+            
+            return ResponseEntity.ok(safeData);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error fetching data: " + e.getMessage());
         }
     }
 
