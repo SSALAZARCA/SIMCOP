@@ -48,7 +48,10 @@ export const adminService = {
   // 2FA Endpoints
   generate2fa: async (): Promise<{ qrCodeUri: string, manualSecret: string }> => {
     const response = await fetch(`${TWO_FA_URL}/generate`, { headers: getHeaders() });
-    if (!response.ok) throw new Error('Failed to generate 2FA secret');
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Error ${response.status}: ${text || 'Failed to generate 2FA secret'}`);
+    }
     return response.json();
   },
 

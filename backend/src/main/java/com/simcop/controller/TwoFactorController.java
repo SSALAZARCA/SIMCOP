@@ -21,16 +21,21 @@ public class TwoFactorController {
     private UserRepository userRepository;
 
     @GetMapping("/generate")
-    public ResponseEntity<TwoFactorSetupResponse> generateTwoFactorSecret(Authentication authentication) throws Exception {
-        User user = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public ResponseEntity<?> generateTwoFactorSecret(Authentication authentication) {
+        try {
+            User user = userRepository.findByUsername(authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        String secret = twoFactorService.generateNewSecret();
-        user.setTwoFactorSecret(secret);
-        userRepository.save(user);
+            String secret = twoFactorService.generateNewSecret();
+            user.setTwoFactorSecret(secret);
+            userRepository.save(user);
 
-        String qrUri = twoFactorService.getQrCodeImageUri(secret, user.getUsername());
-        return ResponseEntity.ok(new TwoFactorSetupResponse(qrUri, secret));
+            String qrUri = twoFactorService.getQrCodeImageUri(secret, user.getUsername());
+            return ResponseEntity.ok(new TwoFactorSetupResponse(qrUri, secret));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("SERVER ERROR: " + e.getMessage() + " | CAUSE: " + (e.getCause() != null ? e.getCause().getMessage() : "null"));
+        }
     }
 
     @PostMapping("/enable")
