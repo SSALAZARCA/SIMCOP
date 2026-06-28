@@ -69,8 +69,13 @@ public class OsintService {
         List<Map<String, String>> sampleNews = new ArrayList<>();
         String[][] feeds = {
             {"https://news.google.com/rss/search?q=Ejercito+Nacional+Colombia+OR+Fuerzas+Militares+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Fuerzas Militares"},
+            {"https://news.google.com/rss/search?q=Mindefensa+Colombia+OR+Fuerza+Aerea+Colombiana+OR+Armada+Nacional&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Mindefensa"},
             {"https://news.google.com/rss/search?q=FARC+OR+ELN+OR+Clan+del+Golfo+OR+Disidencias&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Grupos Armados"},
             {"https://news.google.com/rss/search?q=Combates+OR+Atentado+OR+Orden+Publico+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Orden Público"},
+            {"https://news.google.com/rss/search?q=Policia+Nacional+Colombia+OR+SIJIN+OR+CTI&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Policía y CTI"},
+            {"https://news.google.com/rss/search?q=Captura+OR+Incautacion+OR+Narcotrafico+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Narcotráfico"},
+            {"https://news.google.com/rss/search?q=Masacre+OR+Homicidios+OR+Sicariato+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Homicidios"},
+            {"https://news.google.com/rss/search?q=Extorsion+OR+Secuestro+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Secuestro y Extorsión"},
             {"https://www.eltiempo.com/rss/justicia.xml", "El Tiempo - Justicia"},
             {"https://www.eltiempo.com/rss/colombia.xml", "El Tiempo - Colombia"}
         };
