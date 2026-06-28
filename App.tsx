@@ -18,6 +18,7 @@ import { AnalysisView } from './components/AnalysisView';
 import { CommunicationsView } from './components/CommunicationsView';
 import { ArtilleryViewComponent } from './components/ArtilleryViewComponent';
 import { HistoricalViewComponent } from './components/HistoricalViewComponent';
+import { UnitHistoryViewComponent } from './components/UnitHistoryViewComponent';
 import { Q5ViewComponent } from './components/Q5ViewComponent';
 import { RetrainingAreaViewComponent } from './components/RetrainingAreaViewComponent';
 import { InsitopViewComponent } from './components/InsitopViewComponent';

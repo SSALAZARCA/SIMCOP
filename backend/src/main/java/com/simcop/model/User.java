@@ -44,7 +44,8 @@ public class User {
     private String twoFactorSecret;
 
     @Column(name = "is_two_factor_enabled")
-    private Boolean twoFactorEnabled = false;
+    @com.fasterxml.jackson.annotation.JsonProperty("twoFactorEnabled")
+    private Boolean isTwoFactorEnabled = false;
 
     @Transient
     private String totpCode;
@@ -134,11 +135,11 @@ public class User {
     }
 
     public Boolean getTwoFactorEnabled() {
-        return twoFactorEnabled != null ? twoFactorEnabled : false;
+        return isTwoFactorEnabled != null ? isTwoFactorEnabled : false;
     }
 
     public void setTwoFactorEnabled(Boolean twoFactorEnabled) {
-        this.twoFactorEnabled = twoFactorEnabled;
+        this.isTwoFactorEnabled = twoFactorEnabled;
     }
 
     public String getTotpCode() {
