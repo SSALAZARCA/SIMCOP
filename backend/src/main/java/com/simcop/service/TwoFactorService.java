@@ -19,7 +19,9 @@ public class TwoFactorService {
         this.secretGenerator = new DefaultSecretGenerator(64);
         TimeProvider timeProvider = new SystemTimeProvider();
         CodeGenerator codeGenerator = new DefaultCodeGenerator();
-        this.codeVerifier = new DefaultCodeVerifier(codeGenerator, timeProvider);
+        DefaultCodeVerifier verifier = new DefaultCodeVerifier(codeGenerator, timeProvider);
+        verifier.setAllowedTimePeriodDiscrepancy(3); // Permite hasta 90 segundos de desincronización
+        this.codeVerifier = verifier;
     }
 
     public String generateNewSecret() {
