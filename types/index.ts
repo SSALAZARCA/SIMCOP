@@ -724,7 +724,7 @@ export interface User {
   assignedUnitId: string | null;
   telegramChatId?: string;
   token?: string;
-  isTwoFactorEnabled?: boolean;
+  twoFactorEnabled?: boolean;
 }
 
 export interface TwoFactorSetupResponse {

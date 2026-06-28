@@ -13,7 +13,7 @@ interface Props {
 }
 
 export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onSuccess, forceSetup = false }) => {
-  const [step, setStep] = useState<1 | 2>(currentUser.isTwoFactorEnabled ? 2 : 1);
+  const [step, setStep] = useState<1 | 2>(currentUser.twoFactorEnabled ? 2 : 1);
   const [qrUri, setQrUri] = useState('');
   const [manualSecret, setManualSecret] = useState('');
   const [code, setCode] = useState('');
@@ -94,7 +94,7 @@ export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onS
         {error && <div className="mb-4 p-3 bg-red-900/50 border border-red-800 text-red-200 rounded-lg text-sm">{error}</div>}
         {success && <div className="mb-4 p-3 bg-green-900/50 border border-green-800 text-green-200 rounded-lg text-sm">{success}</div>}
 
-        {!currentUser.isTwoFactorEnabled ? (
+        {!currentUser.twoFactorEnabled ? (
           <div className="space-y-4">
             {!qrUri ? (
               <div className="text-center py-4">

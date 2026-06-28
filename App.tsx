@@ -1005,7 +1005,7 @@ const App: React.FC = () => {
   }
 
   // Force 2FA Setup if not enabled
-  if (!currentUser.isTwoFactorEnabled) {
+  if (!currentUser.twoFactorEnabled) {
     return (
       <div className="flex flex-col h-screen bg-[#0d1117] text-gray-100 antialiased font-sans">
         <HeaderComponent
@@ -1021,7 +1021,7 @@ const App: React.FC = () => {
             forceSetup={true}
             onSuccess={() => {
               // Once 2FA is set up, update the currentUser state to unlock the app
-              setCurrentUser({ ...currentUser, isTwoFactorEnabled: true });
+              setCurrentUser({ ...currentUser, twoFactorEnabled: true });
             }}
           />
         </main>
