@@ -1,11 +1,12 @@
 import { DatabaseStats, AdminAuditLog } from '../types';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiClient } from '../utils/apiClient';
 
 const BASE_URL = `${API_BASE_URL}/api/admin`;
 const TWO_FA_URL = `${API_BASE_URL}/api/2fa`;
 
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = apiClient.getToken();
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
