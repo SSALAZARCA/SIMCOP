@@ -816,7 +816,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
     if (osintLayerActive && osintEvents.length > 0) {
       osintEvents.forEach(event => {
-        if (!event.location || !event.location.lat || !event.location.lon) return;
+        if (!event.location || event.location.lat === undefined || event.location.lon === undefined) return;
 
         // Determinar icono basado en el tipo de evento
         let iconHtml = '📢';

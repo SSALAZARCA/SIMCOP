@@ -38,8 +38,8 @@ public class GeminiService {
             requestBody.put("prompt", prompt);
             requestBody.put("stream", false);
             
-            // Si el prompt exige estrictamente JSON (como en el generador de COA), forzamos el modo JSON nativo de Ollama
-            if (prompt != null && prompt.contains("estructura exacta. REGLAS")) {
+            // Si el prompt exige estrictamente JSON (como en el generador de COA o OSINT), forzamos el modo JSON nativo de Ollama
+            if (prompt != null && (prompt.contains("estructura exacta. REGLAS") || prompt.contains("Responde en formato JSON"))) {
                 requestBody.put("format", "json");
             }
 
@@ -93,7 +93,7 @@ public class GeminiService {
             requestBody.put("temperature", 0.4);
 
             // LM Studio JSON mode if requested by the tactical prompt
-            if (prompt != null && prompt.contains("estructura exacta. REGLAS")) {
+            if (prompt != null && (prompt.contains("estructura exacta. REGLAS") || prompt.contains("Responde en formato JSON"))) {
                 Map<String, Object> responseFormat = new HashMap<>();
                 responseFormat.put("type", "json_object");
                 requestBody.put("response_format", responseFormat);

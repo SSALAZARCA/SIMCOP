@@ -49,10 +49,14 @@ public class OsintService {
                 continue;
             }
 
-            OsintEvent event = processNewsWithAI(news);
-            if (event != null) {
-                osintEventRepository.save(event);
-                processedCount++;
+            try {
+                OsintEvent event = processNewsWithAI(news);
+                if (event != null) {
+                    osintEventRepository.save(event);
+                    processedCount++;
+                }
+            } catch (Exception e) {
+                System.err.println("Error processing news with AI (possibly API key missing): " + e.getMessage());
             }
         }
 
@@ -64,7 +68,9 @@ public class OsintService {
         String[][] feeds = {
             {"https://www.eltiempo.com/rss/justicia.xml", "El Tiempo - Justicia"},
             {"https://www.eltiempo.com/rss/colombia.xml", "El Tiempo - Colombia"},
-            {"https://www.semana.com/rss/nacion/", "Semana - Nación"}
+            {"https://www.semana.com/rss/nacion/", "Semana - Nación"},
+            {"https://www.elespectador.com/arc/outboundfeeds/rss/nacional/", "El Espectador - Nacional"},
+            {"https://www.noticiascaracol.com/rss/colombia", "Noticias Caracol - Colombia"}
         };
 
         for (String[] feed : feeds) {
@@ -77,8 +83,8 @@ public class OsintService {
 
                 org.w3c.dom.NodeList nList = doc.getElementsByTagName("item");
 
-                // Fetch up to 5 news items per feed to avoid overloading
-                for (int temp = 0; temp < Math.min(5, nList.getLength()); temp++) {
+                // Fetch up to 20 news items per feed to avoid overloading
+                for (int temp = 0; temp < Math.min(20, nList.getLength()); temp++) {
                     org.w3c.dom.Node nNode = nList.item(temp);
                     if (nNode.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
                         org.w3c.dom.Element eElement = (org.w3c.dom.Element) nNode;
@@ -106,7 +112,7 @@ public class OsintService {
                 "Noticia: " + news.get("title") + "\n" +
                 "IMPORTANTE: IGNORA y marca como relevant: false cualquier noticia política, crímenes comunes, denuncias de corrupción, accidentes de tránsito, o capturas de bajo nivel. Solo importa la seguridad nacional y operaciones militares.\n"
                 +
-                "Responde en formato JSON con los siguientes campos:\n" +
+                "Responde en formato JSON con los siguientes campos (estructura exacta. REGLAS de salida):\n" +
                 "- relevant (boolean): true SOLO si cumple con el criterio táctico/militar estricto.\n" +
                 "- type (string): Tipo de evento (ATTACK, CLASH, ARREST, PROTEST, OTHER).\n" +
                 "- locationName (string): Nombre del municipio o departamento.\n" +
@@ -144,8 +150,18 @@ public class OsintService {
             event.setConfidenceScore(result.has("confidence") ? result.get("confidence").asDouble() : 0.5);
 
             GeoLocation loc = new GeoLocation();
-            loc.setLat(result.has("latitude") ? result.get("latitude").asDouble() : 0.0);
-            loc.setLon(result.has("longitude") ? result.get("longitude").asDouble() : 0.0);
+            
+            double lat = result.has("latitude") && !result.get("latitude").isNull() ? result.get("latitude").asDouble() : 4.5708;
+            double lon = result.has("longitude") && !result.get("longitude").isNull() ? result.get("longitude").asDouble() : -74.2973;
+            
+            // Si la IA devuelve literalmente 0.0 (Null Island), forzar a centro de Colombia
+            if (lat == 0.0 && lon == 0.0) {
+                lat = 4.5708;
+                lon = -74.2973;
+            }
+            
+            loc.setLat(lat);
+            loc.setLon(lon);
             event.setLocation(loc);
 
             event.setEventTimestamp(LocalDateTime.now());

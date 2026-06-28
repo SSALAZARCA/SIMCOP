@@ -1668,7 +1668,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     // 11. Render OSINT Events if active
     if (osintLayerActive && showOsintLayer) {
       osintEvents.forEach((osint, idx) => {
-        if (!osint.location || !osint.location.lat || !osint.location.lon) return;
+        if (!osint.location || osint.location.lat === undefined || osint.location.lon === undefined) return;
 
         let emoji = '📢';
         let colorStr = '#EC4899';
