@@ -12,6 +12,7 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
+  const [step, setStep] = useState<1 | 2>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,13 +25,18 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
       const user = await userService.login({
         username,
         hashedPassword: password, // El backend espera esto o password, userService se encarga
-        totpCode
+        totpCode: step === 2 ? totpCode : undefined
       } as any);
       
       onLogin(user);
     } catch (err: any) {
       if (err.message === '2FA_REQUIRED') {
-        setError('Este usuario tiene 2FA activado. Por favor ingrese el Código 2FA.');
+        if (step === 1) {
+          // Password is correct, now ask for 2FA code
+          setStep(2);
+        } else {
+          setError('Este usuario tiene 2FA activado. Por favor ingrese el Código 2FA.');
+        }
       } else if (err.message === 'INVALID_2FA_CODE') {
         setError('El Código 2FA es incorrecto o ha expirado.');
       } else {
@@ -69,54 +75,72 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
               <p className="text-red-400 text-[10px] font-black uppercase text-center tracking-widest">{error}</p>
             </div>
           )}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Identificación</label>
-            <div className="relative group">
-              <UserCircleIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
-                placeholder="Nombre de Operador..."
-                required
-              />
-            </div>
-          </div>
+          {step === 1 ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Identificación</label>
+                <div className="relative group">
+                  <UserCircleIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
+                    placeholder="Nombre de Operador..."
+                    required
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Protocolo Acceso</label>
-            <div className="relative group">
-               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors">
-                <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
-              </svg>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
-                placeholder="••••••••"
-                required
-              />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Protocolo Acceso</label>
+                <div className="relative group">
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors">
+                    <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+                  </svg>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
+              <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-2xl">
+                <p className="text-blue-200 text-xs text-center font-medium">Autenticación de 2 Factores requerida para el operador <span className="font-bold text-white uppercase">{username}</span></p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Código de Seguridad (6 Dígitos)</label>
+                <div className="relative group">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors">
+                    <path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    maxLength={6}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium text-center tracking-[0.5em] text-xl"
+                    placeholder="------"
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => { setStep(1); setTotpCode(''); setError(null); }}
+                className="text-xs text-blue-400 hover:text-blue-300 w-full text-center py-2 transition-colors"
+              >
+                ← Volver al login
+              </button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Código 2FA (Opcional)</label>
-            <div className="relative group">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors">
-                <path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd" />
-              </svg>
-              <input
-                type="text"
-                value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value)}
-                maxLength={6}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium"
-                placeholder="Ej. 123456"
-              />
-            </div>
-          </div>
+          )}
 
           <button
             type="submit"
