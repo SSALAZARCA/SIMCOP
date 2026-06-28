@@ -55,6 +55,8 @@ public class OsintService {
                     osintEventRepository.save(event);
                     processedCount++;
                 }
+                // Sleep for 4 seconds to avoid hitting Gemini Free Tier rate limit (15 RPM)
+                Thread.sleep(4000);
             } catch (Exception e) {
                 System.err.println("Error processing news with AI (possibly API key missing): " + e.getMessage());
             }
@@ -83,8 +85,8 @@ public class OsintService {
 
                 org.w3c.dom.NodeList nList = doc.getElementsByTagName("item");
 
-                // Fetch up to 20 news items per feed to avoid overloading
-                for (int temp = 0; temp < Math.min(20, nList.getLength()); temp++) {
+                // Fetch up to 5 news items per feed to avoid overloading Gemini API
+                for (int temp = 0; temp < Math.min(5, nList.getLength()); temp++) {
                     org.w3c.dom.Node nNode = nList.item(temp);
                     if (nNode.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
                         org.w3c.dom.Element eElement = (org.w3c.dom.Element) nNode;
