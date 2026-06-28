@@ -66,11 +66,11 @@ public class OsintService {
     private List<Map<String, String>> fetchRawNews() {
         List<Map<String, String>> sampleNews = new ArrayList<>();
         String[][] feeds = {
+            {"https://news.google.com/rss/search?q=Ejercito+Nacional+Colombia+OR+Fuerzas+Militares+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Fuerzas Militares"},
+            {"https://news.google.com/rss/search?q=FARC+OR+ELN+OR+Clan+del+Golfo+OR+Disidencias&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Grupos Armados"},
+            {"https://news.google.com/rss/search?q=Combates+OR+Atentado+OR+Orden+Publico+Colombia&hl=es-419&gl=CO&ceid=CO:es-419", "Google News - Orden Público"},
             {"https://www.eltiempo.com/rss/justicia.xml", "El Tiempo - Justicia"},
-            {"https://www.eltiempo.com/rss/colombia.xml", "El Tiempo - Colombia"},
-            {"https://www.semana.com/rss/nacion/", "Semana - Nación"},
-            {"https://www.elespectador.com/arc/outboundfeeds/rss/nacional/", "El Espectador - Nacional"},
-            {"https://www.noticiascaracol.com/rss/colombia", "Noticias Caracol - Colombia"}
+            {"https://www.eltiempo.com/rss/colombia.xml", "El Tiempo - Colombia"}
         };
 
         for (String[] feed : feeds) {
