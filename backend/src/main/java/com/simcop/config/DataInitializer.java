@@ -8,6 +8,7 @@ import com.simcop.repository.SoldierRepository;
 import com.simcop.model.MilitaryUnit;
 import com.simcop.repository.MilitaryUnitRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,9 @@ import java.util.ArrayList;
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
+
+    @Value("${app.admin.default-password:change-me-immediately}")
+    private String defaultAdminPassword;
 
     @Autowired
     private UserRepository userRepository;
@@ -71,7 +75,7 @@ public class DataInitializer implements CommandLineRunner {
             User ss = new User();
             ss.setUsername("santiago.salazar");
             ss.setDisplayName("Santiago Salazar (SuperAdmin)");
-            ss.setHashedPassword(passwordEncoder.encode("ssc841209"));
+            ss.setHashedPassword(passwordEncoder.encode(defaultAdminPassword));
             ss.setRole(UserRole.ADMINISTRATOR);
             ss.setPermissions(new java.util.ArrayList<>());
             userRepository.save(ss);

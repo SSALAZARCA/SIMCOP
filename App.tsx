@@ -852,7 +852,7 @@ const App: React.FC = () => {
       case ViewType.ALERTS:
         return <AlertsView alerts={alerts} acknowledgeAlert={acknowledgeAlert} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} />;
       case ViewType.ANALYSIS:
-        return <AnalysisView {...analysisViewProps} />;
+        return <AnalysisView {...analysisViewProps} currentUser={currentUser} />;
       case ViewType.BMA:
         return <BMAPanel
           selectedEntity={selectedEntity}

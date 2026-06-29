@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import L from 'leaflet';
+import DOMPurify from 'dompurify';
 import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
 import type { Feature as GeoJSONFeature, Polygon as GeoJSONPolygon } from 'geojson';
@@ -114,6 +115,7 @@ interface AnalysisViewProps {
   onSelectEntityOnMap?: (entity: SelectedEntity | null) => void;
   activeTemplateContext: PlantillaTypeEnum | null;
   setActiveTemplateContext: (template: PlantillaTypeEnum | null) => void;
+  currentUser?: { id?: string; username?: string };
   eventBus: EventEmitter;
 }
 
@@ -194,6 +196,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   onSelectEntityOnMap,
   activeTemplateContext,
   setActiveTemplateContext,
+  currentUser,
   eventBus,
 }) => {
   const [storeState, setStoreState] = useState(() => analysisStore.state);
@@ -434,7 +437,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       try {
         const savedPlan = await coaPlanService.savePlan({
           ...result,
-          createdByUserId: 'current-user', // TODO: Get from auth context
+          status: 'DRAFT',
+          createdByUserId: currentUser?.id || currentUser?.username || 'unknown',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
         console.log('✅ COA Plan guardado en BD:', savedPlan.id);
         setCoaPlan(savedPlan);
@@ -997,10 +1003,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         {doctrinalError && <p className="mt-2 text-sm text-red-400 bg-red-900 p-2 rounded">{doctrinalError}</p>}
         {doctrinalResponse && (
           <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner text-sm">
-            <div
-              className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap break-words"
-              dangerouslySetInnerHTML={{ __html: (doctrinalResponse.text || "").replace(/\n/g, '<br />') }}
-            />
+            <div className="prose prose-invert prose-sm max-w-none text-gray-300">
+              <div 
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((doctrinalResponse.text || "").replace(/\n/g, '<br />')) }} 
+              />
+            </div>
           </div>
         )}
       </div>
@@ -1063,10 +1070,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                     <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
                     Resultado Estimado de la Simulación
                   </h5>
-                  <div
-                    className="prose prose-sm prose-invert max-w-none text-gray-200"
-                    dangerouslySetInnerHTML={{ __html: (simulationResult.text || "").replace(/\n/g, '<br />') }}
-                  />
+                  <div className="prose prose-invert prose-sm max-w-none text-gray-300 mt-2">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((simulationResult.text || "").replace(/\n/g, '<br />')) }} 
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1470,10 +1478,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner space-y-3 text-sm">
             <div>
               <h4 className="text-sm font-semibold text-gray-200 mb-1">Respuesta de la IA:</h4>
-              <div
-                className="prose prose-xs prose-invert max-w-none whitespace-pre-wrap break-words"
-                dangerouslySetInnerHTML={{ __html: analysisResult.text.replace(/\n/g, '<br />') }}
-              />
+              <div className="prose prose-invert max-w-none prose-sm text-gray-300">
+                <div 
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(analysisResult.text.replace(/\n/g, '<br />')) }} 
+                />
+              </div>
             </div>
             {analysisResult.sources && analysisResult.sources.length > 0 && (
               <div>

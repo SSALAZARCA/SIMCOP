@@ -69,12 +69,24 @@ export const generateTrajectory = (vo: number, angleDegrees: number, h_diff: num
 };
 
 export const calculateMrsiSolution = (vo: number, distance: number): { angle: number, time: number }[] => {
-    // This is highly complex. Return a plausible but simplified result.
-    const baseTime = (distance / vo) * 1.5; // very rough estimate
+    // Implementación física real para trayectorias de elevación alta y baja
+    const maxDistance = (vo * vo) / G;
+    if (distance > maxDistance) {
+        return []; // Fuera de rango
+    }
+    
+    // sin(2*theta) = (d * g) / v^2
+    const sin2Theta = (distance * G) / (vo * vo);
+    const theta1 = 0.5 * Math.asin(sin2Theta) * (180 / Math.PI); // Low angle
+    const theta2 = 90 - theta1; // High angle
+    
+    // Tiempo de vuelo = d / (v * cos(theta))
+    const time1 = distance / (vo * Math.cos(theta1 * (Math.PI / 180)));
+    const time2 = distance / (vo * Math.cos(theta2 * (Math.PI / 180)));
+    
     return [
-        { angle: 65, time: baseTime + 5 },
-        { angle: 55, time: baseTime },
-        { angle: 48, time: baseTime - 5 },
+        { angle: Number(theta2.toFixed(1)), time: Number(time2.toFixed(1)) },
+        { angle: Number(theta1.toFixed(1)), time: Number(time1.toFixed(1)) }
     ];
 };
 

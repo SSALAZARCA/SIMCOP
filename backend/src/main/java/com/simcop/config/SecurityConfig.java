@@ -40,7 +40,7 @@ public class SecurityConfig {
                             System.err.println("DEBUG SECURITY: Unauthorized access to " + request.getRequestURI() + ": " + authException.getMessage());
                             response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\", \"path\": \"" + request.getRequestURI() + "\"}");
+                            response.getWriter().write("{\"error\": \"Unauthorized\"}");
                         }
                 ))
                 .authorizeHttpRequests(auth -> auth
@@ -48,13 +48,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/login").permitAll()
                         .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/api/weather/**").permitAll()
-                        .requestMatchers("/api/config/**").permitAll()
                         .requestMatchers("/api/telegram/test").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/units/**", "/api/soldiers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
-                        .requestMatchers("/api/bma/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/units/*/spot").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated())
