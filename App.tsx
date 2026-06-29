@@ -846,6 +846,8 @@ const App: React.FC = () => {
           onRefreshOsint={refreshOsint}
           osintLayerActive={osintLayerActive}
           setOsintLayerActive={setOsintLayerActive}
+          osintEvents={osintEvents}
+          verifyOsint={verifyOsintEvent}
         />;
       case ViewType.ALERTS:
         return <AlertsView alerts={alerts} acknowledgeAlert={acknowledgeAlert} currentUser={currentUser} approvePlatoonNovelty={approvePlatoonNovelty} approveAmmoReport={approveAmmoReport} rejectAmmoReport={rejectAmmoReport} rejectPlatoonNovelty={rejectPlatoonNovelty} />;

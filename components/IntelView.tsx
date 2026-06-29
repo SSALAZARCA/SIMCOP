@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { IntelligenceReport } from '../types';
+import type { IntelligenceReport, OsintEvent } from '../types';
 import { IntelligenceSourceType, IntelligenceReliability, IntelligenceCredibility, MapEntityType, SelectedEntity } from '../types';
 import { IntelListComponent } from './IntelListComponent';
 import { IntelDetailsPanel } from './IntelDetailsPanel';
@@ -14,6 +14,8 @@ interface IntelViewProps {
     onRefreshOsint?: () => Promise<void>;
     osintLayerActive?: boolean;
     setOsintLayerActive?: (active: boolean) => void;
+    osintEvents?: OsintEvent[];
+    verifyOsint?: (id: string, verified: boolean) => Promise<void>;
 }
 
 export const IntelView: React.FC<IntelViewProps> = ({
@@ -22,10 +24,13 @@ export const IntelView: React.FC<IntelViewProps> = ({
     addIntelReport,
     onRefreshOsint,
     osintLayerActive = false,
-    setOsintLayerActive
+    setOsintLayerActive,
+    osintEvents = [],
+    verifyOsint
 }) => {
     const [selectedIntelForPanel, setSelectedIntelForPanel] = useState<IntelligenceReport | null>(null);
     const [showAddIntelForm, setShowAddIntelForm] = useState(false);
+    const [activeTab, setActiveTab] = useState<'oficial' | 'osint'>('oficial');
 
     const handleLocalSelect = useCallback((report: IntelligenceReport) => {
         setSelectedIntelForPanel(report);
@@ -407,8 +412,65 @@ export const IntelView: React.FC<IntelViewProps> = ({
             )}
 
             <div className="flex flex-col md:flex-row flex-1 space-y-4 md:space-y-0 md:space-x-4">
-                <div className="w-full md:w-2/5 pr-0 md:pr-2">
-                    <IntelListComponent intelReports={intelReports} onSelectIntel={handleLocalSelect} selectedEntity={listSelectedEntity} />
+                <div className="w-full md:w-2/5 pr-0 md:pr-2 flex flex-col space-y-3">
+                    {/* TABS */}
+                    <div className="flex bg-gray-800 p-1 rounded-md shadow">
+                        <button 
+                            className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${activeTab === 'oficial' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            onClick={() => setActiveTab('oficial')}
+                        >
+                            Informes Oficiales ({intelReports.length})
+                        </button>
+                        <button 
+                            className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${activeTab === 'osint' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            onClick={() => setActiveTab('osint')}
+                        >
+                            Noticias OSINT ({osintEvents.length})
+                        </button>
+                    </div>
+
+                    {activeTab === 'oficial' ? (
+                        <IntelListComponent intelReports={intelReports} onSelectIntel={handleLocalSelect} selectedEntity={listSelectedEntity} />
+                    ) : (
+                        <div className="bg-gray-800 flex-1 rounded-lg shadow-inner overflow-hidden flex flex-col border border-gray-700">
+                            <div className="p-3 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                                <h3 className="font-semibold text-gray-200">Listado de Eventos IA</h3>
+                            </div>
+                            <div className="overflow-y-auto flex-1 p-2 space-y-2 max-h-[60vh]">
+                                {osintEvents.length === 0 ? (
+                                    <p className="text-gray-400 text-center py-4 text-sm">No hay noticias OSINT procesadas.</p>
+                                ) : (
+                                    osintEvents.map(event => (
+                                        <div key={event.id} className={`p-3 rounded-md shadow border ${event.verified ? 'bg-cyan-900/40 border-cyan-700' : 'bg-gray-700 border-gray-600'} hover:border-blue-500 transition-colors flex flex-col gap-2`}>
+                                            <div className="flex justify-between items-start gap-2">
+                                                <h4 className="font-bold text-gray-200 text-sm leading-tight">{event.title}</h4>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${event.confidenceScore >= 0.8 ? 'bg-red-900 text-red-200' : 'bg-yellow-900 text-yellow-200'}`}>
+                                                    {(event.confidenceScore * 100).toFixed(0)}% CONF
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-400 italic line-clamp-3 leading-snug">{event.summary}</p>
+                                            <div className="flex justify-between items-center mt-1">
+                                                <span className="text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">{event.sourceName}</span>
+                                                <div className="flex gap-2">
+                                                    <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:text-blue-300 underline">
+                                                        Ver Fuente original
+                                                    </a>
+                                                    {verifyOsint && !event.verified && (
+                                                        <button 
+                                                            onClick={() => verifyOsint(event.id, true)}
+                                                            className="text-[10px] bg-green-600 hover:bg-green-500 text-white px-2 py-0.5 rounded"
+                                                        >
+                                                            Validar
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="w-full md:w-3/5 bg-gray-800 p-3 md:p-4 rounded-lg shadow-inner">
                     {selectedIntelForPanel ? (
@@ -419,8 +481,9 @@ export const IntelView: React.FC<IntelViewProps> = ({
                             onUnlink={handleUnlinkReports}
                         />
                     ) : (
-                        <div className="flex items-center justify-center h-full">
-                            <p className="text-gray-400 text-center">{showAddIntelForm ? 'Completando nuevo informe...' : 'Seleccione un informe de inteligencia para ver detalles.'}</p>
+                        <div className="flex flex-col items-center justify-center h-full gap-2">
+                            <p className="text-gray-400 text-center">{showAddIntelForm ? 'Completando nuevo informe...' : 'Seleccione un informe de inteligencia oficial para ver detalles.'}</p>
+                            {activeTab === 'osint' && <p className="text-xs text-cyan-500 text-center max-w-sm">Los eventos OSINT se visualizan directamente en la lista o haciendo clic en el mapa 3D cuando la capa está activa.</p>}
                         </div>
                     )}
                 </div>
