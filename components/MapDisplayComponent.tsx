@@ -869,7 +869,10 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
 
         L.marker([event.location.lat, event.location.lon], { icon: osintIcon })
           .bindPopup(popupContent, { maxWidth: 300 })
-          .addTo(layer);
+          .addTo(layer)
+          .on('mouseover', function(e) {
+            this.openPopup();
+          });
       });
     }
   }, [osintLayerActive, osintEvents]);
