@@ -72,7 +72,6 @@ export const useUnitLayer = (
             if (typeof ms !== 'undefined') {
                 const symbol = new ms.Symbol(sidc, {
                     size: symbolSize,
-                    uniqueDesignation: unit.name,
                     outlineColor: isSelected ? "gold" : "white",
                     outlineWidth: isSelected ? 4 : 2,
                     infoFields: false
@@ -84,7 +83,14 @@ export const useUnitLayer = (
                 symbolSvg = `<svg width="${symbolSize}" height="${symbolSize}"><circle cx="${symbolSize / 2}" cy="${symbolSize / 2}" r="${symbolSize / 3}" fill="blue" stroke="white"/></svg>`;
             }
 
-            const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="width: 100%; height: 100%;">${symbolSvg}</div>`;
+            const iconHtml = `
+              <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%;">
+                ${symbolSvg}
+                <div class="unit-name-label" style="position: absolute; top: 100%; left: ${symAnchor.x}px; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
+                  ${unit.name.substring(0, 20)}
+                </div>
+              </div>
+            `;
             customIcon = L.divIcon({
                 html: iconHtml,
                 className: '',
@@ -109,7 +115,7 @@ export const useUnitLayer = (
 
             } else {
                 // Create new marker
-                const marker = L.marker([unit.location.lat, unit.location.lon], {
+                const marker = L.marker([lat, lon], {
                     icon: customIcon,
                     zIndexOffset: isSelected ? 300 : 100
                 });
