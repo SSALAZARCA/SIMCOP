@@ -487,8 +487,8 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       const sidc = generateUnitSIDC(unit);
       const symbolSize = isSelected ? 30 : 25;
       let symbolSvg = '';
-      let symAnchorY = symbolSize / 2;
-      let symWidth = symbolSize;
+      let symAnchor = { x: symbolSize / 2, y: symbolSize / 2 };
+      let symSize = { width: symbolSize, height: symbolSize };
 
       try {
         const symbol = new ms.Symbol(sidc, {
@@ -499,26 +499,27 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
           standard: "2525"
         });
         symbolSvg = symbol.asSVG();
-        const anchor = symbol.getAnchor();
-        const size = symbol.getSize();
-        symAnchorY = anchor.y;
-        symWidth = size.width;
+        symAnchor = symbol.getAnchor();
+        symSize = symbol.getSize();
       } catch (e) {
         console.warn(`Error generating SIDC SVG for ${unit.name} (SIDC: ${sidc}):`, e);
         symbolSvg = `<svg width="${symbolSize}" height="${symbolSize}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${symbolSize}" height="${symbolSize}" fill="magenta"/><text x="${symbolSize / 2}" y="${symbolSize / 2}" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="8">ERR: ${sidc.substring(0, 4)}</text></svg>`;
       }
 
-      const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="display: flex; flex-direction: column; align-items: center;">${symbolSvg}<div class="unit-name-label">${unit.name.substring(0, 15)}</div></div>`;
-      const labelHeight = 12; 
-      const totalHeight = symAnchorY * 2 + labelHeight + 2; 
-      const estimatedLabelWidth = unit.name.substring(0, 15).length * 5 + 10;
-      const iconWidth = Math.max(symWidth + 4, estimatedLabelWidth);
+      const iconHtml = `
+        <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%;">
+          ${symbolSvg}
+          <div class="unit-name-label" style="position: absolute; top: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
+            ${unit.name.substring(0, 20)}
+          </div>
+        </div>
+      `;
       
       const customIcon = L.divIcon({ 
         html: iconHtml, 
         className: '', 
-        iconSize: [iconWidth, totalHeight], 
-        iconAnchor: [iconWidth / 2, symAnchorY] 
+        iconSize: [symSize.width, symSize.height], 
+        iconAnchor: [symAnchor.x, symAnchor.y] 
       });
 
       const marker = L.marker([lat, lon], { icon: customIcon, zIndexOffset: isSelected ? 100 : 0 })
