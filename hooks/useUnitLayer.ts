@@ -35,59 +35,68 @@ export const useUnitLayer = (
     useEffect(() => {
         if (!map || !layerRef.current) return;
         const layer = layerRef.current;
-
         // Units present in current update
         const currentUnitIds = new Set<string>();
+        // Coordinate tracking for Jitter
+        const coordinateCounts: { [key: string]: number } = {};
 
         units.forEach(unit => {
             currentUnitIds.add(unit.id);
             const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === unit.id;
 
-            // Re-generation of SIDC and Icon
-            // Optimization: In a real heavy app, we would memoize the icon creation too if SIDC/Status didn't change
-            // For now, we reuse the existing marker if position hasn't changed to prevent flickering
+            // Calculate Jitter to prevent overlapping
+            const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
+            coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
+            const count = coordinateCounts[coordKey];
+            
+            let lat = unit.location.lat;
+            let lon = unit.location.lon;
+            
+            if (count > 1) {
+                const angle = (count - 1) * 1.5; 
+                const radius = 0.00015 * Math.ceil((count - 1) / 4);
+                lat += Math.sin(angle) * radius;
+                lon += Math.cos(angle) * radius;
+            }
 
             const existingMarker = markersRef.current[unit.id];
-
-            // Calculate new SIDC/Icon properties
             const sidc = generateUnitSIDC(unit);
             const statusColor = unit.status === UnitStatus.ENGAGED ? 'red' : (unit.status === UnitStatus.MOVING ? 'blue' : 'black');
             const symbolSize = isSelected ? 35 : 28;
 
-            // Ideally we only re-create SVG if needed, but ms.Symbol is fast enough for hundreds, maybe not thousands.
-            // Let's create the icon object:
             let customIcon: L.DivIcon;
-
-            // Note: MILSYMBOL is global or imported. Assuming `ms` is available.
             let symbolSvg = '';
-            // Checking availability of MS
+            let symAnchor = { x: symbolSize / 2, y: symbolSize / 2 };
+            let symSize = { width: symbolSize + 10, height: symbolSize + 10 };
+
             if (typeof ms !== 'undefined') {
-                symbolSvg = new ms.Symbol(sidc, {
+                const symbol = new ms.Symbol(sidc, {
                     size: symbolSize,
                     uniqueDesignation: unit.name,
                     outlineColor: isSelected ? "gold" : "white",
                     outlineWidth: isSelected ? 4 : 2,
                     infoFields: false
-                }).asSVG();
+                });
+                symbolSvg = symbol.asSVG();
+                symAnchor = symbol.getAnchor();
+                symSize = symbol.getSize();
             } else {
                 symbolSvg = `<svg width="${symbolSize}" height="${symbolSize}"><circle cx="${symbolSize / 2}" cy="${symbolSize / 2}" r="${symbolSize / 3}" fill="blue" stroke="white"/></svg>`;
             }
 
-            const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}">${symbolSvg}</div>`;
+            const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="width: 100%; height: 100%;">${symbolSvg}</div>`;
             customIcon = L.divIcon({
                 html: iconHtml,
                 className: '',
-                iconSize: [symbolSize + 10, symbolSize + 10],
-                iconAnchor: [(symbolSize + 10) / 2, (symbolSize + 10) / 2]
+                iconSize: [symSize.width, symSize.height],
+                iconAnchor: [symAnchor.x, symAnchor.y]
             });
 
             if (existingMarker) {
-                // Update position
                 const currentLatLng = existingMarker.getLatLng();
-                if (currentLatLng.lat !== unit.location.lat || currentLatLng.lng !== unit.location.lon) {
-                    existingMarker.setLatLng([unit.location.lat, unit.location.lon]);
+                if (currentLatLng.lat !== lat || currentLatLng.lng !== lon) {
+                    existingMarker.setLatLng([lat, lon]);
                 }
-                // Update Icon (always update to reflect selection/SIDC changes cheaply)
                 existingMarker.setIcon(customIcon);
 
                 // Update tooltip
