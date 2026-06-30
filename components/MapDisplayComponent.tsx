@@ -868,11 +868,14 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         `;
 
         L.marker([event.location.lat, event.location.lon], { icon: osintIcon })
-          .bindPopup(popupContent, { maxWidth: 300 })
-          .addTo(layer)
-          .on('mouseover', function(e) {
-            this.openPopup();
-          });
+          .bindTooltip(popupContent, { 
+            direction: 'top', 
+            offset: [0, -15], 
+            interactive: true,
+            className: 'osint-tooltip-custom bg-slate-900 border border-slate-700 shadow-xl rounded-lg p-0',
+            opacity: 1
+          })
+          .addTo(layer);
       });
     }
   }, [osintLayerActive, osintEvents]);
