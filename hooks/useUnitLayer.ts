@@ -44,19 +44,20 @@ export const useUnitLayer = (
             currentUnitIds.add(unit.id);
             const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === unit.id;
 
-            // Calculate Jitter to prevent overlapping
+            // Calculate Visual Pixel Jitter to prevent overlapping at all zoom levels
             const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
             coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
             const count = coordinateCounts[coordKey];
             
-            let lat = unit.location.lat;
-            let lon = unit.location.lon;
+            let offsetX = 0;
+            let offsetY = 0;
             
             if (count > 1) {
+                // Pixel spiral: ~40px separation visually on screen
                 const angle = (count - 1) * 1.5; 
-                const radius = 0.00015 * Math.ceil((count - 1) / 4);
-                lat += Math.sin(angle) * radius;
-                lon += Math.cos(angle) * radius;
+                const radius = 40 * Math.ceil((count - 1) / 4);
+                offsetX = Math.sin(angle) * radius;
+                offsetY = Math.cos(angle) * radius;
             }
 
             const existingMarker = markersRef.current[unit.id];
@@ -84,7 +85,7 @@ export const useUnitLayer = (
             }
 
             const iconHtml = `
-              <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%;">
+              <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%; transform: translate(${offsetX}px, ${offsetY}px); transition: transform 0.3s ease;">
                 ${symbolSvg}
                 <div class="unit-name-label" style="position: absolute; top: 100%; left: ${symAnchor.x}px; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
                   ${unit.name.substring(0, 20)}
@@ -100,8 +101,8 @@ export const useUnitLayer = (
 
             if (existingMarker) {
                 const currentLatLng = existingMarker.getLatLng();
-                if (currentLatLng.lat !== lat || currentLatLng.lng !== lon) {
-                    existingMarker.setLatLng([lat, lon]);
+                if (currentLatLng.lat !== unit.location.lat || currentLatLng.lng !== unit.location.lon) {
+                    existingMarker.setLatLng([unit.location.lat, unit.location.lon]);
                 }
                 existingMarker.setIcon(customIcon);
 
@@ -115,7 +116,7 @@ export const useUnitLayer = (
 
             } else {
                 // Create new marker
-                const marker = L.marker([lat, lon], {
+                const marker = L.marker([unit.location.lat, unit.location.lon], {
                     icon: customIcon,
                     zIndexOffset: isSelected ? 300 : 100
                 });
