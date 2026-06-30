@@ -840,9 +840,9 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
         const osintIcon = L.divIcon({
           html: `
             <div class="relative flex items-center justify-center">
-              <div class="absolute w-8 h-8 ${colorClass} opacity-20 rounded-full animate-ping"></div>
-              <div class="w-8 h-8 ${colorClass} rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white">
-                <span class="text-sm">${iconHtml}</span>
+              <div class="absolute w-8 h-8 ${colorClass} opacity-20 rounded-full animate-ping pointer-events-none"></div>
+              <div class="w-8 h-8 ${colorClass} rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white pointer-events-none">
+                <span class="text-sm pointer-events-none">${iconHtml}</span>
               </div>
             </div>
           `,
