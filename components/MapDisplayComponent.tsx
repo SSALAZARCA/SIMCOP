@@ -462,30 +462,66 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
     layer.clearLayers();
     const isAnyToolActive = distanceToolActive || aoiDrawingModeActive || enemyInfluenceLayerActive || piccDrawingConfig || isTargetSelectionActive || elevationProfileActive;
 
+    const coordinateCounts: { [key: string]: number } = {};
+
     filteredUnits.forEach(unit => {
       if (!unit || !unit.location) return;
+      
+      // Manejar coordenadas iguales (Jitter para separar unidades apiladas)
+      const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
+      coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
+      const count = coordinateCounts[coordKey];
+      
+      let lat = unit.location.lat;
+      let lon = unit.location.lon;
+      
+      if (count > 1) {
+        // Espiral simple: separar unos ~15-20 metros
+        const angle = (count - 1) * 1.5; 
+        const radius = 0.00015 * Math.ceil((count - 1) / 4);
+        lat += Math.sin(angle) * radius;
+        lon += Math.cos(angle) * radius;
+      }
+
       const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === unit.id;
       const sidc = generateUnitSIDC(unit);
       const symbolSize = isSelected ? 30 : 25;
       let symbolSvg = '';
+      let symAnchorY = symbolSize / 2;
+      let symWidth = symbolSize;
+
       try {
-        symbolSvg = new ms.Symbol(sidc, {
+        const symbol = new ms.Symbol(sidc, {
           size: symbolSize,
           outlineColor: isSelected ? "white" : "black",
           outlineWidth: isSelected ? 2 : 1,
           infoFields: false,
           standard: "2525"
-        }).asSVG();
+        });
+        symbolSvg = symbol.asSVG();
+        const anchor = symbol.getAnchor();
+        const size = symbol.getSize();
+        symAnchorY = anchor.y;
+        symWidth = size.width;
       } catch (e) {
         console.warn(`Error generating SIDC SVG for ${unit.name} (SIDC: ${sidc}):`, e);
         symbolSvg = `<svg width="${symbolSize}" height="${symbolSize}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${symbolSize}" height="${symbolSize}" fill="magenta"/><text x="${symbolSize / 2}" y="${symbolSize / 2}" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="8">ERR: ${sidc.substring(0, 4)}</text></svg>`;
       }
-      const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}">${symbolSvg}<div class="unit-name-label">${unit.name.substring(0, 15)}</div></div>`;
-      const labelHeight = 12; const totalHeight = symbolSize + labelHeight + 2;
+
+      const iconHtml = `<div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="display: flex; flex-direction: column; align-items: center;">${symbolSvg}<div class="unit-name-label">${unit.name.substring(0, 15)}</div></div>`;
+      const labelHeight = 12; 
+      const totalHeight = symAnchorY * 2 + labelHeight + 2; 
       const estimatedLabelWidth = unit.name.substring(0, 15).length * 5 + 10;
-      const iconWidth = Math.max(symbolSize + 4, estimatedLabelWidth);
-      const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [iconWidth, totalHeight], iconAnchor: [iconWidth / 2, totalHeight / 2 - labelHeight / 2], });
-      const marker = L.marker([unit.location.lat, unit.location.lon], { icon: customIcon, zIndexOffset: isSelected ? 100 : 0 })
+      const iconWidth = Math.max(symWidth + 4, estimatedLabelWidth);
+      
+      const customIcon = L.divIcon({ 
+        html: iconHtml, 
+        className: '', 
+        iconSize: [iconWidth, totalHeight], 
+        iconAnchor: [iconWidth / 2, symAnchorY] 
+      });
+
+      const marker = L.marker([lat, lon], { icon: customIcon, zIndexOffset: isSelected ? 100 : 0 })
         .bindTooltip(`${unit.name} (${unit.type})<br/>Estado: ${unit.status}<br/>Ubic: ${decimalToDMS(unit.location)}<br/>SIDC: ${sidc}`);
       if (onSelectEntityOnMap) {
         marker.on('click', (e) => { if (!isAnyToolActive) { onSelectEntityOnMap({ type: MapEntityType.UNIT, id: unit.id }); L.DomEvent.stopPropagation(e); } });
