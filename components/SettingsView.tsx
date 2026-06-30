@@ -541,6 +541,65 @@ const SettingsView: React.FC = () => {
                     </div>
                 )}
 
+                {/* OSINT Webhook Config */}
+                <div style={{
+                    marginTop: '2rem',
+                    marginBottom: '1.5rem',
+                    padding: '1.5rem',
+                    backgroundColor: '#1e293b',
+                    borderRadius: '8px',
+                    border: '1px solid #334155',
+                }}>
+                    <h3 style={{ color: '#e2e8f0', fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>📡</span> Integración Webhook OSINT Externo
+                    </h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                        Utiliza estos datos para configurar tu agente o bot externo. Las alertas enviadas aquí se procesarán automáticamente sin consumir cuota de la API de IA.
+                    </p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+                                URL del Webhook (POST)
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input 
+                                    type="text" 
+                                    readOnly 
+                                    value="https://api.simcop.site/api/osint/webhook" 
+                                    style={{ flex: 1, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#38bdf8', padding: '0.5rem', borderRadius: '4px', fontSize: '0.875rem' }}
+                                />
+                                <button 
+                                    onClick={() => navigator.clipboard.writeText('https://api.simcop.site/api/osint/webhook')}
+                                    style={{ backgroundColor: '#334155', border: 'none', color: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
+                                >
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+                                Cabecera de Autenticación (X-Webhook-Token)
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input 
+                                    type="text" 
+                                    readOnly 
+                                    value="simcop-osint-secret-2026" 
+                                    style={{ flex: 1, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#a3e635', padding: '0.5rem', borderRadius: '4px', fontSize: '0.875rem' }}
+                                />
+                                <button 
+                                    onClick={() => navigator.clipboard.writeText('simcop-osint-secret-2026')}
+                                    style={{ backgroundColor: '#334155', border: 'none', color: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
+                                >
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div style={{
                     display: 'flex',
