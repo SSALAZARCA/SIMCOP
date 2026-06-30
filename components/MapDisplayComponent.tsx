@@ -509,7 +509,7 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       const iconHtml = `
         <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%;">
           ${symbolSvg}
-          <div class="unit-name-label" style="position: absolute; top: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
+          <div class="unit-name-label" style="position: absolute; top: 100%; left: ${symAnchor.x}px; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
             ${unit.name.substring(0, 20)}
           </div>
         </div>
