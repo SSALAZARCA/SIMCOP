@@ -44,22 +44,6 @@ export const useUnitLayer = (
             currentUnitIds.add(unit.id);
             const isSelected = selectedEntity?.type === MapEntityType.UNIT && selectedEntity.id === unit.id;
 
-            // Calculate Visual Pixel Jitter to prevent overlapping at all zoom levels
-            const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
-            coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
-            const count = coordinateCounts[coordKey];
-            
-            let offsetX = 0;
-            let offsetY = 0;
-            
-            if (count > 1) {
-                // Pixel spiral: ~40px separation visually on screen
-                const angle = (count - 1) * 1.5; 
-                const radius = 40 * Math.ceil((count - 1) / 4);
-                offsetX = Math.sin(angle) * radius;
-                offsetY = Math.cos(angle) * radius;
-            }
-
             const existingMarker = markersRef.current[unit.id];
             const sidc = generateUnitSIDC(unit);
             const statusColor = unit.status === UnitStatus.ENGAGED ? 'red' : (unit.status === UnitStatus.MOVING ? 'blue' : 'black');
@@ -85,7 +69,7 @@ export const useUnitLayer = (
             }
 
             const iconHtml = `
-              <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%; transform: translate(${offsetX}px, ${offsetY}px); transition: transform 0.3s ease;">
+              <div class="custom-leaflet-icon-wrapper ${isSelected ? 'selected' : ''}" style="position: relative; width: 100%; height: 100%;">
                 ${symbolSvg}
                 <div class="unit-name-label" style="position: absolute; top: 100%; left: ${symAnchor.x}px; transform: translateX(-50%); white-space: nowrap; margin-top: 2px;">
                   ${unit.name.substring(0, 20)}

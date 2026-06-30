@@ -271,9 +271,12 @@ export const MapDisplayComponent: React.FC<MapDisplayProps> = ({
       });
       layerControlRef.current.addTo(mapInstance);
 
-      // Capas meteorológicas antiguas de RainViewer y Open-Meteo removidas para unificar con Windy
-
-      unitLayerRef.current = (L as any).markerClusterGroup();
+      unitLayerRef.current = (L as any).markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true
+      });
       mapInstance.addLayer(unitLayerRef.current);
 
       intelLayerRef.current.addTo(mapInstance);
