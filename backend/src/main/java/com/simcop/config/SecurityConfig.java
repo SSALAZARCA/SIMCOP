@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/telegram/test").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/osint/webhook").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated())

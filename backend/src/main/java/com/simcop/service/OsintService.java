@@ -183,4 +183,65 @@ public class OsintService {
             return null;
         }
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public OsintEvent processExternalWebhook(String rawText) {
+        try {
+            java.util.regex.Pattern pResumen = java.util.regex.Pattern.compile("\\*\\*Resumen\\*\\*:\\s*(.*)");
+            java.util.regex.Pattern pUbicacion = java.util.regex.Pattern.compile("\\*\\*Ubicaci.n\\*\\*:\\s*(.*)");
+            java.util.regex.Pattern pCoordenadas = java.util.regex.Pattern.compile("\\*\\*Coordenadas\\*\\*:\\s*([\\-\\d\\.]+)[^\\-\\d\\.]+([\\-\\d\\.]+)");
+            java.util.regex.Pattern pFuente = java.util.regex.Pattern.compile("\\*\\*Fuente\\*\\*:\\s*(.*)");
+            java.util.regex.Pattern pClasificacion = java.util.regex.Pattern.compile("\\*\\*Clasificaci.n\\*\\*:\\s*(.*)");
+            java.util.regex.Pattern pImpacto = java.util.regex.Pattern.compile("\\*\\*Nivel de Impacto\\*\\*:\\s*(.*)");
+
+            java.util.regex.Matcher mResumen = pResumen.matcher(rawText);
+            java.util.regex.Matcher mUbicacion = pUbicacion.matcher(rawText);
+            java.util.regex.Matcher mCoordenadas = pCoordenadas.matcher(rawText);
+            java.util.regex.Matcher mFuente = pFuente.matcher(rawText);
+            java.util.regex.Matcher mClasificacion = pClasificacion.matcher(rawText);
+            java.util.regex.Matcher mImpacto = pImpacto.matcher(rawText);
+
+            OsintEvent event = new OsintEvent();
+            event.setSummary(mResumen.find() ? mResumen.group(1).trim() : "Evento externo (Sin resumen)");
+            event.setTitle(event.getSummary().length() > 50 ? event.getSummary().substring(0, 47) + "..." : event.getSummary());
+            event.setLocationName(mUbicacion.find() ? mUbicacion.group(1).trim() : "Unknown");
+            
+            String rawFuente = mFuente.find() ? mFuente.group(1).trim() : "Agente Externo";
+            event.setSourceName(rawFuente);
+            event.setSourceUrl("Webhook");
+
+            String typeStr = mClasificacion.find() ? mClasificacion.group(1).trim().toUpperCase() : "OTHER";
+            if (typeStr.contains("ATAQUE") || typeStr.contains("ATTACK")) event.setEventType("ATTACK");
+            else if (typeStr.contains("COMBATE") || typeStr.contains("CLASH")) event.setEventType("CLASH");
+            else if (typeStr.contains("CAPTURA") || typeStr.contains("ARREST")) event.setEventType("ARREST");
+            else if (typeStr.contains("PROTEST")) event.setEventType("PROTEST");
+            else event.setEventType("OTHER");
+
+            String impacto = mImpacto.find() ? mImpacto.group(1).trim().toUpperCase() : "MEDIO";
+            double conf = 0.5;
+            if (impacto.contains("CRÍTICO") || impacto.contains("CRITICO")) conf = 1.0;
+            else if (impacto.contains("ALTO")) conf = 0.8;
+            else if (impacto.contains("BAJO")) conf = 0.3;
+            event.setConfidenceScore(conf);
+
+            GeoLocation loc = new GeoLocation();
+            if (mCoordenadas.find()) {
+                loc.setLat(Double.parseDouble(mCoordenadas.group(1)));
+                loc.setLon(Double.parseDouble(mCoordenadas.group(2)));
+            } else {
+                loc.setLat(4.5708);
+                loc.setLon(-74.2973);
+            }
+            event.setLocation(loc);
+
+            event.setEventTimestamp(LocalDateTime.now());
+            event.setProcessedTimestamp(LocalDateTime.now());
+            event.setVerified(false);
+
+            return osintEventRepository.save(event);
+        } catch (Exception e) {
+            System.err.println("Error procesando Webhook Regex: " + e.getMessage());
+            return null;
+        }
+    }
 }

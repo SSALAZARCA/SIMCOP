@@ -69,4 +69,34 @@ public class OsintController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    @PostMapping("/webhook")
+    public ResponseEntity<Map<String, Object>> receiveExternalWebhook(
+            @RequestHeader(value = "X-Webhook-Token", required = false) String token,
+            @RequestBody Map<String, String> payload) {
+        
+        String expectedToken = "simcop-osint-secret-2026";
+        if (token == null || !token.equals(expectedToken)) {
+            logger.warn("❌ Intento de acceso no autorizado al webhook OSINT");
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized webhook access"));
+        }
+
+        try {
+            String rawText = payload.get("raw_text");
+            if (rawText == null || rawText.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing raw_text in payload"));
+            }
+
+            OsintEvent event = osintService.processExternalWebhook(rawText);
+            if (event != null) {
+                logger.info("✅ Evento OSINT externo procesado y guardado exitosamente");
+                return ResponseEntity.ok(Map.of("status", "success", "event_id", event.getId()));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Could not parse event data from raw_text"));
+            }
+        } catch (Exception e) {
+            logger.error("❌ Error procesando webhook OSINT: {}", e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
 }
