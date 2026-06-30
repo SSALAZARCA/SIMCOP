@@ -99,7 +99,7 @@ body,
   border-radius: 12px !important;
 }
 
-.leaflet-tooltip {
+.leaflet-tooltip:not(.osint-tooltip-custom) {
   background: rgba(13, 17, 23, 0.9) !important;
   backdrop-filter: blur(8px) !important;
   color: #f3f4f6 !important;
@@ -111,6 +111,21 @@ body,
   letter-spacing: 0.05em !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
   padding: 4px 8px !important;
+}
+
+.leaflet-tooltip.osint-tooltip-custom {
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(51, 65, 85, 0.8) !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  color: white !important;
+  text-transform: none !important;
+  font-weight: normal !important;
+  font-size: 12px !important;
+  letter-spacing: normal !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  pointer-events: auto !important;
 }
 
 .leaflet-container {
