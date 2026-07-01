@@ -467,82 +467,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    // Mouse Move handling (Hover side-expansion)
-    handler.setInputAction((movement: any) => {
-      const pickedObject = viewer.scene.pick(movement.endPosition);
-      
-      // Determine if we are hovering over the cluster OR any of the expanded units
-      let isHoveringCluster = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
-      let isHoveringExpandedUnit = Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id && pickedObject.id.id.startsWith('expanded-hover-');
-      
-      if (isHoveringCluster) {
-          // If hovering a cluster, expand it laterally
-          const clusteredEntities = pickedObject.id;
-          const clusterPrimitive = pickedObject.primitive;
-          
-          // If it's already expanded, do nothing
-          if (expandedHoverStateRef.current && expandedHoverStateRef.current.clusterPrimitive === clusterPrimitive) {
-             return;
-          }
-          
-          // Clear previous expansion if any
-          if (expandedHoverStateRef.current) {
-             expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
-             expandedHoverStateRef.current = null;
-          }
-          
-          let cartesianPos = clusterPrimitive?.position;
-          if (cartesianPos) {
-              const expandedEntities: Cesium.Entity[] = [];
-              const baseHorizontalOffset = 30; // Start 30px to the right of the cluster
-              const spacing = 50; // 50px between each unit
-              
-              clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
-                  const offsetX = baseHorizontalOffset + (index * spacing);
-                  
-                  // Clone the visual properties but add pixel offset
-                  const expandedEntity = viewer.entities.add({
-                      id: `expanded-hover-${entity.id}`,
-                      position: cartesianPos, // Exact same 3D position
-                      billboard: {
-                          image: entity.billboard?.image,
-                          heightReference: entity.billboard?.heightReference,
-                          horizontalOrigin: entity.billboard?.horizontalOrigin,
-                          verticalOrigin: entity.billboard?.verticalOrigin,
-                          scaleByDistance: entity.billboard?.scaleByDistance,
-                          disableDepthTestDistance: entity.billboard?.disableDepthTestDistance,
-                          pixelOffset: new Cesium.Cartesian2(offsetX, 0) // Shift to the right
-                      },
-                      label: {
-                          text: entity.label?.text,
-                          font: entity.label?.font,
-                          style: entity.label?.style,
-                          fillColor: entity.label?.fillColor,
-                          outlineColor: entity.label?.outlineColor,
-                          outlineWidth: entity.label?.outlineWidth,
-                          verticalOrigin: entity.label?.verticalOrigin,
-                          scaleByDistance: entity.label?.scaleByDistance,
-                          disableDepthTestDistance: entity.label?.disableDepthTestDistance,
-                          heightReference: entity.label?.heightReference,
-                          pixelOffset: new Cesium.Cartesian2(offsetX, 25) // Shift to the right, keep vertical offset
-                      }
-                  });
-                  expandedEntities.push(expandedEntity);
-              });
-              
-              expandedHoverStateRef.current = {
-                  clusterPrimitive: clusterPrimitive,
-                  entities: expandedEntities,
-                  basePosition: cartesianPos
-              };
-          }
-      } else if (!isHoveringExpandedUnit && expandedHoverStateRef.current) {
-          // Mouse left the cluster AND the expanded units, so hide them!
-          expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
-          expandedHoverStateRef.current = null;
-      }
-    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
 
 
     // Right click handling (undo last point in distance tool)
@@ -582,8 +506,73 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         setCursorInfo(null);
       }
 
-      // Check for hovered entity
+      // Check for hovered entity and clusters
       const pickedObject = viewer.scene.pick(movement.endPosition);
+      
+      // 1. Hover side-expansion for clusters
+      let isHoveringCluster = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
+      let isHoveringExpandedUnit = Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id && pickedObject.id.id.startsWith('expanded-hover-');
+      
+      if (isHoveringCluster) {
+          const clusteredEntities = pickedObject.id;
+          const clusterPrimitive = pickedObject.primitive;
+          
+          if (!expandedHoverStateRef.current || expandedHoverStateRef.current.clusterPrimitive !== clusterPrimitive) {
+              if (expandedHoverStateRef.current) {
+                 expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+                 expandedHoverStateRef.current = null;
+              }
+              
+              let cartesianPos = clusterPrimitive?.position;
+              if (cartesianPos) {
+                  const expandedEntities: Cesium.Entity[] = [];
+                  const baseHorizontalOffset = 30; // Start 30px to the right of the cluster
+                  const spacing = 50; // 50px between each unit
+                  
+                  clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
+                      const offsetX = baseHorizontalOffset + (index * spacing);
+                      const expandedEntity = viewer.entities.add({
+                          id: `expanded-hover-${entity.id}`,
+                          position: cartesianPos, // Exact same 3D position
+                          billboard: {
+                              image: entity.billboard?.image,
+                              heightReference: entity.billboard?.heightReference,
+                              horizontalOrigin: entity.billboard?.horizontalOrigin,
+                              verticalOrigin: entity.billboard?.verticalOrigin,
+                              scaleByDistance: entity.billboard?.scaleByDistance,
+                              disableDepthTestDistance: entity.billboard?.disableDepthTestDistance,
+                              pixelOffset: new Cesium.Cartesian2(offsetX, 0) // Shift to the right
+                          },
+                          label: {
+                              text: entity.label?.text,
+                              font: entity.label?.font,
+                              style: entity.label?.style,
+                              fillColor: entity.label?.fillColor,
+                              outlineColor: entity.label?.outlineColor,
+                              outlineWidth: entity.label?.outlineWidth,
+                              verticalOrigin: entity.label?.verticalOrigin,
+                              scaleByDistance: entity.label?.scaleByDistance,
+                              disableDepthTestDistance: entity.label?.disableDepthTestDistance,
+                              heightReference: entity.label?.heightReference,
+                              pixelOffset: new Cesium.Cartesian2(offsetX, 25) // Shift to the right, keep vertical offset
+                          }
+                      });
+                      expandedEntities.push(expandedEntity);
+                  });
+                  
+                  expandedHoverStateRef.current = {
+                      clusterPrimitive: clusterPrimitive,
+                      entities: expandedEntities,
+                      basePosition: cartesianPos
+                  };
+              }
+          }
+      } else if (!isHoveringExpandedUnit && expandedHoverStateRef.current) {
+          expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+          expandedHoverStateRef.current = null;
+      }
+
+      // 2. Standard Tooltip logic
       if (pickedObject && pickedObject.id && pickedObject.id.properties) {
         const props = pickedObject.id.properties;
         if (props.hasProperty('tooltipTitle')) {
