@@ -1,4 +1,4 @@
-import type { LeafletMouseEvent } from 'leaflet';
+// Type definitions for SIMCOP
 import type { FC } from 'react';
 
 export enum UnitType {
@@ -978,7 +978,7 @@ export interface TrajectoryPoint {
 
 
 export interface UseSimulatedDataReturn {
-  isInitialized: boolean;
+  isInitialized?: boolean;
   users: User[];
   login: (username: string, passwordAttempt: string) => Promise<User | null>;
   addUser: (userData: NewUserData) => Promise<{ success: boolean, message?: string }>;
@@ -999,48 +999,48 @@ export interface UseSimulatedDataReturn {
   q5GeneratingStatus: { [aarId: string]: boolean };
   q5SendingStatus: { [q5Id: string]: boolean };
   unitHistoryLog: UnitHistoryEvent[];
-  osintEvents: OsintEvent[];
+  osintEvents?: OsintEvent[];
   onRefreshOsint?: () => Promise<void>;
   osintLayerActive?: boolean;
   setOsintLayerActive?: (active: boolean) => void;
-  refreshOsint: () => Promise<void>;
-  verifyOsintEvent: (id: string, verified: boolean) => Promise<void>;
-  acknowledgeAlert: (alertId: string) => Promise<void>;
+  refreshOsint?: () => Promise<void>;
+  verifyOsintEvent?: (id: string, verified: boolean) => Promise<void>;
+  acknowledgeAlert: (alertId: string) => void;
   setAlertsInternal: React.Dispatch<React.SetStateAction<Alert[]>>;
-  addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => Promise<void>;
-  addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => Promise<void>;
-  updateUnitLogistics: (unitId: string, logisticsData: { fuelLevel?: number | string; ammoLevel?: number | string; daysOfSupply?: number | string; }) => Promise<void>;
-  updateUnitAttributes: (unitId: string, attributes: Partial<MilitaryUnit>) => Promise<void>;
-  markUnitHourlyReport: (unitId: string) => Promise<void>;
-  reportUnitEngaged: (unitId: string) => Promise<void>;
-  reportUnitCeasefire: (unitId: string) => Promise<void>;
-  addAfterActionReport: (aarData: Omit<AfterActionReport, 'id' | 'reportTimestamp' | 'unitName'>) => Promise<void>;
+  addIntelReport: (reportData: Omit<IntelligenceReport, 'id' | 'reportTimestamp'>) => void;
+  addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => void;
+  updateUnitLogistics: (unitId: string, logisticsData: { fuelLevel?: number | string; ammoLevel?: number | string; daysOfSupply?: number | string; }) => void;
+  updateUnitAttributes: (unitId: string, attributes: Partial<MilitaryUnit>) => void;
+  markUnitHourlyReport: (unitId: string) => void;
+  reportUnitEngaged: (unitId: string) => void;
+  reportUnitCeasefire: (unitId: string) => void;
+  addAfterActionReport: (aarData: Omit<AfterActionReport, 'id' | 'reportTimestamp' | 'unitName'>) => void;
   sendTestTelegramAlert: (chatId?: string) => Promise<boolean>;
-  addUnit: (unitData: NewUnitData) => Promise<void>;
+  addUnit: (unitData: NewUnitData) => void;
   generateAndAddQ5Report: (aarId: string) => Promise<void>;
-  sendQ5ReportViaTelegram: (q5Id: string) => Promise<void>;
-  sendUnitToRetraining: (unitId: string, focus?: string, duration?: number) => Promise<void>;
-  returnUnitFromRetraining: (unitId: string) => Promise<void>;
-  startUnitLeave: (unitId: string, duration: number) => Promise<void>;
-  startUnitRetraining: (unitId: string, focus: string, duration: number) => Promise<void>;
-  updateUnitMission: (unitId: string, missionSigla: string) => Promise<void>;
-  updateUnitSituation: (unitId: string, newSituation: UnitSituationINSITOP) => Promise<void>;
-  processSpotReport: (spotData: SpotReportPayload) => Promise<void>;
-  addOperationsOrder: (orderData: NewOperationsOrderData) => Promise<OperationsOrder | null>;
-  updateOperationsOrder: (orderId: string, orderData: UpdateOperationsOrderData) => Promise<{ success: boolean, message?: string }>;
-  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => Promise<{ success: boolean, message?: string }>;
-  acknowledgeOperationsOrder: (orderId: string, userId: string) => Promise<void>;
-  submitAmmoExpenditureReport: (report: any) => Promise<void>;
-  logPlatoonNovelty: (novelty: any) => Promise<void>;
-  approvePlatoonNovelty: (noveltyId: string) => Promise<void>;
-  rejectPlatoonNovelty: (noveltyId: string) => Promise<void>;
-  approveAmmoReport: (reportId: string) => Promise<void>;
-  rejectAmmoReport: (reportId: string, reason: string) => Promise<void>;
+  sendQ5ReportViaTelegram: (q5Report: Q5Report, chatId?: string) => Promise<void>;
+  sendUnitToRetraining: (unitId: string, focus?: string, duration?: number) => void;
+  returnUnitFromRetraining: (unitId: string) => void;
+  startUnitLeave: (unitId: string, durationDays: number) => void;
+  startUnitRetraining: (unitId: string, focus: string, durationDays: number) => void;
+  updateUnitMission: (unitId: string, missionSigla: string) => void;
+  updateUnitSituation: (unitId: string, newSituation: UnitSituationINSITOP) => void;
+  processSpotReport: (spotData: SpotReportPayload) => void;
+  addOperationsOrder: (orderData: NewOperationsOrderData) => void;
+  updateOperationsOrder: (orderId: string, orderData: UpdateOperationsOrderData) => { success: boolean, message?: string };
+  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => { success: boolean, message?: string };
+  acknowledgeOperationsOrder: (orderId: string, userId: string) => void;
+  submitAmmoExpenditureReport: (unitId: string, userId: string, amount: number, justification: string) => void;
+  logPlatoonNovelty: (unitId: string, userId: string, details: string, isLogisticsRequest: boolean) => void;
+  approvePlatoonNovelty: (alertId: string, approverUserId: string) => void;
+  rejectPlatoonNovelty: (alertId: string, approverUserId: string, reason: string) => void;
+  approveAmmoReport: (alertId: string, approverUserId: string) => void;
+  rejectAmmoReport: (alertId: string, approverUserId: string, reason: string) => void;
   addUnitHierarchy: (unitData: NewHierarchyUnitData) => Promise<{ success: boolean, message?: string, newUnit?: MilitaryUnit }>;
   updateUnitHierarchyDetails: (unitId: string, updateData: UpdateHierarchyUnitData) => Promise<{ success: boolean, message?: string }>;
   deleteUnitHierarchy: (unitId: string) => Promise<{ success: boolean; message?: string }>;
   assignCommanderToOrganizationalUnit: (unitId: string, userId: string) => Promise<{ success: boolean; message?: string }>;
-  updateUnitAo: (unitId: string, geoJson: string) => Promise<{ success: boolean; message?: string; }>;
+  updateUnitAo?: (unitId: string, geoJson: string) => Promise<{ success: boolean; message?: string; }>;
   generateRandomId: () => string;
   addArtilleryPiece: (pieceData: NewArtilleryPieceData) => Promise<{ success: boolean }>;
   addForwardObserver: (observerData: NewForwardObserverData) => Promise<{ success: boolean }>;
@@ -1048,11 +1048,11 @@ export interface UseSimulatedDataReturn {
   addLogisticsRequest: (unitId: string, details: string) => Promise<void>;
   confirmShotFired: (missionId: string) => Promise<void>;
   requestFireMission: (requesterId: string, target: GeoLocation, artilleryId?: string) => Promise<{ success: boolean }>;
-  acceptFireMission: (missionId: string) => Promise<{ success: boolean }>;
+  acceptFireMission: (pendingMissionId: string, artilleryId: string, projectileType: ProjectileType, charge: number, isMrsi: boolean, firingSolution: FiringSolution) => Promise<{ success: boolean }>;
   updateUserTelegramConfig: (userId: string, chatId: string) => Promise<{ success: boolean; message?: string }>;
-  rejectFireMission: (missionId: string) => Promise<{ success: boolean }>;
-  assignUAVAsset: (unitId: string, asset: UAVAsset) => Promise<{ success: boolean; message?: string }>;
-  removeUAVAsset: (unitId: string, assetId: string) => Promise<{ success: boolean; message?: string }>;
+  rejectFireMission: (pendingMissionId: string, rejectorUserId: string, reason: string) => Promise<{ success: boolean }>;
+  assignUAVAsset?: (unitId: string, asset: UAVAsset) => Promise<{ success: boolean; message?: string }>;
+  removeUAVAsset?: (unitId: string, assetId: string) => Promise<{ success: boolean; message?: string }>;
   dismissPendingMission: (missionId: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -1129,7 +1129,7 @@ export interface SIDCGenerationOptions {
 export interface PICCDrawOptions {
   labelPrompt?: string;
   sidcOptions?: SIDCGenerationOptions;
-  pathOptions?: import('leaflet').PathOptions;
+
   isSIDCInputRequired?: boolean;
   defaultSymbolSize?: number;
 }
@@ -1154,10 +1154,6 @@ export interface PlantillaPICCConfigSet {
 
 export type PlantillaToolsMapping = Record<PlantillaType, PlantillaPICCConfigSet>;
 
-export type LeafletDrawEvent = LeafletMouseEvent & {
-  layer: any;
-  layerType: string;
-};
 
 export interface LoggedSpotReport extends SpotReportPayload {
   receivedTimestamp: number;

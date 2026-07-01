@@ -7,11 +7,11 @@ import { ORDOPDetailsPanel } from './ORDOPDetailsPanel';
 
 interface ORDOPViewProps {
   operationsOrders: OperationsOrder[];
-  addOperationsOrder: (orderData: NewOperationsOrderData) => Promise<OperationsOrder | null>;
-  updateOperationsOrder: (orderId: string, orderData: UpdateOperationsOrderData) => Promise<{ success: boolean, message?: string }>;
+  addOperationsOrder: (orderData: NewOperationsOrderData) => void;
+  updateOperationsOrder: (orderId: string, orderData: UpdateOperationsOrderData) => { success: boolean, message?: string };
   selectedORDOP: OperationsOrder | null;
-  onSelectORDOP: (ordop: OperationsOrder) => void;
-  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => Promise<{ success: boolean, message?: string }>;
+  onSelectORDOP: (order: OperationsOrder) => void;
+  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => { success: boolean, message?: string };
   allUsers: User[];
   allUnits: MilitaryUnit[];
 }
@@ -45,10 +45,10 @@ export const ORDOPViewComponent: React.FC<ORDOPViewProps> = ({
   const handleSaveORDOP = async (data: NewOperationsOrderData) => {
     let result: { success: boolean, message?: string };
     if (ordopToEdit) {
-      result = await updateOperationsOrder(ordopToEdit.id, data as UpdateOperationsOrderData);
+      result = updateOperationsOrder(ordopToEdit.id, data as UpdateOperationsOrderData);
     } else {
-      const created = await addOperationsOrder(data);
-      result = created ? { success: true, message: 'Orden de Operaciones creada como borrador.' } : { success: false, message: 'Error al crear la orden.' };
+      addOperationsOrder(data);
+      result = { success: true, message: 'Orden de Operaciones creada como borrador.' };
     }
 
     if (result.success) {

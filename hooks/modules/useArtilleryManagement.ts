@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import type { ArtilleryPiece, ForwardObserver, ActiveFireMission, PendingFireMission, UnitHistoryEvent, NewArtilleryPieceData, NewForwardObserverData, Alert, GeoLocation } from '../../types';
+import type { ArtilleryPiece, ForwardObserver, ActiveFireMission, PendingFireMission, UnitHistoryEvent, NewArtilleryPieceData, NewForwardObserverData, Alert, GeoLocation, ProjectileType, FiringSolution } from '../../types';
 import { ArtilleryStatus, ForwardObserverStatus, AlertType, AlertSeverity } from '../../types';
 import { artilleryService } from '../../services/artilleryService';
 import { observerService } from '../../services/observerService';
@@ -159,9 +159,9 @@ export const useArtilleryManagement = (
             setRawMissions(missions);
             
             setAlertsInternal(prev => [{
-                id: crypto.randomUUID(), type: AlertType.SYSTEM,
+                id: crypto.randomUUID(), type: AlertType.INFO,
                 message: `Misión ${missionId.substring(0,6)} procesada y enviada a la pieza asignada.`,
-                timestamp: Date.now(), severity: AlertSeverity.SUCCESS, acknowledged: false
+                timestamp: Date.now(), severity: AlertSeverity.INFO, acknowledged: false
             }, ...prev]);
             
             return { success: true };

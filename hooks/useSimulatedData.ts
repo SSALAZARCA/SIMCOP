@@ -505,7 +505,7 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
     return { success: true };
   }, [usersInternal, addUnitHistoryEvent, setAlertsInternal]);
 
-  const addUnitHierarchy = useCallback((unitData: NewHierarchyUnitData): { success: boolean, message?: string, newUnit?: MilitaryUnit } => {
+  const addUnitHierarchy = useCallback(async (unitData: NewHierarchyUnitData): Promise<{ success: boolean, message?: string, newUnit?: MilitaryUnit }> => {
     if (units.some(u => u.name.toLowerCase() === unitData.name.toLowerCase() && u.parentId === unitData.parentId)) {
       const message = `Error: Ya existe una unidad organizacional con el nombre '${unitData.name}' bajo el mismo superior.`;
       setAlertsInternal(prev => [{ id: generateRandomId(), type: AlertType.ORGANIZATION_UNIT_CREATED, message, timestamp: Date.now(), severity: AlertSeverity.MEDIUM, acknowledged: false }, ...prev]);
@@ -554,7 +554,7 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
     return { success: true, newUnit, message: `Unidad ${newUnit.name} creada exitosamente.` };
   }, [units, addUnitHistoryEvent, setAlertsInternal]);
 
-  const updateUnitHierarchyDetails = useCallback((unitId: string, updateData: UpdateHierarchyUnitData): { success: boolean, message?: string } => {
+  const updateUnitHierarchyDetails = useCallback(async (unitId: string, updateData: UpdateHierarchyUnitData): Promise<{ success: boolean, message?: string }> => {
     const unitIndex = units.findIndex(u => u.id === unitId);
     if (unitIndex === -1) {
       const message = `Error: Unidad organizacional con ID ${unitId} no encontrada para actualizar.`;
@@ -589,7 +589,7 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
     return { success: true, message: `Unidad ${updatedUnit.name} actualizada exitosamente.` };
   }, [units, addUnitHistoryEvent, setAlertsInternal]);
 
-  const deleteUnitHierarchy = useCallback((unitId: string): { success: boolean, message?: string } => {
+  const deleteUnitHierarchy = useCallback(async (unitId: string): Promise<{ success: boolean, message?: string }> => {
     const unitToDelete = units.find(u => u.id === unitId);
     if (!unitToDelete) {
       const message = `Error: Unidad organizacional con ID ${unitId} no encontrada para eliminar.`;
@@ -626,7 +626,7 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
     return { success: true, message: `Unidad ${unitToDelete.name} eliminada exitosamente.` };
   }, [units, addUnitHistoryEvent, setAlertsInternal]);
 
-  const assignCommanderToOrganizationalUnit = useCallback((unitId: string, userId: string): { success: boolean, message?: string } => {
+  const assignCommanderToOrganizationalUnit = useCallback(async (unitId: string, userId: string): Promise<{ success: boolean, message?: string }> => {
     const unitIndex = units.findIndex(u => u.id === unitId);
     const user = usersInternal.find(u => u.id === userId);
 
@@ -1462,7 +1462,7 @@ Si recibe este mensaje, la conexión con Telegram está funcionando correctament
 
   }, [alerts, usersInternal, addUnitHistoryEvent, setAlertsInternal]);
 
-  const addArtilleryPiece = useCallback((pieceData: NewArtilleryPieceData) => {
+  const addArtilleryPiece = useCallback(async (pieceData: NewArtilleryPieceData): Promise<{ success: boolean }> => {
     const details = ARTILLERY_TYPE_DETAILS[pieceData.type];
     const newPiece: ArtilleryPiece = {
       id: `ARTY-${generateRandomId()}`,
@@ -1494,9 +1494,10 @@ Si recibe este mensaje, la conexión con Telegram está funcionando correctament
       message: `Pieza de artillería "${newPiece.name}" creada y lista para operar.`,
       timestamp: Date.now(), severity: AlertSeverity.INFO, acknowledged: false,
     }, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50));
+    return { success: true };
   }, [addUnitHistoryEvent, setAlertsInternal, setArtilleryPiecesInternal]);
 
-  const addForwardObserver = useCallback((observerData: NewForwardObserverData) => {
+  const addForwardObserver = useCallback(async (observerData: NewForwardObserverData): Promise<{ success: boolean }> => {
     const newObserver: ForwardObserver = {
       id: `OA-${generateRandomId()}`,
       callsign: observerData.callsign,
@@ -1518,9 +1519,10 @@ Si recibe este mensaje, la conexión con Telegram está funcionando correctament
       message: `Observador Adelantado "${newObserver.callsign}" creado y operacional.`,
       timestamp: Date.now(), severity: AlertSeverity.INFO, acknowledged: false,
     }, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50));
+    return { success: true };
   }, [addUnitHistoryEvent, setAlertsInternal, setForwardObserversInternal]);
 
-  const addLogisticsRequest = useCallback((unitId: string, details: string) => {
+  const addLogisticsRequest = useCallback(async (unitId: string, details: string): Promise<void> => {
     // FIX: Use `units` which is the correct state variable name.
     const unit = units.find(u => u.id === unitId);
     if (!unit) return;
@@ -1551,7 +1553,7 @@ Si recibe este mensaje, la conexión con Telegram está funcionando correctament
     }, ...prev]);
   }, [units, addUnitHistoryEvent, setLogisticsRequestsInternal, setAlertsInternal]);
 
-  const fulfillLogisticsRequest = useCallback((requestId: string, userId: string) => {
+  const fulfillLogisticsRequest = useCallback(async (requestId: string, userId: string): Promise<void> => {
     const request = logisticsRequests.find(r => r.id === requestId);
     if (!request) return;
 
@@ -1585,7 +1587,7 @@ Si recibe este mensaje, la conexión con Telegram está funcionando correctament
     }, ...prev]);
   }, [logisticsRequests, usersInternal, acknowledgeAlert, addUnitHistoryEvent, setLogisticsRequestsInternal, setAlertsInternal]);
 
-  const requestFireMission = useCallback((requesterId: string, target: GeoLocation) => {
+  const requestFireMission = useCallback(async (requesterId: string, target: GeoLocation, artilleryId?: string): Promise<{ success: boolean }> => {
     // Find best available artillery piece
     const availablePieces = artilleryPieces.filter(p => p.status === ArtilleryStatus.READY && p.ammunition.some(a => a.type === 'HE' && a.quantity > 0));
     let bestPiece: ArtilleryPiece | null = null;
@@ -1644,12 +1646,13 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
       }
     }
 
+    return { success: true };
   }, [artilleryPieces, units, forwardObservers, userTelegramConfigs, addUnitHistoryEvent, usersInternal, setPendingFireMissionsInternal]);
 
-  const acceptFireMission = useCallback((pendingMissionId: string, artilleryId: string, projectileType: ProjectileType, charge: number, isMrsi: boolean, firingSolution: FiringSolution) => {
+  const acceptFireMission = useCallback(async (pendingMissionId: string, artilleryId: string, projectileType: ProjectileType, charge: number, isMrsi: boolean, firingSolution: FiringSolution): Promise<{ success: boolean }> => {
     const pendingMission = pendingFireMissions.find(p => p.id === pendingMissionId);
     const piece = artilleryPieces.find(p => p.id === artilleryId);
-    if (!pendingMission || !piece) return;
+    if (!pendingMission || !piece) return { success: false };
 
     const newActiveMission: ActiveFireMission = {
       id: pendingMission.id, // Reuse ID for tracking
@@ -1671,14 +1674,16 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
       eventType: "Misión de Fuego Iniciada",
       details: `Misión de fuego iniciada por ${piece.name} hacia blanco en ${decimalToDMS(pendingMission.target)}.`,
       relatedEntityId: newActiveMission.id,
-      location: pendingMission.target
+      location: pendingMission.target,
+      relatedEntityType: MapEntityType.ARTILLERY,
     });
 
+    return { success: true };
   }, [pendingFireMissions, artilleryPieces, addUnitHistoryEvent, setPendingFireMissionsInternal, setActiveFireMissionsInternal, setArtilleryPiecesInternal]);
 
-  const rejectFireMission = useCallback((pendingMissionId: string, rejectorUserId: string, reason: string) => {
+  const rejectFireMission = useCallback(async (pendingMissionId: string, rejectorUserId: string, reason: string): Promise<{ success: boolean }> => {
     const mission = pendingFireMissions.find(m => m.id === pendingMissionId);
-    if (!mission) return;
+    if (!mission) return { success: false };
 
     setPendingFireMissionsInternal(prev => prev.map(m => m.id === pendingMissionId ? { ...m, status: 'rejected', rejectionReason: reason } : m));
 
@@ -1688,15 +1693,17 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
       eventType: "Misión de Fuego Rechazada",
       details: `Misión de fuego rechazada por ${rejector?.displayName || 'CDT'}. Motivo: ${reason}`,
       relatedEntityId: mission.id,
-      location: mission.target
+      location: mission.target,
+      relatedEntityType: MapEntityType.ARTILLERY,
     });
+    return { success: true };
   }, [pendingFireMissions, usersInternal, addUnitHistoryEvent, setPendingFireMissionsInternal]);
 
-  const dismissPendingMission = useCallback((missionId: string) => {
+  const dismissPendingMission = useCallback(async (missionId: string): Promise<void> => {
     setPendingFireMissionsInternal(prev => prev.filter(m => m.id !== missionId));
   }, [setPendingFireMissionsInternal]);
 
-  const confirmShotFired = useCallback((missionId: string) => {
+  const confirmShotFired = useCallback(async (missionId: string): Promise<void> => {
     const mission = activeFireMissions.find(m => m.id === missionId);
     if (!mission) return;
 
@@ -1730,7 +1737,7 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
 
   }, [activeFireMissions, addUnitHistoryEvent, setActiveFireMissionsInternal, setArtilleryPiecesInternal]);
 
-  const updateUserTelegramConfig = useCallback((userId: string, chatId: string) => {
+  const updateUserTelegramConfig = useCallback(async (userId: string, chatId: string): Promise<{ success: boolean, message?: string }> => {
     setUserTelegramConfigsInternal(prev => {
       const existingConfigIndex = prev.findIndex(c => c.userId === userId);
       if (existingConfigIndex > -1) {
@@ -1741,6 +1748,7 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
         return [...prev, { userId, telegramChatId: chatId }];
       }
     });
+    return { success: true };
   }, [setUserTelegramConfigsInternal]);
 
   const assignUAVAsset = useCallback(async (unitId: string, asset: UAVAsset) => {
@@ -1844,5 +1852,8 @@ Por favor, acceda a SIMCOP para procesar la misión\\.
     dismissPendingMission,
     assignUAVAsset,
     removeUAVAsset,
+    setAlertsInternal,
+    generateRandomId,
+    refreshData: async () => {},
   };
 };

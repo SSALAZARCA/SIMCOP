@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit, Save, X, User } from 'lucide-react';
 import { specialtyService } from '../services/specialtyService';
+import { soldierService } from '../services/soldierService';
 import { Soldier, MilitaryUnit, SpecialtyCatalogEntry } from '../types';
 
 interface UnitRosterProps {

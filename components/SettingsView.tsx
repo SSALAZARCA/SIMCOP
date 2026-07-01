@@ -4,7 +4,7 @@ import { configService } from '../services/configService';
 import { initializeApiKey } from '../utils/geminiService';
 
 const SettingsView: React.FC = () => {
-    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA'>('GEMINI');
+    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink'>('GEMINI');
     const [localEndpoint, setLocalEndpoint] = useState('http://localhost:11434');
     const [localModel, setLocalModel] = useState('llama3');
     const [geminiApiKey, setGeminiApiKey] = useState('');

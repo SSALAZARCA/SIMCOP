@@ -9,13 +9,13 @@ interface UnitsViewProps {
   allUnits: MilitaryUnit[]; // All units for parent selection
   units: MilitaryUnit[]; // Filtered units (Platoon, Team, Squad) for listing
   onSelectUnit: (unit: MilitaryUnit) => void;
-  addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => Promise<void>;
-  updateUnitLogistics: (unitId: string, logisticsData: { fuelLevel?: number | string; ammoLevel?: number | string; daysOfSupply?: number | string; }) => Promise<void>;
-  updateUnitAttributes: (unitId: string, attributes: { equipment?: string[]; capabilities?: string[] }) => Promise<void>;
-  updateUnitMission: (unitId: string, missionSigla: string) => Promise<void>;
-  updateUnitSituation: (unitId: string, newSituation: UnitSituationINSITOP) => Promise<void>;
-  addUnit: (unitData: NewUnitData) => Promise<void>;
-  sendUnitToRetraining: (unitId: string) => Promise<void>;
+  addManualRoutePoint: (unitId: string, location: GeoLocation, timestamp: number) => void;
+  updateUnitLogistics: (unitId: string, logisticsData: { fuelLevel?: number | string; ammoLevel?: number | string; daysOfSupply?: number | string; }) => void;
+  updateUnitAttributes: (unitId: string, attributes: { equipment?: string[]; capabilities?: string[] }) => void;
+  updateUnitMission: (unitId: string, missionSigla: string) => void;
+  updateUnitSituation: (unitId: string, newSituation: UnitSituationINSITOP) => void;
+  addUnit: (unitData: NewUnitData) => void;
+  sendUnitToRetraining: (unitId: string) => void;
   artilleryPieces: ArtilleryPiece[];
   targetSelectionRequest: TargetSelectionRequest | null;
   onCallForFire: (requester: ForwardObserver | MilitaryUnit) => void;

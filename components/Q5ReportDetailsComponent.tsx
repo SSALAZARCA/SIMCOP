@@ -5,7 +5,7 @@ import { ArrowPathIcon } from './icons/ArrowPathIcon'; // For loading spinner
 
 interface Q5ReportDetailsProps {
   report: Q5Report;
-  onSendToTelegram: (q5Id: string) => void;
+  onSendToTelegram: (report: Q5Report, chatId?: string) => void;
   isSendingTelegram: boolean;
 }
 
@@ -44,7 +44,7 @@ export const Q5ReportDetailsComponent: React.FC<Q5ReportDetailsProps> = ({ repor
 
       <div className="text-center py-3 border-t border-gray-700 mt-auto">
         <button
-          onClick={() => onSendToTelegram(report.id)}
+          onClick={() => onSendToTelegram(report)}
           disabled={isSendingTelegram}
           className="w-full sm:w-auto mb-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Enviar reporte Q5 por Telegram"

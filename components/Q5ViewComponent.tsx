@@ -7,7 +7,7 @@ interface Q5ViewProps {
   q5Reports: Q5Report[];
   selectedQ5Report: Q5Report | null;
   onSelectQ5Report: (report: Q5Report) => void;
-  sendQ5ReportViaTelegram: (q5Id: string) => Promise<void>;
+  sendQ5ReportViaTelegram: (q5Report: Q5Report, chatId?: string) => Promise<void>;
   q5SendingStatus: { [q5Id: string]: boolean };
 }
 

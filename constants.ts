@@ -2,7 +2,7 @@
 
 import { UnitType as UnitTypeEnum, UserRole, ArtilleryType } from "./types";
 import type { CommanderInfo } from "./types";
-import type { PathOptions } from 'leaflet';
+
 
 export const NO_MOVEMENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const DANGEROUS_ROUTINE_MIN_REPETITIONS = 2; // Min number of times a short sequence is repeated
@@ -253,11 +253,7 @@ export const PICC_SIDC = {
   ENEMY_COA_AXIS: `SHGPALM---`,
 };
 
-export const PICC_PATH_OPTIONS_FRIENDLY: PathOptions = { color: '#007bff', weight: 3, opacity: 0.9, fillOpacity: 0.2, fillColor: '#007bff' };
-export const PICC_PATH_OPTIONS_HOSTILE: PathOptions = { color: '#dc3545', weight: 3, opacity: 0.9, fillOpacity: 0.2, fillColor: '#dc3545' };
-export const PICC_PATH_OPTIONS_NEUTRAL: PathOptions = { color: '#28a745', weight: 2, opacity: 0.9, fillOpacity: 0.2, fillColor: '#28a745' };
-export const PICC_PATH_OPTIONS_CONTROL: PathOptions = { color: '#000000', weight: 2, opacity: 0.9, dashArray: '10, 5' };
-export const PICC_PATH_OPTIONS_UNKNOWN: PathOptions = { color: '#ffc107', weight: 2, opacity: 0.9, fillOpacity: 0.2, fillColor: '#ffc107' };
+
 
 export const DEFAULT_PICC_SYMBOL_SIZE = 25;
 

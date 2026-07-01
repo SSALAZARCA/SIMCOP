@@ -10,7 +10,7 @@ import {
 } from './icons';
 import { uavService, UAVTelemetry } from '../services/uavService';
 import { useUAVWebSocket } from '../hooks/useUAVWebSocket';
-import { MilitaryUnit, UAVAsset, UnitType, UnitStatus, NewUnitData } from '../types';
+import { MilitaryUnit, UAVAsset, UnitType, UnitStatus, NewUnitData, UnitSituationINSITOP } from '../types';
 
 interface UAVManagementViewProps {
     units: MilitaryUnit[];

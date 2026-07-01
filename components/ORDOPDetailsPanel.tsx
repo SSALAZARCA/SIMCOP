@@ -10,7 +10,7 @@ import { PublishORDOPModal } from './PublishORDOPModal';
 interface ORDOPDetailsPanelProps {
   ordop: OperationsOrder;
   onEditORDOP: () => void; // New prop to handle opening the edit modal
-  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => Promise<{ success: boolean, message?: string }>;
+  publishOperationsOrder: (orderId: string, selectedUserIds: string[]) => { success: boolean, message?: string };
   allUsers: User[];
   allUnits: MilitaryUnit[];
 }
@@ -68,7 +68,7 @@ export const ORDOPDetailsPanel: React.FC<ORDOPDetailsPanelProps> = ({
   };
 
   const handlePublishSubmit = async (selectedUserIds: string[]) => {
-    const result = await publishOperationsOrder(ordop.id, selectedUserIds);
+    const result = publishOperationsOrder(ordop.id, selectedUserIds);
     if (result.success) {
       setPublishFeedback({ type: 'success', message: result.message || 'Orden publicada exitosamente.' });
     } else {

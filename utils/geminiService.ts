@@ -726,14 +726,6 @@ export const generateCOAPlan = async (
   const unitContext = formatUnitsForPrompt(units);
   const intelContext = formatIntelForPrompt(intelReports);
   
-  let geoPrompt = '';
-  if (geoContext) {
-    geoPrompt = `CONTEXTO GEOGRÁFICO Y CLIMÁTICO:
-    - Centroide: ${geoContext.centroid.lat.toFixed(4)}, ${geoContext.centroid.lon.toFixed(4)}
-    - Terreno: ${geoContext.terrainType || 'No especificado'}
-    - Clima: ${geoContext.weather ? geoContext.weather.condition : 'Desconocido'}`;
-  }
-
   const systemInstruction = `Eres un oficial de planeamiento experto. Tu tarea es generar un Curso de Acción (COA) militar en formato JSON basado en el objetivo, las unidades amigas disponibles y la inteligencia del enemigo. El COA debe ser lógico y seguir una estructura de fases. Responde ÚNICAMENTE con el objeto JSON.`;
 
   const prompt = `
@@ -742,15 +734,12 @@ El plan debe ser EXTENSAMENTE DETALLADO Y PROFUNDAMENTE TÁCTICO, analizando y a
 
 OBJETIVO DE LA OPERACIÓN:
 ${escapeTemplateLiteralContent(objective)}
-${geoPrompt}
+
 FUERZAS AMIGAS DISPONIBLES:
 ${unitContext}
 
 INTELIGENCIA DEL ENEMIGO:
 ${intelContext}
-
-COORDENADAS DE REFERENCIA (Úsalas como base para tu maniobra):
-${waypoints}
 
 ---
 SOLICITUD:

@@ -123,11 +123,13 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
                 <span className="text-xs font-bold text-gray-100 uppercase tracking-tight cursor-pointer hover:text-blue-400 transition-colors" onClick={() => setIs2FAOpen(true)} title="Configurar 2FA">
                   {currentUser.displayName}
                 </span>
-                <UserCircleIcon 
-                  className="w-6 h-6 text-blue-500/80 cursor-pointer hover:scale-110 transition-transform" 
+                <span 
                   onClick={() => setIs2FAOpen(true)}
                   title="Configurar 2FA"
-                />
+                  className="cursor-pointer hover:scale-110 transition-transform flex items-center"
+                >
+                  <UserCircleIcon className="w-6 h-6 text-blue-500/80" />
+                </span>
               </div>
               <span className="text-[10px] font-bold text-blue-400/70 uppercase tracking-widest -mt-1">
                 {currentUser.role}

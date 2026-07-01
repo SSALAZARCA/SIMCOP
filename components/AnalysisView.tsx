@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import L from 'leaflet';
+
 import DOMPurify from 'dompurify';
 import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
@@ -10,6 +10,8 @@ import { getGeminiAnalysis, generateCOAPlan, getDoctrinalAssistantResponse, simu
 import { weatherService } from '../services/weatherService';
 import { decimalToDMS } from '../utils/coordinateUtils';
 import { coaPlanService } from '../services/coaPlanService';
+
+const PlantillaPICCConfig: any = {};
 import { RulerIcon } from './icons/RulerIcon';
 import { PencilIcon } from './icons/PencilIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
@@ -20,7 +22,7 @@ import { AcademicCapIcon } from './icons/AcademicCapIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
-import { PlantillaPICCConfig } from '../utils/piccConfig';
+
 import { API_BASE_URL } from '../utils/apiConfig';
 
 interface EventEmitter {
@@ -255,7 +257,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   const setIsFetchingDoctrine = (val: boolean) => updateTaskState('doctrinalAssistant', { status: val ? 'RUNNING' : 'IDLE' });
   const setIsSimulatingCOA = (val: boolean) => updateTaskState('coaSimulation', { status: val ? 'RUNNING' : 'IDLE' });
 
-  const [aoiPoints, setAoiPoints] = useState<L.LatLng[]>([]);
+  const [aoiPoints, setAoiPoints] = useState<{lat: number, lng: number}[]>([]);
   const [finalizedAoiGeoJson, setFinalizedAoiGeoJson] = useState<GeoJSONFeature<GeoJSONPolygon> | null>(null);
   const [aoiStats, setAoiStats] = useState<AoiStats | null>(null);
   const [aoiSector, setAoiSector] = useState<string | null>(null);
@@ -430,17 +432,15 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     eventBus.publish('clearCOALayer');
 
     try {
-      // Generate COA with AI (using currentGeoContext saved from analysis)
-      const result = await generateCOAPlan(coaObjective, units, intelligenceReports, currentGeoContext);
+      // Generate COA with AI
+      const result = await generateCOAPlan(coaObjective, units, intelligenceReports);
 
       // Save to database
       try {
         const savedPlan = await coaPlanService.savePlan({
           ...result,
-          status: 'DRAFT',
           createdByUserId: currentUser?.id || currentUser?.username || 'unknown',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          createdTimestamp: new Date().toISOString()
         });
         console.log('✅ COA Plan guardado en BD:', savedPlan.id);
         setCoaPlan(savedPlan);
@@ -620,7 +620,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   }, [units, intelligenceReports, finalizedAoiGeoJson, hasCheckedAoiOnMount]);
 
   // Elevation Profile Logic (Existing + Fixed)
-  const handleElevationProfileLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {
+  const handleElevationProfileLine = async (_msg: string, { latlngs }: { latlngs: {lat: number, lng: number}[] }) => {
     if (!elevationProfileActive || latlngs.length < 2) return;
 
     setIsFetchingElevation(true);
@@ -663,7 +663,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   };
 
   // Line of Sight Logic (New)
-  const handleLosLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {
+  const handleLosLine = async (_msg: string, { latlngs }: { latlngs: {lat: number, lng: number}[] }) => {
     if (!lineOfSightActive || latlngs.length < 2) return;
 
     const start = latlngs[0];
@@ -807,7 +807,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   };
 
   // Slope Analysis Logic
-  const handleSlopeLine = async (_msg: string, { latlngs }: { latlngs: L.LatLng[] }) => {
+  const handleSlopeLine = async (_msg: string, { latlngs }: { latlngs: {lat: number, lng: number}[] }) => {
     if (!slopeAnalysisActive || latlngs.length < 2) return;
 
     setIsFetchingElevation(true);

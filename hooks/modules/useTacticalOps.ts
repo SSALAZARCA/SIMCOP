@@ -30,8 +30,8 @@ export const useTacticalOps = (
             currentUnits.forEach(unit => {
                 const timeSinceLastReport = now - (unit.lastHourlyReportTimestamp || unit.lastCommunicationTimestamp || now);
 
-                if (unit.status !== UnitStatus.NO_COMMUNICATION && unit.status !== UnitStatus.ENGAGED) {
-                    if (timeSinceLastReport > COMMUNICATION_OVERDUE_THRESHOLD_MS) {
+                if (timeSinceLastReport > COMMUNICATION_OVERDUE_THRESHOLD_MS) {
+                    if (unit.status !== UnitStatus.NO_COMMUNICATION && unit.status !== UnitStatus.ENGAGED) {
                         if (!alertedUnitsRef.current.has(unit.id)) {
                             alertedUnitsRef.current.add(unit.id);
                             
@@ -61,7 +61,7 @@ export const useTacticalOps = (
                             unitService.updateUnit(unit.id, updatedUnit).catch(e => console.error(e));
                         }
                     }
-                } else if (unit.status === UnitStatus.OPERATIONAL && timeSinceLastReport < COMMUNICATION_OVERDUE_THRESHOLD_MS) {
+                } else if (unit.status === UnitStatus.OPERATIONAL) {
                     // Reset if the unit is back to normal
                     if (alertedUnitsRef.current.has(unit.id)) {
                         alertedUnitsRef.current.delete(unit.id);

@@ -37,7 +37,8 @@ import {
   DEFAULT_PICC_SYMBOL_SIZE
 } from '../constants';
 import { piccService } from '../services/piccService';
-import { PlantillaPICCConfig } from '../utils/piccConfig';
+
+const PlantillaPICCConfig: any = {};
 
 interface EventEmitter {
   subscribe(event: string, callback: (...args: any[]) => void): string;
@@ -1077,7 +1078,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       }
     }
     // 3. Render Military Units via CustomDataSource for true Native Clustering
-    if (unitDataSourceRef.current && !unitDataSourceRef.current.entities.isDestroyed) {
+    if (unitDataSourceRef.current && viewer.dataSources.contains(unitDataSourceRef.current)) {
       viewer.dataSources.remove(unitDataSourceRef.current);
     }
     const unitDataSource = new Cesium.CustomDataSource('units');
@@ -1131,8 +1132,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           tooltipTitle: `Fuerza Amiga: ${unit.name}`,
           tooltipDetails: [
              `Estado: ${unit.status}`,
-             `Munición: ${unit.ammoPercentage}%`,
-             `Personal: ${unit.personnelPercentage}%`
+             `Munición: ${unit.ammoLevel ?? 'Desconocido'}%`
           ]
         }),
         billboard: {
@@ -1157,7 +1157,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
         }
       });
-    }); // <-- Fix: Close the first units.forEach loop
+    });
 
     viewer.dataSources.add(unitDataSource);
 
@@ -1288,7 +1288,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           tooltipTitle: `Inteligencia: ${report.title}`,
           tooltipDetails: [
              `Tipo: ${report.type}`,
-             `Fuente: ${report.source}`,
              `Fiabilidad: ${report.reliability}`
           ]
         }),
@@ -1340,7 +1339,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           tooltipTitle: `Artillería: ${piece.name}`,
           tooltipDetails: [
              `Tipo: ${piece.type}`,
-             `Munición: ${piece.ammoCount} proyectiles`,
+             `Munición: ${piece.ammunition.reduce((sum, a) => sum + a.quantity, 0)} proyectiles`,
              `Estado: ${piece.status}`
           ]
         }),
@@ -1435,10 +1434,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       addTacticalEntity({
         id: obs.id,
-        name: obs.name,
+        name: obs.callsign,
         position: Cesium.Cartesian3.fromDegrees(obs.location.lon, obs.location.lat),
         properties: new Cesium.PropertyBag({
-          tooltipTitle: `Obs. Adelantado: ${obs.name}`,
+          tooltipTitle: `Obs. Adelantado: ${obs.callsign}`,
           tooltipDetails: [`Estado: ${obs.status}`]
         }),
         billboard: {
@@ -1481,7 +1480,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       addTacticalEntity({
         id: `target-${mission.id}`,
-        name: `Blanco: ${mission.target.name || mission.id}`,
+        name: `Blanco: ${mission.id}`,
         position: Cesium.Cartesian3.fromDegrees(mission.target.lon, mission.target.lat),
         properties: new Cesium.PropertyBag({
           tooltipTitle: `Blanco (Misión Fuego)`,

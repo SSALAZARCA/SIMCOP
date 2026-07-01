@@ -6,7 +6,7 @@ import { SIMCOP_API_URL, SIGEP_API_URL } from '../apiConfig';
 import FichaDigital from './FichaDigital';
 import LibroNovedades from './LibroNovedades';
 
-export default function ConsultaPersonal({ role }: { role: string }) {
+export default function ConsultaPersonal({ role, unitId }: { role: string; unitId?: string }) {
   const { user } = useAuth();
   
   // States
