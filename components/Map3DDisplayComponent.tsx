@@ -217,6 +217,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     entities: { entity: Cesium.Entity; originalPos: Cesium.Cartesian3 }[];
     lines: Cesium.Entity[];
     hub?: Cesium.Entity;
+    clusterPrimitive?: any;
   } | null>(null);
 
   useEffect(() => {
@@ -459,18 +460,26 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         if (spiderifiedStateRef.current.hub) {
           viewer.entities.remove(spiderifiedStateRef.current.hub);
         }
-        spiderifiedStateRef.current = null;
         
-        // Force Cesium to rebuild clusters so the bubble reappears
-        if (unitDataSource) {
-           unitDataSource.clustering.enabled = false;
-           unitDataSource.clustering.enabled = true;
+        // Safely restore the cluster primitive visibility if it hasn't been destroyed
+        const prim = spiderifiedStateRef.current.clusterPrimitive;
+        if (prim) {
+           try {
+              if (typeof prim.isDestroyed !== 'function' || !prim.isDestroyed()) {
+                 prim.show = true;
+              }
+           } catch (e) {
+              // Ignore if Cesium internally destroyed it
+           }
         }
+        
+        spiderifiedStateRef.current = null;
       }
 
       if (isClusterClick) {
         const clusteredEntities = pickedObject.id;
-        let cartesianPos = pickedObject.primitive?.position;
+        const clusterPrimitive = pickedObject.primitive;
+        let cartesianPos = clusterPrimitive?.position;
           
         // Fallback: calculate average position of the clustered entities
         if (!cartesianPos || !(cartesianPos instanceof Cesium.Cartesian3)) {
@@ -498,6 +507,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           // 15% of camera height ensures a wide, highly visible spread on screen that forces units to uncluster
           const radiusMeters = Math.max(currentCameraHeight * 0.15, 100);
           const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters
+
+          // Manually hide the stubborn cluster bubble so it doesn't get stuck on screen
+          if (clusterPrimitive) {
+             clusterPrimitive.show = false;
+          }
 
           const spiderLines: Cesium.Entity[] = [];
           const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
@@ -559,14 +573,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               center: cartesianPos,
               entities: spiderEntities,
               lines: spiderLines,
-              hub: hubEntity
+              hub: hubEntity,
+              clusterPrimitive: clusterPrimitive
           };
-          
-          // Force Cesium to rebuild clusters so the original bubble vanishes
-          if (unitDataSourceRef.current) {
-             unitDataSourceRef.current.clustering.enabled = false;
-             unitDataSourceRef.current.clustering.enabled = true;
-          }
           
           // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
         }
