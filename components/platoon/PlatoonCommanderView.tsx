@@ -8,7 +8,7 @@ import { PlatoonORDOPsView } from './PlatoonORDOPsView';
 import { PlatoonLogisticsView } from './PlatoonLogisticsView';
 import { PlatoonNoveltiesView } from './PlatoonNoveltiesView';
 import { PlatoonArtilleryView } from './PlatoonArtilleryView';
-import { MapDisplayComponent } from '../MapDisplayComponent';
+import { Map3DDisplayComponent } from '../Map3DDisplayComponent';
 import { ResizableDivider } from '../ResizableDivider';
 import { MobileBottomNavComponent } from '../MobileBottomNavComponent';
 import { Squares2X2Icon } from '../icons/Squares2X2Icon';
@@ -202,7 +202,7 @@ export const PlatoonCommanderView: React.FC<PlatoonCommanderViewProps> = ({
               <div className="w-full h-full glass-effect rounded-2xl p-4 shadow-2xl min-h-full border border-white/5">
                 {currentView === (PlatoonViewType as any).MAP ? (
                   <div className="h-[60vh] rounded-xl overflow-hidden mb-4 border border-white/5 map-container-glow">
-                    <MapDisplayComponent {...mapDisplayProps} />
+                    <Map3DDisplayComponent {...mapDisplayProps} />
                   </div>
                 ) : renderContent()}
               </div>
@@ -230,7 +230,7 @@ export const PlatoonCommanderView: React.FC<PlatoonCommanderViewProps> = ({
 
             <div className="h-full flex-1 p-2 overflow-hidden">
               <div className="glass-effect rounded-2xl shadow-2xl h-full border border-white/5 overflow-hidden map-container-glow">
-                <MapDisplayComponent {...mapDisplayProps} />
+                <Map3DDisplayComponent {...mapDisplayProps} />
               </div>
             </div>
           </main>

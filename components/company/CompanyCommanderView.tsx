@@ -8,7 +8,7 @@ import { CompanyPlatoonsView } from './CompanyPlatoonsView';
 import { CompanyApprovalsView } from './CompanyApprovalsView';
 import { CompanyORDOPsView } from './CompanyORDOPsView';
 import { CompanyHistoryView } from './CompanyHistoryView';
-import { MapDisplayComponent } from '../MapDisplayComponent';
+import { Map3DDisplayComponent } from '../Map3DDisplayComponent';
 import { ResizableDivider } from '../ResizableDivider';
 import { MobileBottomNavComponent } from '../MobileBottomNavComponent';
 import { Squares2X2Icon } from '../icons/Squares2X2Icon';
@@ -173,7 +173,7 @@ export const CompanyCommanderView: React.FC<CompanyCommanderViewProps> = ({
               <div className="w-full h-full glass-effect rounded-2xl p-4 shadow-2xl min-h-full border border-white/5">
                 {currentView === (CompanyViewType as any).MAP ? (
                   <div className="h-[60vh] rounded-xl overflow-hidden mb-4 border border-white/5 map-container-glow">
-                    <MapDisplayComponent {...mapDisplayProps} />
+                    <Map3DDisplayComponent {...mapDisplayProps} />
                   </div>
                 ) : renderContent()}
               </div>
@@ -201,7 +201,7 @@ export const CompanyCommanderView: React.FC<CompanyCommanderViewProps> = ({
 
             <div className="h-full flex-1 p-2 overflow-hidden">
               <div className="glass-effect rounded-2xl shadow-2xl h-full border border-white/5 overflow-hidden map-container-glow">
-                <MapDisplayComponent {...mapDisplayProps} />
+                <Map3DDisplayComponent {...mapDisplayProps} />
               </div>
             </div>
           </main>
