@@ -1125,7 +1125,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           pixelOffset: new Cesium.Cartesian2(offsetX, offsetY),
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: 50000.0
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         label: {
           text: unit.name,
@@ -1137,6 +1137,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           verticalOrigin: Cesium.VerticalOrigin.TOP,
           pixelOffset: new Cesium.Cartesian2(offsetX, offsetY + 25), // Label exactly below the shifted icon
           scaleByDistance: labelScaleByDistance,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
         }
       });
@@ -1329,7 +1330,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: 50000.0
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         label: {
           text: piece.name,
@@ -1428,7 +1429,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: 50000.0
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         label: {
           text: obs.callsign,
