@@ -460,6 +460,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           viewer.entities.remove(spiderifiedStateRef.current.hub);
         }
         spiderifiedStateRef.current = null;
+        
+        // Force Cesium to rebuild clusters so the bubble reappears
+        if (unitDataSource) {
+           unitDataSource.clustering.enabled = false;
+           unitDataSource.clustering.enabled = true;
+        }
       }
 
       if (isClusterClick) {
@@ -555,6 +561,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               lines: spiderLines,
               hub: hubEntity
           };
+          
+          // Force Cesium to rebuild clusters so the original bubble vanishes
+          if (unitDataSourceRef.current) {
+             unitDataSourceRef.current.clustering.enabled = false;
+             unitDataSourceRef.current.clustering.enabled = true;
+          }
           
           // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
         }
