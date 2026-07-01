@@ -431,16 +431,34 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       // Unit selection
       if (Cesium.defined(pickedObject) && pickedObject.id) {
-        const entity = pickedObject.id;
+        
+        // In Cesium, if we clicked a cluster, pickedObject.id is an array of the clustered Entities.
+        if (Array.isArray(pickedObject.id)) {
+          let cartesianPos = pickedObject.primitive?.position;
+          
+          // Fallback: calculate average position of the clustered entities
+          if (!cartesianPos || !(cartesianPos instanceof Cesium.Cartesian3)) {
+            let latSum = 0, lonSum = 0, count = 0;
+            pickedObject.id.forEach((e: any) => {
+              const pos = e.position?.getValue(viewer.clock.currentTime);
+              if (pos) {
+                const cart = Cesium.Cartographic.fromCartesian(pos);
+                latSum += cart.latitude;
+                lonSum += cart.longitude;
+                count++;
+              }
+            });
+            if (count > 0) {
+              const avgCart = new Cesium.Cartographic(lonSum / count, latSum / count, 0);
+              cartesianPos = Cesium.Cartesian3.fromRadians(avgCart.longitude, avgCart.latitude, 0);
+            }
+          }
 
-        // Check if we clicked a cluster
-        if (entity.isCluster) {
-          const position = pickedObject.primitive?.position || (entity.position && entity.position.getValue(viewer.clock.currentTime));
-          if (position) {
+          if (cartesianPos) {
+            const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
             const currentCameraHeight = viewer.camera.positionCartographic.height;
-            // Zoom in by factor of 3, minimum 1500m height to disband the cluster comfortably
-            const zoomHeight = Math.max(currentCameraHeight / 3, 1500);
-            const cartographic = Cesium.Cartographic.fromCartesian(position);
+            // Zoom in by factor of 3, minimum 800m height to disband the cluster comfortably
+            const zoomHeight = Math.max(currentCameraHeight / 3, 800);
             
             viewer.camera.flyTo({
               destination: Cesium.Cartesian3.fromRadians(
@@ -454,6 +472,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           return;
         }
 
+        const entity = pickedObject.id;
         const entityId = entity.id;
         const matchedUnit = latestProps.current.units.find(u => u.id === entityId);
         if (matchedUnit && latestProps.current.onSelectEntityOnMap) {
