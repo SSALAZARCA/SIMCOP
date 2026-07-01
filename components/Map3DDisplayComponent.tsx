@@ -1152,9 +1152,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       cluster.point.outlineWidth = 3;
       cluster.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
       
-      // Mark as cluster for click handling
-      (cluster as any).isCluster = true;
-      (cluster as any).clusteredEntities = clusteredEntities;
+      // Attach the clustered entities directly to the primitive's id
+      // so that pickedObject.id returns the array when the cluster is clicked.
+      cluster.point.id = clusteredEntities;
+      cluster.label.id = clusteredEntities;
     });
 
     units.forEach(unit => {
