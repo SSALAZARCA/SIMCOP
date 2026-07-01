@@ -212,6 +212,13 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const tacticalEntitiesRef = useRef<Cesium.Entity[]>([]);
   const piccEntitiesRef = useRef<Cesium.Entity[]>([]);
 
+  // Ref to track spiderified clusters (ramificación)
+  const spiderifiedStateRef = useRef<{
+    center: Cesium.Cartesian3;
+    entities: { entity: Cesium.Entity; originalPos: Cesium.Cartesian3 }[];
+    lines: Cesium.Entity[];
+  } | null>(null);
+
   useEffect(() => {
     distance3DPointsRef.current = distance3DPoints;
   }, [distance3DPoints]);
@@ -429,49 +436,103 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         }
       }
 
-      // Unit selection
-      if (Cesium.defined(pickedObject) && pickedObject.id) {
-        
-        // In Cesium, if we clicked a cluster, pickedObject.id is an array of the clustered Entities.
-        if (Array.isArray(pickedObject.id)) {
-          let cartesianPos = pickedObject.primitive?.position;
-          
-          // Fallback: calculate average position of the clustered entities
-          if (!cartesianPos || !(cartesianPos instanceof Cesium.Cartesian3)) {
-            let latSum = 0, lonSum = 0, count = 0;
-            pickedObject.id.forEach((e: any) => {
-              const pos = e.position?.getValue(viewer.clock.currentTime);
-              if (pos) {
-                const cart = Cesium.Cartographic.fromCartesian(pos);
-                latSum += cart.latitude;
-                lonSum += cart.longitude;
-                count++;
-              }
-            });
-            if (count > 0) {
-              const avgCart = new Cesium.Cartographic(lonSum / count, latSum / count, 0);
-              cartesianPos = Cesium.Cartesian3.fromRadians(avgCart.longitude, avgCart.latitude, 0);
-            }
-          }
+      // Unit selection and Spiderify (Ramificación)
+      const isClusterClick = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
+      
+      // Un-spiderify if there's an active spiderified cluster
+      if (spiderifiedStateRef.current && viewerRef.current) {
+        spiderifiedStateRef.current.entities.forEach(item => {
+          item.entity.position = new Cesium.ConstantPositionProperty(item.originalPos);
+        });
+        spiderifiedStateRef.current.lines.forEach(line => {
+          viewerRef.current!.entities.remove(line);
+        });
+        spiderifiedStateRef.current = null;
+      }
 
-          if (cartesianPos) {
-            const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
-            const currentCameraHeight = viewer.camera.positionCartographic.height;
-            // Zoom in by factor of 3, minimum 800m height to disband the cluster comfortably
-            const zoomHeight = Math.max(currentCameraHeight / 3, 800);
-            
-            viewer.camera.flyTo({
-              destination: Cesium.Cartesian3.fromRadians(
-                cartographic.longitude,
-                cartographic.latitude,
-                zoomHeight
-              ),
-              duration: 1.0
-            });
+      if (isClusterClick) {
+        const clusteredEntities = pickedObject.id;
+        let cartesianPos = pickedObject.primitive?.position;
+          
+        // Fallback: calculate average position of the clustered entities
+        if (!cartesianPos || !(cartesianPos instanceof Cesium.Cartesian3)) {
+          let latSum = 0, lonSum = 0, count = 0;
+          clusteredEntities.forEach((e: any) => {
+            const pos = e.position?.getValue(viewer.clock.currentTime);
+            if (pos) {
+              const cart = Cesium.Cartographic.fromCartesian(pos);
+              latSum += cart.latitude;
+              lonSum += cart.longitude;
+              count++;
+            }
+          });
+          if (count > 0) {
+            const avgCart = new Cesium.Cartographic(lonSum / count, latSum / count, 0);
+            cartesianPos = Cesium.Cartesian3.fromRadians(avgCart.longitude, avgCart.latitude, 0);
           }
-          return;
         }
 
+        if (cartesianPos) {
+          const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
+          const currentCameraHeight = viewer.camera.positionCartographic.height;
+          
+          // Radius calculation for spider legs (scales slightly with camera height)
+          const radiusDeg = 0.0001 + (currentCameraHeight / 30000000); 
+
+          const spiderLines: Cesium.Entity[] = [];
+          const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
+
+          clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
+             const posVal = entity.position?.getValue(viewer.clock.currentTime);
+             if (!posVal) return;
+             
+             spiderEntities.push({ entity, originalPos: posVal });
+             
+             const angle = (index / clusteredEntities.length) * Math.PI * 2;
+             const newLat = cartographic.latitude + radiusDeg * Math.cos(angle);
+             const newLon = cartographic.longitude + radiusDeg * Math.sin(angle);
+             const newCartesian = Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height);
+             
+             // Temporarily move the entity to the spiderified position
+             entity.position = new Cesium.ConstantPositionProperty(newCartesian);
+             
+             // Draw the connecting 'spider leg' line
+             const line = viewer.entities.add({
+                 polyline: {
+                     positions: [cartesianPos, newCartesian],
+                     width: 2,
+                     material: new Cesium.PolylineDashMaterialProperty({
+                         color: Cesium.Color.CYAN.withAlpha(0.8)
+                     })
+                 }
+             });
+             spiderLines.push(line);
+          });
+          
+          // Save state so we can undo it on the next click
+          spiderifiedStateRef.current = {
+              center: cartesianPos,
+              entities: spiderEntities,
+              lines: spiderLines
+          };
+
+          // Zoom in slightly to center the spiderified group
+          const zoomHeight = Math.max(currentCameraHeight / 1.5, 400);
+          
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromRadians(
+              cartographic.longitude,
+              cartographic.latitude,
+              zoomHeight
+            ),
+            duration: 1.0
+          });
+        }
+        return; // Don't trigger normal selection
+      }
+
+      // Normal unit selection
+      if (Cesium.defined(pickedObject) && pickedObject.id) {
         const entity = pickedObject.id;
         const entityId = entity.id;
         const matchedUnit = latestProps.current.units.find(u => u.id === entityId);
