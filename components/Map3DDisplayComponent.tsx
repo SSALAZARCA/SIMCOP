@@ -451,6 +451,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           viewerRef.current!.entities.remove(spiderifiedStateRef.current.hub);
         }
         spiderifiedStateRef.current = null;
+
+        // Force Cesium to recalculate clusters after restoring positions
+        if (unitDataSourceRef.current) {
+           unitDataSourceRef.current.clustering.enabled = false;
+           unitDataSourceRef.current.clustering.enabled = true;
+        }
       }
 
       if (isClusterClick) {
@@ -480,9 +486,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const currentCameraHeight = viewer.camera.positionCartographic.height;
           
           // Professional Spiderify Radius Calculation
-          // Make the radius roughly 8-10% of the camera height so the circle always occupies a good portion of the screen
-          const radiusMeters = Math.max(currentCameraHeight * 0.12, 10);
-          const radiusDeg = radiusMeters / 111320; // approximate conversion from meters to degrees at equator
+          // Make the radius roughly 8% of the camera height so the circle always occupies a good portion of the screen
+          const radiusMeters = Math.max(currentCameraHeight * 0.08, 20);
+          const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters for accurate Radian conversion
 
           const spiderLines: Cesium.Entity[] = [];
           const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
@@ -506,8 +512,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
              spiderEntities.push({ entity, originalPos: posVal });
              
              const angle = (index / clusteredEntities.length) * Math.PI * 2;
-             const newLat = cartographic.latitude + radiusDeg * Math.cos(angle);
-             const newLon = cartographic.longitude + radiusDeg * Math.sin(angle);
+             const newLat = cartographic.latitude + radiusRad * Math.cos(angle);
+             const newLon = cartographic.longitude + (radiusRad / Math.cos(cartographic.latitude)) * Math.sin(angle);
              const newCartesian = Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height);
              
              // Temporarily move the entity to the spiderified position
@@ -539,6 +545,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               lines: spiderLines,
               hub: hubEntity
           };
+          
+          // Force Cesium to recalculate clusters now that the entities are physically separated
+          if (unitDataSourceRef.current) {
+             unitDataSourceRef.current.clustering.enabled = false;
+             unitDataSourceRef.current.clustering.enabled = true;
+          }
           
           // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
         }
