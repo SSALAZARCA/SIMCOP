@@ -1075,16 +1075,33 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         });
       }
     }
+    const coordinateCounts: { [key: string]: number } = {};
 
     // 3. Render Military Units
     units.forEach(unit => {
       if (!unit || !unit.location) return;
+
+      // Handle identical coordinates with visual pixel offset in Cesium
+      const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
+      coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
+      const count = coordinateCounts[coordKey];
+      
+      let offsetX = 0;
+      let offsetY = 0;
+      if (count > 1) {
+        // Spiral spread: 45px apart visually on screen
+        const angle = (count - 1) * 1.5; 
+        const radius = 45 * Math.ceil((count - 1) / 4);
+        offsetX = Math.sin(angle) * radius;
+        offsetY = Math.cos(angle) * radius;
+      }
+
       const sidc = generateUnitSIDC(unit);
       const symbol = new ms.Symbol(sidc, {
         size: 40,
         outlineColor: 'white',
         outlineWidth: 4,
-        uniqueDesignation: unit.name
+        infoFields: false // Strictly disable native Milsymbol side-text
       });
       const canvas = symbol.asCanvas();
       const iconUrl = canvas.toDataURL();
@@ -1106,19 +1123,20 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          pixelOffset: new Cesium.Cartesian2(offsetX, offsetY),
           scaleByDistance: symbolScaleByDistance,
           disableDepthTestDistance: 50000.0
         },
         label: {
           text: unit.name,
-          font: '12px system-ui, sans-serif',
+          font: 'bold 12px system-ui, sans-serif',
           style: Cesium.LabelStyle.FILL_AND_OUTLINE,
           fillColor: Cesium.Color.WHITE,
           outlineColor: Cesium.Color.BLACK,
-          outlineWidth: 3,
+          outlineWidth: 4,
           verticalOrigin: Cesium.VerticalOrigin.TOP,
+          pixelOffset: new Cesium.Cartesian2(offsetX, offsetY + 25), // Label exactly below the shifted icon
           scaleByDistance: labelScaleByDistance,
-          pixelOffset: new Cesium.Cartesian2(0, 22),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
         }
       });
