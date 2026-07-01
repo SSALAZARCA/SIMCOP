@@ -1176,7 +1176,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               height: 28,
               horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
               verticalOrigin: Cesium.VerticalOrigin.CENTER,
-              disableDepthTestDistance: 40000.0
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             label: {
               text: `UAV: ${uav.id} (Bat: ${uav.batteryStatus}%)`,
@@ -1280,7 +1280,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: 40000.0
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         label: {
           text: `Intel: ${report.type}`,
@@ -1476,7 +1476,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: 40000.0
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         label: {
           text: `OBJ: MISIÓN FUEGO`,
@@ -1761,7 +1761,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
               verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-              disableDepthTestDistance: 40000.0
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             label: graphic.label ? {
               text: graphic.label,
