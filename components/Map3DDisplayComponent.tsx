@@ -212,11 +212,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const tacticalEntitiesRef = useRef<Cesium.Entity[]>([]);
   const piccEntitiesRef = useRef<Cesium.Entity[]>([]);
 
-  // Ref to track spiderified clusters (ramificación)
   const spiderifiedStateRef = useRef<{
     center: Cesium.Cartesian3;
     entities: { entity: Cesium.Entity; originalPos: Cesium.Cartesian3 }[];
     lines: Cesium.Entity[];
+    hub?: Cesium.Entity;
   } | null>(null);
 
   useEffect(() => {
@@ -447,6 +447,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         spiderifiedStateRef.current.lines.forEach(line => {
           viewerRef.current!.entities.remove(line);
         });
+        if (spiderifiedStateRef.current.hub) {
+          viewerRef.current!.entities.remove(spiderifiedStateRef.current.hub);
+        }
         spiderifiedStateRef.current = null;
       }
 
@@ -476,11 +479,25 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
           const currentCameraHeight = viewer.camera.positionCartographic.height;
           
-          // Radius calculation for spider legs (scales slightly with camera height)
-          const radiusDeg = 0.0001 + (currentCameraHeight / 30000000); 
+          // Professional Spiderify Radius Calculation
+          // Make the radius roughly 8-10% of the camera height so the circle always occupies a good portion of the screen
+          const radiusMeters = Math.max(currentCameraHeight * 0.12, 10);
+          const radiusDeg = radiusMeters / 111320; // approximate conversion from meters to degrees at equator
 
           const spiderLines: Cesium.Entity[] = [];
           const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
+
+          // Create a professional central hub point
+          const hubEntity = viewer.entities.add({
+            position: cartesianPos,
+            point: {
+              pixelSize: 12,
+              color: Cesium.Color.BLACK,
+              outlineColor: Cesium.Color.CYAN,
+              outlineWidth: 3,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+          });
 
           clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
              const posVal = entity.position?.getValue(viewer.clock.currentTime);
@@ -496,13 +513,19 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
              // Temporarily move the entity to the spiderified position
              entity.position = new Cesium.ConstantPositionProperty(newCartesian);
              
-             // Draw the connecting 'spider leg' line
+             // Draw a professional solid connecting line
              const line = viewer.entities.add({
                  polyline: {
                      positions: [cartesianPos, newCartesian],
-                     width: 2,
-                     material: new Cesium.PolylineDashMaterialProperty({
-                         color: Cesium.Color.CYAN.withAlpha(0.8)
+                     width: 3,
+                     material: new Cesium.PolylineGlowMaterialProperty({
+                         glowPower: 0.2,
+                         taperPower: 1,
+                         color: Cesium.Color.CYAN.withAlpha(0.9)
+                     }),
+                     depthFailMaterial: new Cesium.PolylineOutlineMaterialProperty({
+                         color: Cesium.Color.CYAN.withAlpha(0.5),
+                         outlineWidth: 0
                      })
                  }
              });
@@ -513,20 +536,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           spiderifiedStateRef.current = {
               center: cartesianPos,
               entities: spiderEntities,
-              lines: spiderLines
+              lines: spiderLines,
+              hub: hubEntity
           };
-
-          // Zoom in slightly to center the spiderified group
-          const zoomHeight = Math.max(currentCameraHeight / 1.5, 400);
           
-          viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromRadians(
-              cartographic.longitude,
-              cartographic.latitude,
-              zoomHeight
-            ),
-            duration: 1.0
-          });
+          // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
         }
         return; // Don't trigger normal selection
       }
