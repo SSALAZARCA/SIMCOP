@@ -431,7 +431,30 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       // Unit selection
       if (Cesium.defined(pickedObject) && pickedObject.id) {
-        const entityId = pickedObject.id.id;
+        const entity = pickedObject.id;
+
+        // Check if we clicked a cluster
+        if (entity.isCluster) {
+          const position = pickedObject.primitive?.position || (entity.position && entity.position.getValue(viewer.clock.currentTime));
+          if (position) {
+            const currentCameraHeight = viewer.camera.positionCartographic.height;
+            // Zoom in by factor of 3, minimum 1500m height to disband the cluster comfortably
+            const zoomHeight = Math.max(currentCameraHeight / 3, 1500);
+            const cartographic = Cesium.Cartographic.fromCartesian(position);
+            
+            viewer.camera.flyTo({
+              destination: Cesium.Cartesian3.fromRadians(
+                cartographic.longitude,
+                cartographic.latitude,
+                zoomHeight
+              ),
+              duration: 1.0
+            });
+          }
+          return;
+        }
+
+        const entityId = entity.id;
         const matchedUnit = latestProps.current.units.find(u => u.id === entityId);
         if (matchedUnit && latestProps.current.onSelectEntityOnMap) {
           latestProps.current.onSelectEntityOnMap({ id: matchedUnit.id, type: MapEntityType.UNIT });
@@ -1109,6 +1132,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       cluster.point.outlineColor = Cesium.Color.WHITE;
       cluster.point.outlineWidth = 3;
       cluster.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
+      
+      // Mark as cluster for click handling
+      (cluster as any).isCluster = true;
+      (cluster as any).clusteredEntities = clusteredEntities;
     });
 
     units.forEach(unit => {
