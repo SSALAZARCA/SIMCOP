@@ -441,22 +441,25 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       
       // Un-spiderify if there's an active spiderified cluster
       if (spiderifiedStateRef.current && viewerRef.current) {
+        const viewer = viewerRef.current;
+        const unitDataSource = unitDataSourceRef.current;
+        
         spiderifiedStateRef.current.entities.forEach(item => {
+          // Remove from viewer and restore to clustered data source
+          viewer.entities.remove(item.entity);
           item.entity.position = new Cesium.ConstantPositionProperty(item.originalPos);
+          if (unitDataSource) {
+             unitDataSource.entities.add(item.entity);
+          }
         });
+        
         spiderifiedStateRef.current.lines.forEach(line => {
-          viewerRef.current!.entities.remove(line);
+          viewer.entities.remove(line);
         });
         if (spiderifiedStateRef.current.hub) {
-          viewerRef.current!.entities.remove(spiderifiedStateRef.current.hub);
+          viewer.entities.remove(spiderifiedStateRef.current.hub);
         }
         spiderifiedStateRef.current = null;
-
-        // Force Cesium to recalculate clusters after restoring positions
-        if (unitDataSourceRef.current) {
-           unitDataSourceRef.current.clustering.enabled = false;
-           unitDataSourceRef.current.clustering.enabled = true;
-        }
       }
 
       if (isClusterClick) {
@@ -485,21 +488,21 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
           const currentCameraHeight = viewer.camera.positionCartographic.height;
           
-          // Professional Spiderify Radius Calculation
-          // Make the radius roughly 8% of the camera height so the circle always occupies a good portion of the screen
-          const radiusMeters = Math.max(currentCameraHeight * 0.08, 20);
-          const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters for accurate Radian conversion
+          // Tactical Spiderify Radius
+          // 15% of camera height ensures a wide, highly visible spread on screen that forces units to uncluster
+          const radiusMeters = Math.max(currentCameraHeight * 0.15, 100);
+          const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters
 
           const spiderLines: Cesium.Entity[] = [];
           const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
 
-          // Create a professional central hub point
+          // Create a professional tactical central hub point
           const hubEntity = viewer.entities.add({
             position: cartesianPos,
             point: {
-              pixelSize: 12,
-              color: Cesium.Color.BLACK,
-              outlineColor: Cesium.Color.CYAN,
+              pixelSize: 18,
+              color: Cesium.Color.fromCssColorString('#0ea5e9'), // Tactical Sky Blue
+              outlineColor: Cesium.Color.WHITE,
               outlineWidth: 3,
               disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
@@ -511,27 +514,34 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
              
              spiderEntities.push({ entity, originalPos: posVal });
              
+             // Extract from clustering engine to render individually
+             if (unitDataSourceRef.current) {
+                unitDataSourceRef.current.entities.remove(entity);
+             }
+             
              const angle = (index / clusteredEntities.length) * Math.PI * 2;
              const newLat = cartographic.latitude + radiusRad * Math.cos(angle);
              const newLon = cartographic.longitude + (radiusRad / Math.cos(cartographic.latitude)) * Math.sin(angle);
              const newCartesian = Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height);
              
-             // Temporarily move the entity to the spiderified position
+             // Move the entity to the spiderified position
              entity.position = new Cesium.ConstantPositionProperty(newCartesian);
              
-             // Draw a professional solid connecting line
+             // Add directly to viewer so it avoids all clustering algorithms
+             viewer.entities.add(entity);
+             
+             // Draw a tactical dashed connecting line
              const line = viewer.entities.add({
                  polyline: {
                      positions: [cartesianPos, newCartesian],
                      width: 3,
-                     material: new Cesium.PolylineGlowMaterialProperty({
-                         glowPower: 0.2,
-                         taperPower: 1,
-                         color: Cesium.Color.CYAN.withAlpha(0.9)
+                     material: new Cesium.PolylineDashMaterialProperty({
+                         color: Cesium.Color.CYAN.withAlpha(0.8),
+                         dashLength: 15
                      }),
-                     depthFailMaterial: new Cesium.PolylineOutlineMaterialProperty({
-                         color: Cesium.Color.CYAN.withAlpha(0.5),
-                         outlineWidth: 0
+                     depthFailMaterial: new Cesium.PolylineDashMaterialProperty({
+                         color: Cesium.Color.CYAN.withAlpha(0.4),
+                         dashLength: 15
                      })
                  }
              });
@@ -545,12 +555,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               lines: spiderLines,
               hub: hubEntity
           };
-          
-          // Force Cesium to recalculate clusters now that the entities are physically separated
-          if (unitDataSourceRef.current) {
-             unitDataSourceRef.current.clustering.enabled = false;
-             unitDataSourceRef.current.clustering.enabled = true;
-          }
           
           // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
         }
