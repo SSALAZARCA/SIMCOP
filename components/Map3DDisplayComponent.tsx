@@ -508,14 +508,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const radiusMeters = Math.max(currentCameraHeight * 0.15, 100);
           const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters
 
-          // Manually hide the stubborn cluster bubble so it doesn't get stuck on screen
-          if (clusterPrimitive) {
-             clusterPrimitive.show = false;
-          }
-
-          const spiderLines: Cesium.Entity[] = [];
-          const spiderEntities: { entity: Cesium.Entity, originalPos: Cesium.Cartesian3 }[] = [];
-
           // Create a professional tactical central hub point
           const hubEntity = viewer.entities.add({
             position: cartesianPos,
@@ -539,21 +531,28 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                 unitDataSourceRef.current.entities.remove(entity);
              }
              
-             const angle = (index / clusteredEntities.length) * Math.PI * 2;
-             const newLat = cartographic.latitude + radiusRad * Math.cos(angle);
-             const newLon = cartographic.longitude + (radiusRad / Math.cos(cartographic.latitude)) * Math.sin(angle);
-             const newCartesian = Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height);
-             
-             // Move the entity to the spiderified position
-             entity.position = new Cesium.ConstantPositionProperty(newCartesian);
+             // Move the entity to the spiderified position dynamically so it's fully responsive to zoom
+             entity.position = new Cesium.CallbackProperty((time, result) => {
+                 const currentHeight = viewer.camera.positionCartographic.height;
+                 const dynRadiusMeters = Math.max(currentHeight * 0.15, 80);
+                 const dynRadiusRad = dynRadiusMeters / 6378137.0;
+                 
+                 const angle = (index / clusteredEntities.length) * Math.PI * 2;
+                 const newLat = cartographic.latitude + dynRadiusRad * Math.cos(angle);
+                 const newLon = cartographic.longitude + (dynRadiusRad / Math.cos(cartographic.latitude)) * Math.sin(angle);
+                 return Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height, result);
+             }, false);
              
              // Add directly to viewer so it avoids all clustering algorithms
              viewer.entities.add(entity);
              
-             // Draw a tactical dashed connecting line
+             // Draw a tactical dashed connecting line that dynamically follows the unit
              const line = viewer.entities.add({
                  polyline: {
-                     positions: [cartesianPos, newCartesian],
+                     positions: new Cesium.CallbackProperty(() => {
+                         const currentUnitPos = entity.position!.getValue(viewer.clock.currentTime);
+                         return currentUnitPos ? [cartesianPos!, currentUnitPos] : [];
+                     }, false),
                      width: 3,
                      material: new Cesium.PolylineDashMaterialProperty({
                          color: Cesium.Color.CYAN.withAlpha(0.8),
@@ -1198,6 +1197,26 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
+
+    // 0. Safely auto-close any active spiderify to prevent ghost bubbles when data refreshes
+    if (spiderifiedStateRef.current) {
+        spiderifiedStateRef.current.entities.forEach(item => {
+            viewer.entities.remove(item.entity);
+            item.entity.position = new Cesium.ConstantPositionProperty(item.originalPos);
+        });
+        spiderifiedStateRef.current.lines.forEach(line => viewer.entities.remove(line));
+        if (spiderifiedStateRef.current.hub) viewer.entities.remove(spiderifiedStateRef.current.hub);
+        
+        const prim = spiderifiedStateRef.current.clusterPrimitive;
+        if (prim) {
+           try {
+              if (typeof prim.isDestroyed !== 'function' || !prim.isDestroyed()) {
+                 prim.show = true;
+              }
+           } catch (e) {}
+        }
+        spiderifiedStateRef.current = null;
+    }
 
     // 1. Clear previous tactical entities
     tacticalEntitiesRef.current.forEach(e => viewer.entities.remove(e));
