@@ -543,23 +543,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       }
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-      // Normal unit selection
-      if (Cesium.defined(pickedObject) && pickedObject.id) {
-        const entity = pickedObject.id;
-        const entityId = entity.id;
-        const matchedUnit = latestProps.current.units.find(u => u.id === entityId);
-        if (matchedUnit && latestProps.current.onSelectEntityOnMap) {
-          latestProps.current.onSelectEntityOnMap({ id: matchedUnit.id, type: MapEntityType.UNIT });
-        } else {
-          const matchedIntel = latestProps.current.intelligenceReports.find(i => i.id === entityId);
-          if (matchedIntel && latestProps.current.onSelectEntityOnMap) {
-            latestProps.current.onSelectEntityOnMap({ id: matchedIntel.id, type: MapEntityType.INTEL });
-          }
-        }
-      } else if (latestProps.current.onSelectEntityOnMap) {
-        latestProps.current.onSelectEntityOnMap(null);
-      }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
 
     // Right click handling (undo last point in distance tool)
     handler.setInputAction(() => {
