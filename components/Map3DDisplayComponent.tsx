@@ -212,12 +212,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const tacticalEntitiesRef = useRef<Cesium.Entity[]>([]);
   const piccEntitiesRef = useRef<Cesium.Entity[]>([]);
 
-  const spiderifiedStateRef = useRef<{
-    center: Cesium.Cartesian3;
-    entities: { entity: Cesium.Entity; originalPos: Cesium.Cartesian3 }[];
-    lines: Cesium.Entity[];
-    hub?: Cesium.Entity;
-    clusterPrimitive?: any;
+  const expandedHoverStateRef = useRef<{
+    clusterPrimitive: any;
+    entities: Cesium.Entity[];
+    basePosition: Cesium.Cartesian3;
   } | null>(null);
 
   useEffect(() => {
@@ -437,149 +435,113 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         }
       }
 
-      // Unit selection and Spiderify (Ramificación)
-      const isClusterClick = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
+      // Normal unit selection
+      let selectedEntityId: string | null = null;
       
-      // Un-spiderify if there's an active spiderified cluster
-      if (spiderifiedStateRef.current && viewerRef.current) {
-        const viewer = viewerRef.current;
-        const unitDataSource = unitDataSourceRef.current;
-        
-        spiderifiedStateRef.current.entities.forEach(item => {
-          // Remove from viewer and restore to clustered data source
-          viewer.entities.remove(item.entity);
-          item.entity.position = new Cesium.ConstantPositionProperty(item.originalPos);
-          if (unitDataSource) {
-             unitDataSource.entities.add(item.entity);
-          }
-        });
-        
-        spiderifiedStateRef.current.lines.forEach(line => {
-          viewer.entities.remove(line);
-        });
-        if (spiderifiedStateRef.current.hub) {
-          viewer.entities.remove(spiderifiedStateRef.current.hub);
-        }
-        
-        // Safely restore the cluster primitive visibility if it hasn't been destroyed
-        const prim = spiderifiedStateRef.current.clusterPrimitive;
-        if (prim) {
-           try {
-              if (typeof prim.isDestroyed !== 'function' || !prim.isDestroyed()) {
-                 prim.show = true;
-              }
-           } catch (e) {
-              // Ignore if Cesium internally destroyed it
-           }
-        }
-        
-        spiderifiedStateRef.current = null;
+      if (Cesium.defined(pickedObject) && pickedObject.id) {
+         if (pickedObject.id.id && pickedObject.id.id.startsWith('expanded-hover-')) {
+             // User clicked on a hover-expanded unit
+             selectedEntityId = pickedObject.id.id.replace('expanded-hover-', '');
+         } else if (typeof pickedObject.id === 'string' || pickedObject.id.id) {
+             // Standard entity click
+             selectedEntityId = pickedObject.id.id || pickedObject.id;
+         }
       }
 
-      if (isClusterClick) {
-        const clusteredEntities = pickedObject.id;
-        const clusterPrimitive = pickedObject.primitive;
-        let cartesianPos = clusterPrimitive?.position;
-          
-        // Fallback: calculate average position of the clustered entities
-        if (!cartesianPos || !(cartesianPos instanceof Cesium.Cartesian3)) {
-          let latSum = 0, lonSum = 0, count = 0;
-          clusteredEntities.forEach((e: any) => {
-            const pos = e.position?.getValue(viewer.clock.currentTime);
-            if (pos) {
-              const cart = Cesium.Cartographic.fromCartesian(pos);
-              latSum += cart.latitude;
-              lonSum += cart.longitude;
-              count++;
-            }
-          });
-          if (count > 0) {
-            const avgCart = new Cesium.Cartographic(lonSum / count, latSum / count, 0);
-            cartesianPos = Cesium.Cartesian3.fromRadians(avgCart.longitude, avgCart.latitude, 0);
+      if (selectedEntityId) {
+        const matchedUnit = latestProps.current.units.find(u => u.id === selectedEntityId);
+        if (matchedUnit && latestProps.current.onSelectEntityOnMap) {
+          latestProps.current.onSelectEntityOnMap({ id: matchedUnit.id, type: MapEntityType.UNIT });
+        } else {
+          const matchedIntel = latestProps.current.intelligenceReports.find(i => i.id === selectedEntityId);
+          if (matchedIntel && latestProps.current.onSelectEntityOnMap) {
+            latestProps.current.onSelectEntityOnMap({ id: matchedIntel.id, type: MapEntityType.INTEL });
           }
         }
-
-        if (cartesianPos) {
-          const cartographic = Cesium.Cartographic.fromCartesian(cartesianPos);
-          const currentCameraHeight = viewer.camera.positionCartographic.height;
-          
-          // Tactical Spiderify Radius
-          // 15% of camera height ensures a wide, highly visible spread on screen that forces units to uncluster
-          const radiusMeters = Math.max(currentCameraHeight * 0.15, 100);
-          const radiusRad = radiusMeters / 6378137.0; // Earth's radius in meters
-
-          // Create a professional tactical central hub point
-          const hubEntity = viewer.entities.add({
-            position: cartesianPos,
-            point: {
-              pixelSize: 18,
-              color: Cesium.Color.fromCssColorString('#0ea5e9'), // Tactical Sky Blue
-              outlineColor: Cesium.Color.WHITE,
-              outlineWidth: 3,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
-            }
-          });
-
-          clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
-             const posVal = entity.position?.getValue(viewer.clock.currentTime);
-             if (!posVal) return;
-             
-             spiderEntities.push({ entity, originalPos: posVal });
-             
-             // Extract from clustering engine to render individually
-             if (unitDataSourceRef.current) {
-                unitDataSourceRef.current.entities.remove(entity);
-             }
-             
-             // Move the entity to the spiderified position dynamically so it's fully responsive to zoom
-             entity.position = new Cesium.CallbackProperty((time, result) => {
-                 const currentHeight = viewer.camera.positionCartographic.height;
-                 const dynRadiusMeters = Math.max(currentHeight * 0.15, 80);
-                 const dynRadiusRad = dynRadiusMeters / 6378137.0;
-                 
-                 const angle = (index / clusteredEntities.length) * Math.PI * 2;
-                 const newLat = cartographic.latitude + dynRadiusRad * Math.cos(angle);
-                 const newLon = cartographic.longitude + (dynRadiusRad / Math.cos(cartographic.latitude)) * Math.sin(angle);
-                 return Cesium.Cartesian3.fromRadians(newLon, newLat, cartographic.height, result);
-             }, false);
-             
-             // Add directly to viewer so it avoids all clustering algorithms
-             viewer.entities.add(entity);
-             
-             // Draw a tactical dashed connecting line that dynamically follows the unit
-             const line = viewer.entities.add({
-                 polyline: {
-                     positions: new Cesium.CallbackProperty(() => {
-                         const currentUnitPos = entity.position!.getValue(viewer.clock.currentTime);
-                         return currentUnitPos ? [cartesianPos!, currentUnitPos] : [];
-                     }, false),
-                     width: 3,
-                     material: new Cesium.PolylineDashMaterialProperty({
-                         color: Cesium.Color.CYAN.withAlpha(0.8),
-                         dashLength: 15
-                     }),
-                     depthFailMaterial: new Cesium.PolylineDashMaterialProperty({
-                         color: Cesium.Color.CYAN.withAlpha(0.4),
-                         dashLength: 15
-                     })
-                 }
-             });
-             spiderLines.push(line);
-          });
-          
-          // Save state so we can undo it on the next click
-          spiderifiedStateRef.current = {
-              center: cartesianPos,
-              entities: spiderEntities,
-              lines: spiderLines,
-              hub: hubEntity,
-              clusterPrimitive: clusterPrimitive
-          };
-          
-          // Note: Intentional removal of viewer.camera.flyTo as requested by the user.
+      } else if (latestProps.current.onSelectEntityOnMap) {
+        // Did not click a valid entity, clear selection if we didn't click a cluster
+        const isClusterClick = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
+        if (!isClusterClick) {
+            latestProps.current.onSelectEntityOnMap(null);
         }
-        return; // Don't trigger normal selection
       }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    // Mouse Move handling (Hover side-expansion)
+    handler.setInputAction((movement: any) => {
+      const pickedObject = viewer.scene.pick(movement.endPosition);
+      
+      // Determine if we are hovering over the cluster OR any of the expanded units
+      let isHoveringCluster = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
+      let isHoveringExpandedUnit = Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id && pickedObject.id.id.startsWith('expanded-hover-');
+      
+      if (isHoveringCluster) {
+          // If hovering a cluster, expand it laterally
+          const clusteredEntities = pickedObject.id;
+          const clusterPrimitive = pickedObject.primitive;
+          
+          // If it's already expanded, do nothing
+          if (expandedHoverStateRef.current && expandedHoverStateRef.current.clusterPrimitive === clusterPrimitive) {
+             return;
+          }
+          
+          // Clear previous expansion if any
+          if (expandedHoverStateRef.current) {
+             expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+             expandedHoverStateRef.current = null;
+          }
+          
+          let cartesianPos = clusterPrimitive?.position;
+          if (cartesianPos) {
+              const expandedEntities: Cesium.Entity[] = [];
+              const baseHorizontalOffset = 30; // Start 30px to the right of the cluster
+              const spacing = 50; // 50px between each unit
+              
+              clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
+                  const offsetX = baseHorizontalOffset + (index * spacing);
+                  
+                  // Clone the visual properties but add pixel offset
+                  const expandedEntity = viewer.entities.add({
+                      id: `expanded-hover-${entity.id}`,
+                      position: cartesianPos, // Exact same 3D position
+                      billboard: {
+                          image: entity.billboard?.image,
+                          heightReference: entity.billboard?.heightReference,
+                          horizontalOrigin: entity.billboard?.horizontalOrigin,
+                          verticalOrigin: entity.billboard?.verticalOrigin,
+                          scaleByDistance: entity.billboard?.scaleByDistance,
+                          disableDepthTestDistance: entity.billboard?.disableDepthTestDistance,
+                          pixelOffset: new Cesium.Cartesian2(offsetX, 0) // Shift to the right
+                      },
+                      label: {
+                          text: entity.label?.text,
+                          font: entity.label?.font,
+                          style: entity.label?.style,
+                          fillColor: entity.label?.fillColor,
+                          outlineColor: entity.label?.outlineColor,
+                          outlineWidth: entity.label?.outlineWidth,
+                          verticalOrigin: entity.label?.verticalOrigin,
+                          scaleByDistance: entity.label?.scaleByDistance,
+                          disableDepthTestDistance: entity.label?.disableDepthTestDistance,
+                          heightReference: entity.label?.heightReference,
+                          pixelOffset: new Cesium.Cartesian2(offsetX, 25) // Shift to the right, keep vertical offset
+                      }
+                  });
+                  expandedEntities.push(expandedEntity);
+              });
+              
+              expandedHoverStateRef.current = {
+                  clusterPrimitive: clusterPrimitive,
+                  entities: expandedEntities,
+                  basePosition: cartesianPos
+              };
+          }
+      } else if (!isHoveringExpandedUnit && expandedHoverStateRef.current) {
+          // Mouse left the cluster AND the expanded units, so hide them!
+          expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+          expandedHoverStateRef.current = null;
+      }
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       // Normal unit selection
       if (Cesium.defined(pickedObject) && pickedObject.id) {
@@ -1198,12 +1160,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    // 0. Extract currently spiderified IDs to prevent them from being re-clustered
-    const activeSpiderIds: string[] = [];
-    if (spiderifiedStateRef.current) {
-        spiderifiedStateRef.current.entities.forEach(item => {
-            activeSpiderIds.push(item.entity.id);
-        });
+    // 0. Safely clear any active hover expansions when data refreshes
+    if (expandedHoverStateRef.current) {
+        expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+        expandedHoverStateRef.current = null;
     }
 
     // 1. Clear previous tactical entities
@@ -1279,10 +1239,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     units.forEach(unit => {
       if (!unit || !unit.location) return;
-      
-      // If the unit is currently spiderified, it is already rendered in viewer.entities.
-      // Do NOT add it to the unitDataSource, otherwise EntityCluster will create a new ghost bubble!
-      if (activeSpiderIds.includes(unit.id)) return;
 
       const sidc = generateUnitSIDC(unit);
       const symbol = new ms.Symbol(sidc, {
