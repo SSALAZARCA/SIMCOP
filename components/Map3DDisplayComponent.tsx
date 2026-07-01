@@ -1198,24 +1198,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    // 0. Safely auto-close any active spiderify to prevent ghost bubbles when data refreshes
+    // 0. Extract currently spiderified IDs to prevent them from being re-clustered
+    const activeSpiderIds: string[] = [];
     if (spiderifiedStateRef.current) {
         spiderifiedStateRef.current.entities.forEach(item => {
-            viewer.entities.remove(item.entity);
-            item.entity.position = new Cesium.ConstantPositionProperty(item.originalPos);
+            activeSpiderIds.push(item.entity.id);
         });
-        spiderifiedStateRef.current.lines.forEach(line => viewer.entities.remove(line));
-        if (spiderifiedStateRef.current.hub) viewer.entities.remove(spiderifiedStateRef.current.hub);
-        
-        const prim = spiderifiedStateRef.current.clusterPrimitive;
-        if (prim) {
-           try {
-              if (typeof prim.isDestroyed !== 'function' || !prim.isDestroyed()) {
-                 prim.show = true;
-              }
-           } catch (e) {}
-        }
-        spiderifiedStateRef.current = null;
     }
 
     // 1. Clear previous tactical entities
@@ -1252,7 +1240,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }
     // 3. Render Military Units via CustomDataSource for true Native Clustering
     if (unitDataSourceRef.current && viewer.dataSources.contains(unitDataSourceRef.current)) {
-      viewer.dataSources.remove(unitDataSourceRef.current);
+      viewer.dataSources.remove(unitDataSourceRef.current, true); // MUST pass true to destroy orphaned cluster primitives!
     }
     const unitDataSource = new Cesium.CustomDataSource('units');
     unitDataSourceRef.current = unitDataSource;
@@ -1291,6 +1279,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     units.forEach(unit => {
       if (!unit || !unit.location) return;
+      
+      // If the unit is currently spiderified, it is already rendered in viewer.entities.
+      // Do NOT add it to the unitDataSource, otherwise EntityCluster will create a new ghost bubble!
+      if (activeSpiderIds.includes(unit.id)) return;
 
       const sidc = generateUnitSIDC(unit);
       const symbol = new ms.Symbol(sidc, {
