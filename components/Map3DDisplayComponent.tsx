@@ -207,6 +207,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [piccPoints, setPiccPoints] = useState<Cesium.Cartesian3[]>([]);
   const piccDrawingPointsRef = useRef<Cesium.Cartesian3[]>([]);
 
+  const unitDataSourceRef = useRef<Cesium.CustomDataSource | null>(null);
   const tacticalEntitiesRef = useRef<Cesium.Entity[]>([]);
   const piccEntitiesRef = useRef<Cesium.Entity[]>([]);
 
@@ -1075,26 +1076,42 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         });
       }
     }
-    const coordinateCounts: { [key: string]: number } = {};
+    // 3. Render Military Units via CustomDataSource for true Native Clustering
+    if (unitDataSourceRef.current && !unitDataSourceRef.current.entities.isDestroyed) {
+      viewer.dataSources.remove(unitDataSourceRef.current);
+    }
+    const unitDataSource = new Cesium.CustomDataSource('units');
+    unitDataSourceRef.current = unitDataSource;
+    
+    // Enable clustering (behaves exactly like Leaflet's markercluster)
+    unitDataSource.clustering.enabled = true;
+    unitDataSource.clustering.pixelRange = 50;
+    unitDataSource.clustering.minimumClusterSize = 2;
 
-    // 3. Render Military Units
+    // Style the cluster to look like a clean, professional grouping indicator
+    unitDataSource.clustering.clusterEvent.addEventListener((clusteredEntities, cluster) => {
+      cluster.label.show = true;
+      cluster.label.text = clusteredEntities.length.toLocaleString();
+      cluster.label.font = 'bold 16px sans-serif';
+      cluster.label.fillColor = Cesium.Color.WHITE;
+      cluster.label.style = Cesium.LabelStyle.FILL_AND_OUTLINE;
+      cluster.label.outlineWidth = 4;
+      cluster.label.outlineColor = Cesium.Color.BLACK;
+      // Center the text perfectly
+      cluster.label.horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
+      cluster.label.verticalOrigin = Cesium.VerticalOrigin.CENTER;
+      
+      cluster.billboard.show = false;
+      cluster.point.show = true;
+      cluster.point.color = Cesium.Color.fromCssColorString('rgba(56, 189, 248, 0.85)'); // Cyan/Blue tactical glow
+      cluster.point.pixelSize = 45;
+      cluster.point.outlineColor = Cesium.Color.WHITE;
+      cluster.point.outlineWidth = 3;
+      cluster.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
+    });
+
     units.forEach(unit => {
       if (!unit || !unit.location) return;
-
-      // Handle identical coordinates with visual pixel offset in Cesium
-      const coordKey = `${unit.location.lat.toFixed(5)},${unit.location.lon.toFixed(5)}`;
-      coordinateCounts[coordKey] = (coordinateCounts[coordKey] || 0) + 1;
-      const count = coordinateCounts[coordKey];
-      
-      let offsetX = 0;
-      let offsetY = 0;
-      if (count > 1) {
-        // Spiral spread: 45px apart visually on screen
-        const angle = (count - 1) * 1.5; 
-        const radius = 45 * Math.ceil((count - 1) / 4);
-        offsetX = Math.sin(angle) * radius;
-        offsetY = Math.cos(angle) * radius;
-      }
 
       const sidc = generateUnitSIDC(unit);
       const symbol = new ms.Symbol(sidc, {
@@ -1106,7 +1123,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       const canvas = symbol.asCanvas();
       const iconUrl = canvas.toDataURL();
 
-      addTacticalEntity({
+      unitDataSource.entities.add({
         id: unit.id,
         name: unit.name,
         position: Cesium.Cartesian3.fromDegrees(unit.location.lon, unit.location.lat),
@@ -1123,7 +1140,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
-          pixelOffset: new Cesium.Cartesian2(offsetX, offsetY),
           scaleByDistance: symbolScaleByDistance,
           disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
@@ -1135,14 +1151,18 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           outlineColor: Cesium.Color.BLACK,
           outlineWidth: 4,
           verticalOrigin: Cesium.VerticalOrigin.TOP,
-          pixelOffset: new Cesium.Cartesian2(offsetX, offsetY + 25), // Label exactly below the shifted icon
+          pixelOffset: new Cesium.Cartesian2(0, 25), // Label exactly below the icon
           scaleByDistance: labelScaleByDistance,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
         }
       });
+    }); // <-- Fix: Close the first units.forEach loop
 
-      // UAV active drones inside this unit
+    viewer.dataSources.add(unitDataSource);
+
+    // UAV active drones inside this unit
+    units.forEach(unit => {
       if (unit.uavAssets && unit.uavAssets.length > 0) {
         unit.uavAssets.forEach(uav => {
           if (!uav.location) return;
