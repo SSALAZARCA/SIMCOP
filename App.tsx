@@ -27,7 +27,6 @@ import { TwoFactorSetupModal } from './components/TwoFactorSetupModal';
 import { ORDOPViewComponent } from './components/ORDOPViewComponent';
 import { LoginViewComponent } from './components/LoginViewComponent';
 // Security Audit: Admin components are lazy loaded to prevent bundle exposure
-const UserManagementViewComponent = React.lazy(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })));
 import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from './utils/apiConfig';
@@ -35,12 +34,12 @@ import { OrganizationStructureView } from './components/OrganizationStructureVie
 import { PlatoonCommanderView } from './components/platoon/PlatoonCommanderView';
 import { CompanyCommanderView } from './components/company/CompanyCommanderView';
 import { LogisticsViewComponent } from './components/LogisticsViewComponent';
-const SettingsView = React.lazy(() => import('./components/SettingsView'));
+
 import { PersonnelView } from './components/PersonnelView';
 import { UAVManagementView } from './components/UAVManagementView';
 import { SimpleErrorBoundary } from './components/SimpleErrorBoundary';
 import { BMAPanel } from './components/BMAPanel';
-const AdminDashboardComponent = React.lazy(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })));
+
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
 import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
@@ -54,6 +53,10 @@ import { apiClient } from './utils/apiClient';
 import { userService } from './services/userService';
 
 const SIMCOP_USER_SESSION_KEY = 'simcop_currentUser_id';
+
+const UserManagementViewComponent = React.lazy(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })));
+const SettingsView = React.lazy(() => import('./components/SettingsView'));
+const AdminDashboardComponent = React.lazy(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })));
 
 // Remove static initialization
 // const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
