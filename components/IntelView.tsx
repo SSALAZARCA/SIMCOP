@@ -56,13 +56,18 @@ export const IntelView: React.FC<IntelViewProps> = ({
     };
 
     const formatUrl = (url: string | undefined, fallback: string | undefined) => {
-        let finalUrl = url;
-        if (!finalUrl || finalUrl.trim() === '' || finalUrl === '#') {
-            finalUrl = fallback;
-        }
-        if (!finalUrl || finalUrl.trim() === '' || finalUrl === '#') return '#';
+        const isValidUrlString = (s: string | undefined) => {
+            if (!s || s.trim() === '' || s === '#') return false;
+            if (s.trim().toLowerCase() === 'webhook') return false;
+            // A basic check to ensure it at least looks like a domain or URL
+            return s.includes('.');
+        };
+
+        let finalUrl = isValidUrlString(url) ? url : fallback;
         
-        const trimmed = finalUrl.trim();
+        if (!isValidUrlString(finalUrl)) return '#';
+        
+        const trimmed = finalUrl!.trim();
         if (!/^https?:\/\//i.test(trimmed)) {
             return `https://${trimmed}`;
         }
