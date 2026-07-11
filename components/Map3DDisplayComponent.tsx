@@ -452,6 +452,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         const matchedUnit = latestProps.current.units.find(u => u.id === selectedEntityId);
         if (matchedUnit && latestProps.current.onSelectEntityOnMap) {
           latestProps.current.onSelectEntityOnMap({ id: matchedUnit.id, type: MapEntityType.UNIT });
+        } else if (selectedEntityId.startsWith('osint-3d-')) {
+          const osintId = selectedEntityId.replace('osint-3d-', '');
+          const matchedOsint = latestProps.current.osintEvents?.find(o => o.id === osintId);
+          if (matchedOsint && latestProps.current.onSelectEntityOnMap) {
+            latestProps.current.onSelectEntityOnMap({ id: matchedOsint.id, type: MapEntityType.OSINT });
+          }
         } else {
           const matchedIntel = latestProps.current.intelligenceReports.find(i => i.id === selectedEntityId);
           if (matchedIntel && latestProps.current.onSelectEntityOnMap) {

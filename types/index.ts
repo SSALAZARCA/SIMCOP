@@ -300,6 +300,7 @@ export enum CompanyViewType {
 export enum MapEntityType {
   UNIT = 'Unidad',
   INTEL = 'Intel',
+  OSINT = 'OSINT',
   AAR = 'AAR',
   ORDOP = 'ORDOP',
   USER = 'Usuario',

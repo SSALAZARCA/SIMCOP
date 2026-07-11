@@ -29,13 +29,21 @@ export const IntelView: React.FC<IntelViewProps> = ({
     verifyOsint
 }) => {
     const [selectedIntelForPanel, setSelectedIntelForPanel] = useState<IntelligenceReport | null>(null);
+    const [selectedOsintForPanel, setSelectedOsintForPanel] = useState<OsintEvent | null>(null);
     const [showAddIntelForm, setShowAddIntelForm] = useState(false);
     const [activeTab, setActiveTab] = useState<'oficial' | 'osint'>('oficial');
 
     const handleLocalSelect = useCallback((report: IntelligenceReport) => {
         setSelectedIntelForPanel(report);
+        setSelectedOsintForPanel(null);
         onSelectIntel(report);
     }, [onSelectIntel]);
+
+    const handleOsintSelect = useCallback((event: OsintEvent) => {
+        setSelectedOsintForPanel(event);
+        setSelectedIntelForPanel(null);
+        // We could also call a prop to select it on the map, but it's optional for now.
+    }, []);
 
     const handleLinkReports = async (targetId: string) => {
         if (!selectedIntelForPanel) return;
@@ -441,7 +449,11 @@ export const IntelView: React.FC<IntelViewProps> = ({
                                     <p className="text-gray-400 text-center py-4 text-sm">No hay noticias OSINT procesadas.</p>
                                 ) : (
                                     osintEvents.map(event => (
-                                        <div key={event.id} className={`p-3 rounded-md shadow border ${event.verified ? 'bg-cyan-900/40 border-cyan-700' : 'bg-gray-700 border-gray-600'} hover:border-blue-500 transition-colors flex flex-col gap-2`}>
+                                        <div 
+                                            key={event.id} 
+                                            onClick={() => handleOsintSelect(event)}
+                                            className={`p-3 rounded-md shadow border cursor-pointer ${event.verified ? 'bg-cyan-900/40 border-cyan-700' : 'bg-gray-700 border-gray-600'} hover:border-blue-500 transition-colors flex flex-col gap-2 ${selectedOsintForPanel?.id === event.id ? 'border-cyan-400 bg-cyan-900/60' : ''}`}
+                                        >
                                             <div className="flex justify-between items-start gap-2">
                                                 <h4 className="font-bold text-gray-200 text-sm leading-tight">{event.title}</h4>
                                                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${event.confidenceScore >= 0.8 ? 'bg-red-900 text-red-200' : 'bg-yellow-900 text-yellow-200'}`}>
@@ -480,6 +492,64 @@ export const IntelView: React.FC<IntelViewProps> = ({
                             onLink={handleLinkReports}
                             onUnlink={handleUnlinkReports}
                         />
+                    ) : selectedOsintForPanel ? (
+                        <div className="flex flex-col h-full bg-gray-900 rounded border border-gray-700 p-4">
+                            <h3 className="text-xl font-bold text-gray-100 mb-2">{selectedOsintForPanel.title}</h3>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                <span className={`px-2 py-1 text-xs font-bold rounded ${selectedOsintForPanel.verified ? 'bg-cyan-900 text-cyan-200' : 'bg-gray-700 text-gray-300'}`}>
+                                    {selectedOsintForPanel.verified ? '✓ Verificado' : '⚠️ No Verificado'}
+                                </span>
+                                <span className="px-2 py-1 text-xs font-bold bg-blue-900 text-blue-200 rounded">
+                                    Confianza: {(selectedOsintForPanel.confidenceScore * 100).toFixed(0)}%
+                                </span>
+                                <span className="px-2 py-1 text-xs font-bold bg-gray-700 text-gray-200 rounded">
+                                    {selectedOsintForPanel.eventType}
+                                </span>
+                            </div>
+                            
+                            <div className="bg-gray-800 p-3 rounded mb-4">
+                                <h4 className="text-sm font-semibold text-gray-400 mb-1">Resumen del Evento</h4>
+                                <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{selectedOsintForPanel.summary}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                                <div className="bg-gray-800 p-3 rounded">
+                                    <span className="block text-gray-400 text-xs mb-1">Ubicación</span>
+                                    <span className="text-gray-200">{selectedOsintForPanel.locationName}</span>
+                                </div>
+                                <div className="bg-gray-800 p-3 rounded">
+                                    <span className="block text-gray-400 text-xs mb-1">Coordenadas</span>
+                                    <span className="text-gray-200 font-mono text-xs">{selectedOsintForPanel.location.lat.toFixed(4)}, {selectedOsintForPanel.location.lon.toFixed(4)}</span>
+                                </div>
+                                <div className="bg-gray-800 p-3 rounded">
+                                    <span className="block text-gray-400 text-xs mb-1">Fuente</span>
+                                    <span className="text-gray-200">{selectedOsintForPanel.sourceName}</span>
+                                </div>
+                                <div className="bg-gray-800 p-3 rounded">
+                                    <span className="block text-gray-400 text-xs mb-1">Fecha/Hora de Captura</span>
+                                    <span className="text-gray-200">{new Date(selectedOsintForPanel.processedTimestamp).toLocaleString()}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-auto pt-4 flex justify-between border-t border-gray-700">
+                                <a 
+                                    href={selectedOsintForPanel.sourceUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
+                                >
+                                    Ver Noticia Original
+                                </a>
+                                {verifyOsint && !selectedOsintForPanel.verified && (
+                                    <button 
+                                        onClick={() => verifyOsint(selectedOsintForPanel.id, true)}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm transition-colors"
+                                    >
+                                        Validar Evento
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full gap-2">
                             <p className="text-gray-400 text-center">{showAddIntelForm ? 'Completando nuevo informe...' : 'Seleccione un informe de inteligencia oficial para ver detalles.'}</p>
