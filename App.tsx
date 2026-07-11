@@ -71,7 +71,7 @@ const App: React.FC = () => {
   // Fetch API Key from backend on mount (for voice features)
   // Security Audit: Wait for authentication before fetching
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!currentUser) return;
     
     const initAi = async () => {
       try {
@@ -85,7 +85,7 @@ const App: React.FC = () => {
       }
     };
     initAi();
-  }, [isAuthenticated]);
+  }, [currentUser]);
 
   const [currentView, setCurrentView] = useState<ViewType>(ViewType.DASHBOARD);
 
