@@ -55,6 +55,16 @@ export const IntelView: React.FC<IntelViewProps> = ({
         }
     };
 
+    const formatUrl = (url: string | undefined) => {
+        if (!url) return '#';
+        const trimmed = url.trim();
+        if (trimmed === '') return '#';
+        if (!/^https?:\/\//i.test(trimmed)) {
+            return `https://${trimmed}`;
+        }
+        return trimmed;
+    };
+
     const handleUnlinkReports = async (targetId: string) => {
         if (!selectedIntelForPanel) return;
         try {
@@ -464,7 +474,13 @@ export const IntelView: React.FC<IntelViewProps> = ({
                                             <div className="flex justify-between items-center mt-1">
                                                 <span className="text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">{event.sourceName}</span>
                                                 <div className="flex gap-2">
-                                                    <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:text-blue-300 underline">
+                                                    <a 
+                                                        href={formatUrl(event.sourceUrl)} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-[10px] text-blue-400 hover:text-blue-300 underline"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
                                                         Ver Fuente original
                                                     </a>
                                                     {verifyOsint && !event.verified && (
@@ -533,7 +549,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
                             
                             <div className="mt-auto pt-4 flex justify-between border-t border-gray-700">
                                 <a 
-                                    href={selectedOsintForPanel.sourceUrl} 
+                                    href={formatUrl(selectedOsintForPanel.sourceUrl)} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
                                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
