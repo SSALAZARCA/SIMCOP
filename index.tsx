@@ -3,6 +3,14 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './ErrorBoundary'; // Import the new ErrorBoundary
 
+// Security Audit: Suppress console logs in production to prevent operational data leakage
+if (import.meta.env.PROD) {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  console.warn = () => {};
+}
+
 const rootElement = document.getElementById('root');
 console.log("📍 Root element found:", !!rootElement);
 if (!rootElement) {

@@ -26,7 +26,8 @@ import { SpotViewComponent } from './components/SpotViewComponent';
 import { TwoFactorSetupModal } from './components/TwoFactorSetupModal';
 import { ORDOPViewComponent } from './components/ORDOPViewComponent';
 import { LoginViewComponent } from './components/LoginViewComponent';
-import { UserManagementViewComponent } from './components/UserManagementViewComponent';
+// Security Audit: Admin components are lazy loaded to prevent bundle exposure
+const UserManagementViewComponent = React.lazy(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })));
 import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from './utils/apiConfig';
@@ -34,12 +35,12 @@ import { OrganizationStructureView } from './components/OrganizationStructureVie
 import { PlatoonCommanderView } from './components/platoon/PlatoonCommanderView';
 import { CompanyCommanderView } from './components/company/CompanyCommanderView';
 import { LogisticsViewComponent } from './components/LogisticsViewComponent';
-import SettingsView from './components/SettingsView';
+const SettingsView = React.lazy(() => import('./components/SettingsView'));
 import { PersonnelView } from './components/PersonnelView';
 import { UAVManagementView } from './components/UAVManagementView';
 import { SimpleErrorBoundary } from './components/SimpleErrorBoundary';
 import { BMAPanel } from './components/BMAPanel';
-import { AdminDashboardComponent } from './components/AdminDashboardComponent';
+const AdminDashboardComponent = React.lazy(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })));
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
 import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
@@ -68,25 +69,23 @@ const App: React.FC = () => {
   const [aiClient, setAiClient] = useState<GoogleGenAI | null>(null);
 
   // Fetch API Key from backend on mount (for voice features)
+  // Security Audit: Wait for authentication before fetching
   useEffect(() => {
+    if (!isAuthenticated) return;
+    
     const initAi = async () => {
       try {
         const apiKey = await configService.getGeminiApiKey();
         if (apiKey) {
-          console.log("✅ [App] Gemini API Key loaded for voice features");
+          // console.log("✅ [App] Gemini API Key loaded for voice features"); // Removed for security
           setAiClient(new GoogleGenAI({ apiKey }));
-        } else {
-          console.warn("⚠️ [App] Gemini API Key not found - voice features disabled");
         }
       } catch (error: any) {
-        // Silently handle 403 errors - they happen when not authenticated yet
-        if (error.message && !error.message.includes('403')) {
-          console.error("❌ [App] Error loading Gemini API Key:", error);
-        }
+        // Silently handle errors
       }
     };
     initAi();
-  }, []);
+  }, [isAuthenticated]);
 
   const [currentView, setCurrentView] = useState<ViewType>(ViewType.DASHBOARD);
 
@@ -370,7 +369,7 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = useCallback((user: User) => {
     setCurrentUser(user);
-    localStorage.setItem(SIMCOP_USER_SESSION_KEY, user.id); // Restaurada persistencia
+    // localStorage.setItem(SIMCOP_USER_SESSION_KEY, user.id); // Security Audit: Session persistence removed
     eventBus.publish('USER_LOGIN_SUCCESS', user);
     const loginFailedAlert = alerts.find(a => a.type === AlertType.USER_LOGIN_FAILED && (a.message.includes(user.username) || a.userId === user.id) && !a.acknowledged);
     if (loginFailedAlert) acknowledgeAlert(loginFailedAlert.id);
@@ -382,7 +381,6 @@ const App: React.FC = () => {
     }
     setCurrentUser(null);
     apiClient.clearToken();
-    localStorage.removeItem(SIMCOP_USER_SESSION_KEY);
     setCurrentView(ViewType.DASHBOARD);
   }, [currentUser]);
 

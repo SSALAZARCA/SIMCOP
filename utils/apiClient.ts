@@ -1,59 +1,41 @@
 import { API_BASE_URL } from './apiConfig';
 
-const SIMCOP_TOKEN_KEY = 'simcop_auth_token';
+// Store token in memory instead of localStorage to prevent XSS theft
+let memoryToken: string | null = null;
 
 export const apiClient = {
     setToken: (token: string) => {
-        localStorage.setItem(SIMCOP_TOKEN_KEY, token);
+        memoryToken = token;
     },
     getToken: () => {
-        return localStorage.getItem(SIMCOP_TOKEN_KEY);
+        return memoryToken;
     },
     clearToken: () => {
-        localStorage.removeItem(SIMCOP_TOKEN_KEY);
+        memoryToken = null;
     },
     fetch: async (url: string, options: RequestInit = {}) => {
-        const token = localStorage.getItem(SIMCOP_TOKEN_KEY);
+        const token = memoryToken;
         const headers = new Headers(options.headers || {});
 
         if (token) {
-            console.log(`📡 [apiClient] Request to ${url} - Token: ${token.substring(0, 10)}...`);
             headers.set('Authorization', `Bearer ${token}`);
-        } else {
-            console.warn(`📡 [apiClient] Request to ${url} - No token found in localStorage`);
         }
 
-        const startTime = Date.now();
         const response = await fetch(url, {
             ...options,
             headers,
         });
-        const duration = Date.now() - startTime;
-        
-        console.log(`📨 [apiClient] Response from ${url} - Status: ${response.status} (${duration}ms)`);
 
         if (response.status === 401) {
-            // Token is expired or unauthorized
-            const currentToken = localStorage.getItem(SIMCOP_TOKEN_KEY);
+            const currentToken = memoryToken;
             
-            // Log details before clearing
-            try {
-                const errorData = await response.clone().json();
-                console.error(`❌ [apiClient] 401 Details for ${url}:`, errorData);
-            } catch (e) {
-                console.warn(`❌ [apiClient] 401 for ${url} (No JSON body)`);
-            }
-
-            // Don't clear session for public config endpoints or if no token exists
             if (currentToken && !url.includes('/api/config')) {
-                console.warn(`⚠️ [apiClient] Session cleared for ${url}`);
-                localStorage.removeItem(SIMCOP_TOKEN_KEY);
+                memoryToken = null;
                 window.dispatchEvent(new Event('simcop-logout'));
             }
         } else if (response.status === 403) {
             // Forbidden: Token is valid but user lacks specific permissions for this resource
             // DO NOT clear session to avoid infinite login/logout loops
-            console.error(`Access denied (403 Forbidden) for ${url}. Session preserved.`);
         }
 
         return response;
@@ -88,7 +70,7 @@ export const apiClient = {
     },
     // Método específico para subir archivos (Multipart)
     uploadFile: async (file: File): Promise<{ fileName: string; fileDownloadUri: string; fileType: string; size: string }> => {
-        const token = localStorage.getItem(SIMCOP_TOKEN_KEY);
+        const token = memoryToken;
         const formData = new FormData();
         formData.append('file', file);
 
@@ -99,11 +81,7 @@ export const apiClient = {
         // Nota: NO establecer 'Content-Type': 'multipart/form-data' manualmente,
         // fetch lo hace automáticamente con el boundary correcto.
 
-        // Usar la URL base centralizada
         const uploadUrl = `${API_BASE_URL}/api/files/upload`;
-        // Si no hay VITE_API_BASE_URL, el fallback de fetch manejará la URL relativa si se desea, 
-        // pero mejor usar una lógica similar a apiConfig o importar API_BASE_URL
-        // Sin embargo, para no crear dependencias circulares complejas, usamos una lógica directa o el env.
 
         const response = await fetch(uploadUrl, {
             method: 'POST',
