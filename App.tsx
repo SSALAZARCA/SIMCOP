@@ -1103,7 +1103,7 @@ const App: React.FC = () => {
 
       {/* AO Drawing Global Banner */}
       {aoiDrawingModeActive && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto w-max max-w-[90%]">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-auto w-max max-w-[90%]" style={{ zIndex: 99999 }}>
           <div className={`px-6 md:px-10 py-4 rounded-full shadow-2xl transition-all duration-500 border flex flex-row items-center gap-4 flex-nowrap backdrop-blur-xl ${pendingAoiGeoJson ? 'bg-cyan-600 border-cyan-400 text-white' : 'bg-blue-600 border-blue-400 text-white animate-pulse'}`}>
             <div className="flex items-center gap-3 flex-shrink-0">
               {pendingAoiGeoJson ? (
