@@ -168,14 +168,13 @@ const analysisStore = new AnalysisStore();
 
 const fetchMunicipalityName = async (lat: number, lon: number): Promise<string | null> => {
   try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+    // BigDataCloud is more reliable for client-side (no API key needed, no CORS/User-Agent blocks)
+    const resp = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
     if (!resp.ok) return null;
     const data = await resp.json();
-    const addr = data.address;
-    if (!addr) return null;
-    const placeName = addr.town || addr.city || addr.municipality || addr.village || addr.county || addr.suburb || addr.neighbourhood;
-    const stateName = addr.state ? `, ${addr.state}` : '';
-    return placeName ? `${placeName}${stateName}` : null;
+    const placeName = data.city || data.locality;
+    const stateName = data.principalSubdivision ? `, ${data.principalSubdivision}` : '';
+    return placeName ? `${placeName}${stateName}` : data.principalSubdivision || null;
   } catch (e) {
     console.error("Error reverse geocoding:", e);
     return null;

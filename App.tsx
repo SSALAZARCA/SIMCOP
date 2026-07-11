@@ -263,9 +263,10 @@ const App: React.FC = () => {
       try {
         if (geoJson?.geometry?.coordinates?.[0]?.length > 0) {
           const center = geoJson.geometry.coordinates[0][0];
-          const resp = await fetch(`${API_BASE_URL}/api/weather/geocode?lat=${center[1]}&lon=${center[0]}`);
+          const resp = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${center[1]}&longitude=${center[0]}&localityLanguage=es`);
           const data = await resp.json();
-          if (data.sector) setAoiSector(data.sector);
+          const sectorName = data.city || data.locality || data.principalSubdivision;
+          if (sectorName) setAoiSector(`Sector ${sectorName}`);
           else setAoiSector("Sector Colombia");
         }
       } catch (e) {
