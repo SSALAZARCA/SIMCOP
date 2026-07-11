@@ -1086,67 +1086,7 @@ const App: React.FC = () => {
     setCurrentView(view);
   };
 
-  const aoDrawingBanner = aoiDrawingModeActive && (
-    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto w-max max-w-[90%]">
-      <div className={`px-6 md:px-10 py-4 rounded-full shadow-2xl transition-all duration-500 border flex flex-row items-center gap-4 flex-nowrap backdrop-blur-xl ${pendingAoiGeoJson ? 'bg-cyan-600 border-cyan-400 text-white' : 'bg-blue-600 border-blue-400 text-white animate-pulse'}`}>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {pendingAoiGeoJson ? (
-            <ShieldCheckIcon className="w-6 h-6 animate-bounce flex-shrink-0" />
-          ) : (
-            <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
-          )}
-          <div className="flex flex-col flex-shrink-0">
-            <span className="text-xs md:text-sm font-black uppercase tracking-widest whitespace-nowrap">
-              {pendingAoiGeoJson ? 'Perímetro Capturado' : 'Dibujando ÁO en el Mapa...'}
-            </span>
-            {pendingAoiGeoJson && (
-              <span className="text-[10px] opacity-80 font-bold uppercase whitespace-nowrap">
-                {isGeocoding ? 'Detectando Sector...' : (aoiSector || 'Sector Detectado')}
-              </span>
-            )}
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {!pendingAoiGeoJson && (
-            <button
-              type="button"
-              onClick={() => {
-                eventBus.publish('completeAoiDrawing');
-              }}
-              className="px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex-shrink-0 whitespace-nowrap"
-              style={{ backgroundColor: '#ffffff', color: '#1d4ed8', display: 'inline-block' }}
-            >
-              Establecer AOI
-            </button>
-          )}
-          {pendingAoiGeoJson && (
-            <button
-              type="button"
-              onClick={handleApproveAo}
-              className="px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex-shrink-0 whitespace-nowrap"
-              style={{ backgroundColor: '#ffffff', color: '#0891b2', display: 'inline-block' }}
-            >
-              Aprobar Sector
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setAoiDrawingModeActive(false);
-              setAoDrawingUnitId(null);
-              setPendingAoiGeoJson(null);
-              eventBus.publish('clearAoiLayer');
-              eventBus.publish('deactivateAoiDrawingMode');
-            }}
-            className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex-shrink-0 whitespace-nowrap ${pendingAoiGeoJson ? 'bg-red-800/40 hover:bg-red-800/60 text-white' : 'bg-white/20 hover:bg-white/40'}`}
-          >
-            {pendingAoiGeoJson ? 'Borrar AOI' : 'Cancelar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   // Default view for other roles
   return (
@@ -1161,6 +1101,69 @@ const App: React.FC = () => {
         isVoiceCommandActive={isVoiceCommandActive}
         isConnectingVoice={isConnectingVoice}
       />
+
+      {/* AO Drawing Global Banner */}
+      {aoiDrawingModeActive && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto w-max max-w-[90%]">
+          <div className={`px-6 md:px-10 py-4 rounded-full shadow-2xl transition-all duration-500 border flex flex-row items-center gap-4 flex-nowrap backdrop-blur-xl ${pendingAoiGeoJson ? 'bg-cyan-600 border-cyan-400 text-white' : 'bg-blue-600 border-blue-400 text-white animate-pulse'}`}>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {pendingAoiGeoJson ? (
+                <ShieldCheckIcon className="w-6 h-6 animate-bounce flex-shrink-0" />
+              ) : (
+                <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
+              )}
+              <div className="flex flex-col flex-shrink-0">
+                <span className="text-xs md:text-sm font-black uppercase tracking-widest whitespace-nowrap">
+                  {pendingAoiGeoJson ? 'Perímetro Capturado' : 'Dibujando ÁO en el Mapa...'}
+                </span>
+                {pendingAoiGeoJson && (
+                  <span className="text-[10px] opacity-80 font-bold uppercase whitespace-nowrap">
+                    {isGeocoding ? 'Detectando Sector...' : (aoiSector || 'Sector Detectado')}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {!pendingAoiGeoJson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    eventBus.publish('completeAoiDrawing');
+                  }}
+                  className="px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex-shrink-0 whitespace-nowrap"
+                  style={{ backgroundColor: '#ffffff', color: '#1d4ed8', display: 'inline-block' }}
+                >
+                  Establecer AOI
+                </button>
+              )}
+              {pendingAoiGeoJson && (
+                <button
+                  type="button"
+                  onClick={handleApproveAo}
+                  className="px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex-shrink-0 whitespace-nowrap"
+                  style={{ backgroundColor: '#ffffff', color: '#0891b2', display: 'inline-block' }}
+                >
+                  Aprobar Sector
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAoiDrawingModeActive(false);
+                  setAoDrawingUnitId(null);
+                  setPendingAoiGeoJson(null);
+                  eventBus.publish('clearAoiLayer');
+                  eventBus.publish('deactivateAoiDrawingMode');
+                }}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex-shrink-0 whitespace-nowrap ${pendingAoiGeoJson ? 'bg-red-800/40 hover:bg-red-800/60 text-white' : 'bg-white/20 hover:bg-white/40'}`}
+              >
+                {pendingAoiGeoJson ? 'Borrar AOI' : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Elite background effect */}
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(17,24,39,1)_0%,rgba(13,17,23,1)_100%)]"></div>
@@ -1195,9 +1198,7 @@ const App: React.FC = () => {
             {currentView === ViewType.MAP ? (
               <main className="flex-1 flex h-full w-full relative z-10 pb-16">
                 <div className="w-full h-full relative">
-                  <Map3DDisplayComponent {...mapDisplayProps}>
-                    {aoDrawingBanner}
-                  </Map3DDisplayComponent>
+                  <Map3DDisplayComponent {...mapDisplayProps} />
                 </div>
               </main>
             ) : (
@@ -1237,9 +1238,7 @@ const App: React.FC = () => {
             <div className="h-full flex-1 p-2 overflow-hidden">
               <div className="glass-effect rounded-2xl shadow-2xl h-full border border-white/5 overflow-hidden map-container-glow relative">
                 <SimpleErrorBoundary viewName="MapDisplay">
-                  <Map3DDisplayComponent {...mapDisplayProps}>
-                    {aoDrawingBanner}
-                  </Map3DDisplayComponent>
+                  <Map3DDisplayComponent {...mapDisplayProps} />
                 </SimpleErrorBoundary>
               </div>
             </div>
