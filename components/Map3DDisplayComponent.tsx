@@ -3076,24 +3076,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           </div>
         </div>
       )}
-
-      {/* AOI Drawing Validation Window */}
-      {aoiDrawingModeActive && aoi3DPoints.length >= 3 && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-slate-900/90 backdrop-blur-md border border-green-500/50 rounded-xl p-4 shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4">
-          <div className="text-sm font-bold text-slate-200">
-            {aoi3DPoints.length} Puntos definidos
-          </div>
-          <button
-            onClick={() => eventBus.publish('completeAoiDrawing')}
-            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold shadow-lg flex items-center gap-2 transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Validar Polígono
-          </button>
-        </div>
-      )}
     </div>
   );
 };
