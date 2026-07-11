@@ -96,7 +96,7 @@ export const TelegramConfigComponent: React.FC<TelegramConfigProps> = ({
               const token = input.value.trim();
               if (!token) return alert('Ingrese un token válido.');
               try {
-                const { configService } = await import('../services/configService');
+                // Using statically imported configService
                 await configService.saveTelegramBotToken(token);
                 alert('Token global de Telegram guardado exitosamente.');
                 input.value = '';

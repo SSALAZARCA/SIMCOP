@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { MilitaryUnit, AfterActionReport, User, UserTelegramConfig } from '../types';
 import { UnitStatus } from '../types';
 import { COMMUNICATION_REPORT_INTERVAL_MS, COMMUNICATION_OVERDUE_THRESHOLD_MS } from '../constants';
+import { configService } from '../services/configService';
 import { AARModalComponent } from './AARModalComponent';
 
 interface CommunicationsViewProps {
@@ -277,7 +278,7 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
                       const token = input.value.trim();
                       if (!token) return alert('Ingrese un token válido.');
                       try {
-                        const { configService } = await import('../services/configService');
+                        // Using statically imported configService
                         await configService.saveTelegramBotTokenComms(token);
                         alert('Token del bot guardado correctamente para Comunicaciones.');
                         input.value = '';

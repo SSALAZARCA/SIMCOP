@@ -4,14 +4,14 @@ import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
 import { useState, useEffect } from 'react';
 
+import { apiClient } from './apiClient';
+
 // Get API key from backend API
 let API_KEY: string | undefined = undefined;
 let ai: GoogleGenAI | null = null;
 let aiProvider: string = 'GEMINI';
 let localEndpoint: string = 'http://localhost:1234';
 let localModel: string = 'llama3';
-
-import { apiClient } from './apiClient';
 
 // Runtime cache to persist AI query results across component unmounts
 export const aiCache = {
