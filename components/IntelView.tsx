@@ -55,10 +55,14 @@ export const IntelView: React.FC<IntelViewProps> = ({
         }
     };
 
-    const formatUrl = (url: string | undefined) => {
-        if (!url) return '#';
-        const trimmed = url.trim();
-        if (trimmed === '') return '#';
+    const formatUrl = (url: string | undefined, fallback: string | undefined) => {
+        let finalUrl = url;
+        if (!finalUrl || finalUrl.trim() === '' || finalUrl === '#') {
+            finalUrl = fallback;
+        }
+        if (!finalUrl || finalUrl.trim() === '' || finalUrl === '#') return '#';
+        
+        const trimmed = finalUrl.trim();
         if (!/^https?:\/\//i.test(trimmed)) {
             return `https://${trimmed}`;
         }
@@ -475,7 +479,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
                                                 <span className="text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">{event.sourceName}</span>
                                                 <div className="flex gap-2">
                                                     <a 
-                                                        href={formatUrl(event.sourceUrl)} 
+                                                        href={formatUrl(event.sourceUrl, event.sourceName)} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer" 
                                                         className="text-[10px] text-blue-400 hover:text-blue-300 underline"
@@ -549,7 +553,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
                             
                             <div className="mt-auto pt-4 flex justify-between border-t border-gray-700">
                                 <a 
-                                    href={formatUrl(selectedOsintForPanel.sourceUrl)} 
+                                    href={formatUrl(selectedOsintForPanel.sourceUrl, selectedOsintForPanel.sourceName)} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
                                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
