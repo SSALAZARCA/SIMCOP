@@ -197,7 +197,7 @@ export const initializeApiKey = async (): Promise<void> => {
 /**
  * Proxy function to call Gemini through our backend (supports enqueuing and polling)
  */
-const generateContentViaBackend = async (prompt: string, key?: string): Promise<string> => {
+const generateContentViaBackend = async (prompt: string, key?: string, systemInstruction?: string): Promise<string> => {
   if (key) {
     updateTaskState(key, { status: 'RUNNING', error: null, result: null });
   }
@@ -216,12 +216,18 @@ const generateContentViaBackend = async (prompt: string, key?: string): Promise<
         headers['Authorization'] = `Bearer ${API_KEY}`;
       }
 
+      let messages = [];
+      if (systemInstruction) {
+        messages.push({ role: 'system', content: systemInstruction });
+      }
+      messages.push({ role: 'user', content: prompt });
+
       const response = await fetch(`${localEndpoint.replace(/\/$/, '')}/v1/chat/completions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           model: localModel,
-          messages: [{ role: 'user', content: prompt }],
+          messages,
           temperature: 0.4
         })
       });
@@ -248,12 +254,13 @@ const generateContentViaBackend = async (prompt: string, key?: string): Promise<
   }
 
   // GEMINI fallback: Go through the backend to use the server's credentials
+  const combinedPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
   const response = await apiClient.fetch(`${API_BASE_URL}/api/ai/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt: combinedPrompt })
   });
 
   if (!response.ok) {
@@ -696,7 +703,7 @@ ${escapeTemplateLiteralContent(query)}`;
 
 
   try {
-    const text = await generateContentViaBackend(`${systemInstruction}\n\n${fullPrompt}${useGoogleSearch ? '\n(Usar Google Search para este análisis)' : ''}`, 'generalAnalysis');
+    const text = await generateContentViaBackend(`${fullPrompt}${useGoogleSearch ? '\n(Usar Google Search para este análisis)' : ''}`, 'generalAnalysis', systemInstruction);
     const result = { text };
     updateTaskState('generalAnalysis', { status: 'COMPLETED', result });
     return result;
