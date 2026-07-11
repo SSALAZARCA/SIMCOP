@@ -73,22 +73,7 @@ const App: React.FC = () => {
 
   // Fetch API Key from backend on mount (for voice features)
   // Security Audit: Wait for authentication before fetching
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    const initAi = async () => {
-      try {
-        const apiKey = await configService.getGeminiApiKey();
-        if (apiKey) {
-          // console.log("✅ [App] Gemini API Key loaded for voice features"); // Removed for security
-          setAiClient(new GoogleGenAI({ apiKey }));
-        }
-      } catch (error: any) {
-        // Silently handle errors
-      }
-    };
-    initAi();
-  }, [currentUser]);
+
 
   const [currentView, setCurrentView] = useState<ViewType>(ViewType.DASHBOARD);
 
@@ -139,6 +124,24 @@ const App: React.FC = () => {
       refreshData();
     }
   }, [currentUser, refreshData]);
+
+  // Fetch API Key from backend on mount (for voice features)
+  // Security Audit: Wait for authentication before fetching
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const initAi = async () => {
+      try {
+        const apiKey = await configService.getGeminiApiKey();
+        if (apiKey) {
+          setAiClient(new GoogleGenAI({ apiKey }));
+        }
+      } catch (error: any) {
+        // Silently handle errors
+      }
+    };
+    initAi();
+  }, [currentUser]);
 
   const fetchHotspots = useCallback(() => {
     bmaService.getHotspots()
