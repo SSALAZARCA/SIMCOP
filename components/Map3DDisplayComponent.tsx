@@ -1843,6 +1843,15 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             outlineWidth: 2,
             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
           },
+          properties: {
+            tooltipTitle: `OSINT: ${osint.title}`,
+            tooltipDetails: [
+              `Fuente: ${osint.sourceName}`,
+              `Fiabilidad: ${(osint.confidenceScore * 100).toFixed(0)}%`,
+              osint.verified ? '✓ VERIFICADO' : '⚠️ NO VERIFICADO',
+              osint.summary.substring(0, 100) + (osint.summary.length > 100 ? '...' : '')
+            ]
+          },
           label: {
             text: `${emoji} ${osint.title}`,
             font: '10px bold sans-serif',
