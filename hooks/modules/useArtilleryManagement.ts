@@ -6,6 +6,7 @@ import { artilleryService } from '../../services/artilleryService';
 import { observerService } from '../../services/observerService';
 import { fireMissionService, FireMission, FireMissionStatus } from '../../services/fireMissionService';
 import { generateRandomId } from '../../utils/idUtils';
+import { apiClient } from '../../utils/apiClient';
 
 export const useArtilleryManagement = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,
@@ -48,8 +49,7 @@ export const useArtilleryManagement = (
     // Polling Loop
     useEffect(() => {
         const fetchMissions = async () => {
-            const token = localStorage.getItem('simcop_auth_token');
-            if (!token) return;
+            if (!apiClient.hasToken()) return;
 
             try {
                 const data = await fireMissionService.getAll();
