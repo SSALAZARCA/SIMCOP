@@ -10,6 +10,9 @@ export const apiClient = {
     getToken: () => {
         return memoryToken;
     },
+    hasToken: () => {
+        return memoryToken !== null;
+    },
     clearToken: () => {
         memoryToken = null;
     },
