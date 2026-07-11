@@ -5,7 +5,7 @@ import { ArtilleryStatus, ForwardObserverStatus, AlertType, AlertSeverity } from
 import { artilleryService } from '../../services/artilleryService';
 import { observerService } from '../../services/observerService';
 import { fireMissionService, FireMission, FireMissionStatus } from '../../services/fireMissionService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 export const useArtilleryManagement = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,

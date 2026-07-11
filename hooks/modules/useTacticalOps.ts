@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { UnitStatus, AlertType, AlertSeverity, MapEntityType, UnitSituationINSITOP } from '../../types';
 import type { MilitaryUnit, GeoLocation, Alert, UnitHistoryEvent, RoutePoint, SpotReportPayload, NewUnitData } from '../../types';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 import { decimalToDMS } from '../../utils/coordinateUtils';
 import { MAX_ROUTE_HISTORY_LENGTH, COMMUNICATION_OVERDUE_THRESHOLD_MS } from '../../constants';
 import { unitService } from '../../services/unitService';
+import { userService } from '../../services/userService';
 
 export const useTacticalOps = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,
@@ -35,12 +36,9 @@ export const useTacticalOps = (
                         if (!alertedUnitsRef.current.has(unit.id)) {
                             alertedUnitsRef.current.add(unit.id);
                             
-                            // Fire the Telegram Broadcast async
-                            import('../../services/userService').then(({ userService }) => {
-                                const dmsLocation = unit.location ? `${unit.location.lat}, ${unit.location.lon}` : "No disponible";
-                                const telegramMessage = `⚠️ *REPORTE VENCIDO* ⚠️\n\n*Unidad:* ${unit.name}\n*ID Unidad:* ${unit.id.substring(0,8)}...\n*Estado Anterior:* ${unit.status}\n*Última Ubicación:* \`${dmsLocation}\`\n*Hora:* ${new Date().toLocaleString('es-ES')}\n\nNo se ha recibido reporte de la unidad después del tiempo límite.`;
-                                userService.broadcastTacticalAlert(telegramMessage).catch(e => console.error("Error broadcasting overdue alert", e));
-                            });
+                            const dmsLocation = unit.location ? `${unit.location.lat}, ${unit.location.lon}` : "No disponible";
+                            const telegramMessage = `⚠️ *REPORTE VENCIDO* ⚠️\n\n*Unidad:* ${unit.name}\n*ID Unidad:* ${unit.id.substring(0,8)}...\n*Estado Anterior:* ${unit.status}\n*Última Ubicación:* \`${dmsLocation}\`\n*Hora:* ${new Date().toLocaleString('es-ES')}\n\nNo se ha recibido reporte de la unidad después del tiempo límite.`;
+                            userService.broadcastTacticalAlert(telegramMessage).catch(e => console.error("Error broadcasting overdue alert", e));
 
                             // Local alert and state change
                             setAlertsInternal(prev => [{
@@ -115,7 +113,6 @@ export const useTacticalOps = (
 
         // Broadcast to Telegram
         try {
-            const { userService } = await import('../../services/userService');
             const dmsLocation = unit.location ? `${unit.location.lat}, ${unit.location.lon}` : "No disponible";
             const telegramMessage = `🚨 *ALERTA DE COMBATE* 🚨\n\n*Unidad:* ${unit.name}\n*ID Unidad:* ${unit.id.substring(0,8)}...\n*Estado:* EN COMBATE\n*Ubicación:* \`${dmsLocation}\`\n*Hora:* ${new Date().toLocaleString('es-ES')}\n\nPor favor, tome acción inmediata.`;
             await userService.broadcastTacticalAlert(telegramMessage);
@@ -142,7 +139,7 @@ export const useTacticalOps = (
 
         // Broadcast to Telegram
         try {
-            const { userService } = await import('../../services/userService');
+
             const telegramMessage = `✅ *FIN DE COMBATE* ✅\n\n*Unidad:* ${unit.name}\n*Estado:* PENDIENTE AAR\n*Hora:* ${new Date().toLocaleString('es-ES')}`;
             await userService.broadcastTacticalAlert(telegramMessage);
         } catch (e) {

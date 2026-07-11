@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import type { IntelligenceReport, Alert } from '../../types';
 import { AlertType, AlertSeverity, IntelligenceReliability, IntelligenceCredibility } from '../../types';
 import { intelService } from '../../services/intelService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 export const useIntelligenceManagement = (
     setAlertsInternal: React.Dispatch<React.SetStateAction<Alert[]>>

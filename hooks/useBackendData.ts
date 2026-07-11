@@ -35,7 +35,7 @@ import { useOperationsOrdersManagement } from './modules/useOperationsOrdersMana
 import { useReportManagement } from './modules/useReportManagement';
 import { useTacticalOps } from './modules/useTacticalOps';
 
-export const generateRandomId = () => Math.random().toString(36).substring(2, 15);
+import { generateRandomId } from '../utils/idUtils';
 
 export const useBackendData = (): UseSimulatedDataReturn => {
   const [isInitialized, setIsInitialized] = useState(false);

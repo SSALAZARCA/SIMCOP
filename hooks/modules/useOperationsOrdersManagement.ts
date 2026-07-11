@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import type { OperationsOrder, NewOperationsOrderData, UpdateOperationsOrderData, UnitHistoryEvent, Alert } from '../../types';
 import { OperationsOrderStatus, AlertType, AlertSeverity } from '../../types';
 import { orderService } from '../../services/orderService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 export const useOperationsOrdersManagement = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,

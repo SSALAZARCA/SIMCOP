@@ -4,7 +4,7 @@ import type { MilitaryUnit, NewHierarchyUnitData, UpdateHierarchyUnitData, Alert
 import { UnitStatus, UnitSituationINSITOP, MapEntityType, AlertType, AlertSeverity } from '../../types';
 import { uavService } from '../../services/uavService';
 import { unitService } from '../../services/unitService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 import { USER_ROLE_TO_RANK_ABBREVIATION } from '../../constants';
 
 // Internal helper for personnel breakdown matching the type

@@ -5,7 +5,7 @@ import { UnitStatus, MapEntityType, AlertType, AlertSeverity } from '../../types
 import { aarService } from '../../services/aarService';
 import { q5Service } from '../../services/q5Service';
 import { unitService } from '../../services/unitService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 import { generateQ5ReportContentFromAAR } from '../../utils/geminiService';
 
 export const useReportManagement = (

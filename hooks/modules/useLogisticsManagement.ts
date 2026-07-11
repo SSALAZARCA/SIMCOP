@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import type { LogisticsRequest, MilitaryUnit, UnitHistoryEvent, Alert } from '../../types';
 import { LogisticsRequestStatus, AlertType, AlertSeverity } from '../../types';
 import { logisticsService } from '../../services/logisticsService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 export const useLogisticsManagement = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,

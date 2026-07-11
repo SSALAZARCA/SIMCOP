@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import type { User, NewUserData, UpdateUserData, Alert, UnitHistoryEvent } from '../../types';
 import { UserRole, AlertType, AlertSeverity } from '../../types';
 import { userService } from '../../services/userService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 export const useUserManagement = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,

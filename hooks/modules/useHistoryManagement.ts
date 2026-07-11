@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import type { UnitHistoryEvent } from '../../types';
 import { historyService } from '../../services/historyService';
-import { generateRandomId } from '../useBackendData';
+import { generateRandomId } from '../../utils/idUtils';
 
 const MAX_UNIT_HISTORY_EVENTS = 200;
 
