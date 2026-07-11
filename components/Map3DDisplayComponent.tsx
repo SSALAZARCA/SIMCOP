@@ -68,8 +68,9 @@ interface Map3DDisplayProps {
   osintEvents?: any[];
   osintLayerActive?: boolean;
   piccDrawingConfig?: PICCDrawingConfig;
-  activeTemplateContext?: string;
-  onPiccDrawingComplete?: () => void;
+  activeTemplateContext?: string | null;
+  onPiccDrawingComplete?: (feature: any) => void;
+  children?: React.ReactNode;
 }
 
 const decimalToDMSValue = (val: number, isLat: boolean): string => {
@@ -146,7 +147,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   osintLayerActive = false,
   piccDrawingConfig,
   activeTemplateContext,
-  onPiccDrawingComplete
+  onPiccDrawingComplete,
+  children
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Cesium.Viewer | null>(null);
@@ -2820,6 +2822,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           </div>
         </div>
       )}
+      
+      {/* App.tsx Injected Children (like Global Banners) */}
+      {children}
+      
       {/* 3D Visualizer Canvas Container */}
       <div ref={containerRef} className="flex-1 w-full h-full rounded-lg overflow-hidden border border-slate-800" />
 

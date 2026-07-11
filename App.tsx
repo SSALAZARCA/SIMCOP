@@ -1195,8 +1195,9 @@ const App: React.FC = () => {
             {currentView === ViewType.MAP ? (
               <main className="flex-1 flex h-full w-full relative z-10 pb-16">
                 <div className="w-full h-full relative">
-                  <Map3DDisplayComponent {...mapDisplayProps} />
-                  {aoDrawingBanner}
+                  <Map3DDisplayComponent {...mapDisplayProps}>
+                    {aoDrawingBanner}
+                  </Map3DDisplayComponent>
                 </div>
               </main>
             ) : (
@@ -1236,9 +1237,10 @@ const App: React.FC = () => {
             <div className="h-full flex-1 p-2 overflow-hidden">
               <div className="glass-effect rounded-2xl shadow-2xl h-full border border-white/5 overflow-hidden map-container-glow relative">
                 <SimpleErrorBoundary viewName="MapDisplay">
-                  <Map3DDisplayComponent {...mapDisplayProps} />
+                  <Map3DDisplayComponent {...mapDisplayProps}>
+                    {aoDrawingBanner}
+                  </Map3DDisplayComponent>
                 </SimpleErrorBoundary>
-                {aoDrawingBanner}
               </div>
             </div>
           </main>
