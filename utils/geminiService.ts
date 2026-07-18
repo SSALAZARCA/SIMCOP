@@ -909,6 +909,12 @@ No incluyas explicaciones adicionales, solo el JSON.`;
     }
 
     const coaPlan = JSON.parse(jsonStr) as COAPlan;
+    
+    // Validar estructura mínima
+    if (!coaPlan.planName || !Array.isArray(coaPlan.phases)) {
+      throw new Error("El plan generado no tiene la estructura mínima requerida (planName y phases).");
+    }
+
     updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
     return coaPlan;
   } catch (error: unknown) {

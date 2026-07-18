@@ -1041,7 +1041,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner space-y-3 text-sm">
             <h4 className="font-bold text-lime-200">{coaPlan.planName}</h4>
             <p className="whitespace-pre-wrap">{coaPlan.conceptOfOperations}</p>
-            {coaPlan.phases.map((phase, index) => (
+            {coaPlan.phases?.map((phase, index) => (
               <div key={index} className="pt-2 border-t border-gray-600">
                 <p className="font-semibold text-gray-300">{phase.phaseName}</p>
                 <p className="text-xs text-gray-400 whitespace-pre-wrap">{phase.description}</p>
