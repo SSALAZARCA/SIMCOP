@@ -820,7 +820,7 @@ No incluyas explicaciones adicionales, solo el JSON.`;
 
       // Eliminar etiquetas de razonamiento interno que emiten modelos tipo DeepSeek/gemma4
       // e.g. <thought>...</thought>, <think>...</think>, <reasoning>...</reasoning>
-      jsonStr = jsonStr.replace(/<(thought|think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, '').trim();
+      jsonStr = jsonStr.replace(/<(thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
 
       // Extraer bloque JSON de markdown si viene con fences
       const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
