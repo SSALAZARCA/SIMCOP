@@ -228,7 +228,8 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
         body: JSON.stringify({
           model: localModel,
           messages,
-          temperature: 0.4
+          temperature: 0.4,
+          max_tokens: 8192
         })
       });
 
@@ -818,9 +819,8 @@ No incluyas explicaciones adicionales, solo el JSON.`;
       const responseText = await generateContentViaBackend(localPrompt, 'coaGeneration');
       let jsonStr = responseText.trim();
 
-      // Eliminar etiquetas de razonamiento interno que emiten modelos tipo DeepSeek/gemma4
-      // e.g. <thought>...</thought>, <think>...</think>, <reasoning>...</reasoning>
-      jsonStr = jsonStr.replace(/<(thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
+      // Eliminar etiquetas de razonamiento interno (incluso si no se cerraron por límite de tokens)
+      jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?(?:<\/(?:thought|think|thinking|reasoning)>|$)/gi, '').trim();
 
       // Extraer bloque JSON de markdown si viene con fences
       const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
@@ -874,6 +874,11 @@ No incluyas explicaciones adicionales, solo el JSON.`;
       };
 
       jsonStr = extractAndRepairJson(jsonStr);
+      
+      if (!jsonStr) {
+        throw new Error("La IA se quedó 'pensando' o el límite de tokens se agotó antes de poder generar el plan en formato JSON. Inténtelo de nuevo.");
+      }
+      
       const coaPlan = JSON.parse(jsonStr) as COAPlan;
 
       // Validar estructura mínima
@@ -1100,8 +1105,8 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
   try {
     const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}\nResponder en formato JSON siguiendo este esquema: ${JSON.stringify(responseSchema)}`, 'predictiveLogistics');
     let cleanedJson = jsonStr.trim();
-    // Eliminar etiquetas de razonamiento interno
-    cleanedJson = cleanedJson.replace(/<(thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
+    // Eliminar etiquetas de razonamiento interno (incluso si no se cerraron)
+    cleanedJson = cleanedJson.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?(?:<\/(?:thought|think|thinking|reasoning)>|$)/gi, '').trim();
 
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/is;
     const match = cleanedJson.match(fenceRegex);
@@ -1114,6 +1119,10 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
     const endIdx = cleanedJson.lastIndexOf(']');
     if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
         cleanedJson = cleanedJson.substring(startIdx, endIdx + 1);
+    }
+
+    if (!cleanedJson) {
+      throw new Error("La IA no generó predicciones válidas, probablemente por límite de tokens agotado.");
     }
 
     const predictions = JSON.parse(cleanedJson) as PredictedLogisticsNeed[];
