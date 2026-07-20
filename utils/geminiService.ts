@@ -832,7 +832,7 @@ No incluyas explicaciones adicionales, solo el JSON.`;
       // Extraer y reparar JSON truncado usando un stack para mantener balance
       const extractAndRepairJson = (text: string): string => {
         const start = text.indexOf('{');
-        if (start === -1) return text;
+        if (start === -1) return "";
         
         const stack: ('{' | '[')[] = [];
         let inString = false;
@@ -1119,9 +1119,14 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
     const endIdx = cleanedJson.lastIndexOf(']');
     if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
         cleanedJson = cleanedJson.substring(startIdx, endIdx + 1);
+    } else {
+        // Si no encontró corchetes y no parece ser un arreglo JSON válido, forzamos cadena vacía
+        if (cleanedJson.indexOf('[') === -1) {
+            cleanedJson = "";
+        }
     }
 
-    if (!cleanedJson) {
+    if (!cleanedJson || cleanedJson.trim() === "") {
       throw new Error("La IA no generó predicciones válidas, probablemente por límite de tokens agotado.");
     }
 
