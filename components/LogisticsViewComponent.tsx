@@ -54,7 +54,7 @@ const PredictiveLogisticsComponent: React.FC<PredictiveLogisticsProps> = ({ unit
     }
   };
 
-  const predictions = taskState.result || [];
+  const predictions = Array.isArray(taskState.result) ? taskState.result : [];
   const isLoading = taskState.status === 'QUEUED' || taskState.status === 'RUNNING';
 
   return (

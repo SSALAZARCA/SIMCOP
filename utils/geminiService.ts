@@ -829,46 +829,52 @@ No incluyas explicaciones adicionales, solo el JSON.`;
         jsonStr = fenceMatch[1].trim();
       }
 
-      // Extraer solo el bloque JSON completo usando balance de llaves
-      // (ignora texto antes del { y texto después del } de cierre)
-      const extractJsonBlock = (text: string): string => {
+      // Extraer y reparar JSON truncado usando un stack para mantener balance
+      const extractAndRepairJson = (text: string): string => {
         const start = text.indexOf('{');
         if (start === -1) return text;
-        let depth = 0;
+        
+        const stack: ('{' | '[')[] = [];
         let inString = false;
         let escape = false;
+        
         for (let i = start; i < text.length; i++) {
           const ch = text[i];
           if (escape) { escape = false; continue; }
           if (ch === '\\' && inString) { escape = true; continue; }
           if (ch === '"') { inString = !inString; continue; }
           if (inString) continue;
-          if (ch === '{') depth++;
-          else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+          
+          if (ch === '{') stack.push('{');
+          else if (ch === '[') stack.push('[');
+          else if (ch === '}') {
+            if (stack[stack.length - 1] === '{') stack.pop();
+            if (stack.length === 0) return text.slice(start, i + 1);
+          }
+          else if (ch === ']') {
+            if (stack[stack.length - 1] === '[') stack.pop();
+          }
         }
-        return text.slice(start); // retorna desde { hasta el final si no cerró (reparación posterior)
-      };
-      jsonStr = extractJsonBlock(jsonStr);
-
-      // Parser tolerante: intenta reparar JSON truncado cerrando estructuras abiertas
-      const tryParseOrRepair = (raw: string): COAPlan => {
-        try {
-          return JSON.parse(raw) as COAPlan;
-        } catch {
-          // Reparación: contar llaves/corchetes abiertos y cerrarlos
-          let repaired = raw;
-          const openBraces = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;
-          const openBrackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
-          // Remover trailing coma si hay
-          repaired = repaired.replace(/,\s*$/, '');
-          // Cerrar estructuras abiertas
-          for (let i = 0; i < openBrackets; i++) repaired += ']';
-          for (let i = 0; i < openBraces; i++) repaired += '}';
-          return JSON.parse(repaired) as COAPlan;
+        
+        // JSON Truncado: Reparación
+        let repaired = text.slice(start);
+        if (inString) repaired += '"';
+        
+        // Limpiar última coma o dos puntos si la cadena quedó cortada a medias
+        repaired = repaired.replace(/[,:]\s*$/, '');
+        if (repaired.endsWith('"null')) repaired = repaired.replace(/"null$/, 'null'); // edge case
+        
+        // Cerrar estructuras en orden inverso
+        while (stack.length > 0) {
+            const char = stack.pop();
+            repaired += char === '{' ? '}' : ']';
         }
+        
+        return repaired;
       };
 
-      const coaPlan = tryParseOrRepair(jsonStr);
+      jsonStr = extractAndRepairJson(jsonStr);
+      const coaPlan = JSON.parse(jsonStr) as COAPlan;
 
       // Validar estructura mínima
       if (!coaPlan.planName || !Array.isArray(coaPlan.phases)) {
@@ -1094,13 +1100,28 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
   try {
     const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}\nResponder en formato JSON siguiendo este esquema: ${JSON.stringify(responseSchema)}`, 'predictiveLogistics');
     let cleanedJson = jsonStr.trim();
-    const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+    // Eliminar etiquetas de razonamiento interno
+    cleanedJson = cleanedJson.replace(/<(thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
+
+    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/is;
     const match = cleanedJson.match(fenceRegex);
-    if (match && match[2]) {
-      cleanedJson = match[2].trim();
+    if (match && match[1]) {
+      cleanedJson = match[1].trim();
+    }
+
+    // Try extracting JSON block if still malformed
+    const startIdx = cleanedJson.indexOf('[');
+    const endIdx = cleanedJson.lastIndexOf(']');
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+        cleanedJson = cleanedJson.substring(startIdx, endIdx + 1);
     }
 
     const predictions = JSON.parse(cleanedJson) as PredictedLogisticsNeed[];
+    
+    if (!Array.isArray(predictions)) {
+      throw new Error("El modelo no devolvió un arreglo de predicciones logísticas.");
+    }
+
     // Save to cache
     aiCache.predictiveLogistics = { data: predictions, timestamp: Date.now() };
     try { localStorage.setItem('aiCache_predictiveLogistics', JSON.stringify({ data: predictions, timestamp: Date.now() })); } catch (e) {}
