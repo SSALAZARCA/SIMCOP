@@ -819,8 +819,8 @@ No incluyas explicaciones adicionales, solo el JSON.`;
       const responseText = await generateContentViaBackend(localPrompt, 'coaGeneration');
       let jsonStr = responseText.trim();
 
-      // Eliminar etiquetas de razonamiento interno (incluso si no se cerraron por límite de tokens)
-      jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?(?:<\/(?:thought|think|thinking|reasoning)>|$)/gi, '').trim();
+      // Eliminar etiquetas de razonamiento interno (solo si están cerradas para no borrar JSON por error)
+      jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/(?:thought|think|thinking|reasoning)>/gi, '').trim();
 
       // Extraer bloque JSON de markdown si viene con fences
       const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
@@ -1107,8 +1107,8 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
   try {
     const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}\nResponder en formato JSON siguiendo este esquema: ${JSON.stringify(responseSchema)}`, 'predictiveLogistics');
     let cleanedJson = jsonStr.trim();
-    // Eliminar etiquetas de razonamiento interno (incluso si no se cerraron)
-    cleanedJson = cleanedJson.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?(?:<\/(?:thought|think|thinking|reasoning)>|$)/gi, '').trim();
+    // Eliminar etiquetas de razonamiento interno
+    cleanedJson = cleanedJson.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/(?:thought|think|thinking|reasoning)>/gi, '').trim();
 
     const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/is;
     const match = cleanedJson.match(fenceRegex);
