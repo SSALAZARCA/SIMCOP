@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.ai.txt .
-RUN pip install --no-cache-dir -r requirements.ai.txt
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.ai.txt
 COPY api_server.py simcop_nlp_weights_quantized_int8.pth ./
 EXPOSE 8000
 CMD ["python", "api_server.py"]
