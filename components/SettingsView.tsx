@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Key, Save, CheckCircle, AlertCircle, Loader, Cpu, Server } from 'lucide-react';
 import { configService } from '../services/configService';
 import { initializeApiKey } from '../utils/geminiService';
+import NativeAITelemetry from './NativeAITelemetry';
 
 const SettingsView: React.FC = () => {
-    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink'>('GEMINI');
+    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink' | 'NATIVE_SIMCOP'>('GEMINI');
     const [localEndpoint, setLocalEndpoint] = useState('http://localhost:11434');
     const [localModel, setLocalModel] = useState('llama3');
     const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -267,6 +268,26 @@ const SettingsView: React.FC = () => {
                             <Cpu size={18} />
                             LMLink
                         </button>
+                        <button
+                            onClick={() => setAiProvider('NATIVE_SIMCOP')}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                transition: 'all 0.2s',
+                                backgroundColor: aiProvider === 'NATIVE_SIMCOP' ? '#10b981' : 'transparent',
+                                color: aiProvider === 'NATIVE_SIMCOP' ? 'white' : '#94a3b8',
+                            }}
+                        >
+                            <Server size={18} />
+                            IA Nativa SIMCOP
+                        </button>
                     </div>
                 </div>
 
@@ -376,12 +397,12 @@ const SettingsView: React.FC = () => {
                         }}>
                             <Server size={22} color="#10b981" />
                             <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc' }}>
-                                {aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : 'Servidor Local de IA (Ollama)'}
+                                {aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : aiProvider === 'NATIVE_SIMCOP' ? 'Motor Nativo SIMCOP AI (PyTorch)' : 'Servidor Local de IA (Ollama)'}
                             </h3>
                         </div>
 
                         <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>
-                            {aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
+                            {aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : aiProvider === 'NATIVE_SIMCOP' ? 'Conéctate directamente al motor de inteligencia artificial especializado FastAPI + PyTorch de SIMCOP. Para el VPS, asegúrate de ingresar la IP o URL del backend (ej: http://TU_IP_DEL_VPS/api/v1).' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -393,13 +414,13 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    Dirección del Servidor (Túnel LMLink Local)
+                                    Dirección del Servidor {aiProvider === 'NATIVE_SIMCOP' ? '(Backend API)' : '(Túnel Local)'}
                                 </label>
                                 <input
                                     type="text"
                                     value={localEndpoint}
                                     onChange={(e) => setLocalEndpoint(e.target.value)}
-                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : 'http://localhost:11434'}
+                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : aiProvider === 'NATIVE_SIMCOP' ? 'http://localhost:8000' : 'http://localhost:11434'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -420,13 +441,13 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    {aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : 'Modelo Ollama a Utilizar'}
+                                    {aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : aiProvider === 'NATIVE_SIMCOP' ? 'Modelo Quantizado PTH' : 'Modelo Ollama a Utilizar'}
                                 </label>
                                 <input
                                     type="text"
                                     value={localModel}
                                     onChange={(e) => setLocalModel(e.target.value)}
-                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : 'llama3'}
+                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : aiProvider === 'NATIVE_SIMCOP' ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -504,6 +525,10 @@ const SettingsView: React.FC = () => {
                             </p>
                         </div>
                     </div>
+                )}
+
+                {aiProvider === 'NATIVE_SIMCOP' && (
+                    <NativeAITelemetry endpoint={localEndpoint} />
                 )}
 
                 {/* Status messages */}

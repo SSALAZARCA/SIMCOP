@@ -195,6 +195,26 @@ export const initializeApiKey = async (): Promise<void> => {
 };
 
 /**
+ * Helper to call Native PyTorch SIMCOP AI
+ */
+const callNativeAI = async (endpointPath: string, body: any): Promise<any> => {
+  const baseUrl = localEndpoint.endsWith('/') ? localEndpoint.slice(0, -1) : localEndpoint;
+  const url = `${baseUrl}/api/v1${endpointPath}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Error en IA Nativa SIMCOP: ${response.statusText} - ${errText}`);
+  }
+  return await response.json();
+};
+
+/**
  * Proxy function to call Gemini through our backend (supports enqueuing and polling)
  */
 const generateContentViaBackend = async (prompt: string, key?: string, systemInstruction?: string): Promise<string> => {
@@ -476,7 +496,21 @@ export const getCommandFromGemini = async (command: string, unitNames: string[])
     throw new Error("Gemini AI client no inicializado. Verifique la configuración de API_KEY.");
   }
 
-  if (aiProvider === 'LOCAL_OLLAMA' || !ai) {
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      const data = await callNativeAI('/system/translate_command', {
+        command: command,
+        unitNames: unitNames
+      });
+      if (data && data.name) return { name: data.name, args: data.args };
+      return null;
+    } catch (e) {
+      console.error("Error processing native AI command:", e);
+      return null;
+    }
+  }
+
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || !ai) {
     try {
       const systemInstruction = `Eres un asistente de comando y control. Tu única función es interpretar los comandos del usuario y traducirlos a un objeto JSON. Si el usuario pide enfocar en una unidad, responde con: {"name": "focusOnUnit", "args": {"unitName": "nombre_unidad"}}. Si no coincide con ninguna unidad, responde null. Unidades disponibles: ${unitNames.join(', ')}. Responde ÚNICAMENTE con el JSON, sin bloques de código ni texto adicional.`;
       const responseText = await generateContentViaBackend(`${systemInstruction}\n\nComando: ${command}`);
@@ -552,6 +586,28 @@ export const getProactiveAnalysis = async (
   const unitContext = formatUnitsForPrompt(units);
   const intelContext = formatIntelForPrompt(intelligenceReports);
   const alertContext = formatAlertsForPrompt(alerts);
+
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('proactiveAnalysis', { status: 'RUNNING', error: null });
+      const data = await callNativeAI('/intelligence/proactive', {
+        unidades_amigas: unitContext,
+        inteligencia_reciente: intelContext,
+        alertas: alertContext
+      });
+      // La API devuelve un array JSON o un texto con las alertas. 
+      // Si devuelve un objeto con un campo 'analysis' o similar (según la guía):
+      const analysisText = typeof data === 'string' ? data : (data.analysis || JSON.stringify(data));
+      const result = { text: analysisText };
+      aiCache.proactiveAnalysis = { text: analysisText, timestamp: Date.now() };
+      updateTaskState('proactiveAnalysis', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en getProactiveAnalysis Nativa:", error);
+      updateTaskState('proactiveAnalysis', { status: 'FAILED', error: error.message });
+      throw error;
+    }
+  }
 
   const systemInstruction = `Eres SIMCOP AI, un analista militar táctico proactivo. Tu misión es analizar la situación operacional actual (unidades, inteligencia, alertas) e identificar los 3 a 5 puntos más críticos, riesgos inminentes u oportunidades tácticas. Presenta tus hallazgos como una lista de puntos concisos y accionables en formato markdown (usando '-'). No uses encabezados ni introducciones, solo la lista.`;
 
@@ -701,6 +757,27 @@ ${intelContext}
 CONSULTA:
 ${escapeTemplateLiteralContent(query)}`;
 
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('generalAnalysis', { status: 'RUNNING', error: null });
+      const data = await callNativeAI('/intelligence/terrain_weather', {
+        query: query,
+        unidades_amigas: unitContext,
+        inteligencia: intelContext,
+        geoContext: geoPrompt,
+        enemyLayerActive: enemyLayerActive
+      });
+      const analysisText = typeof data === 'string' ? data : (data.analysis || JSON.stringify(data));
+      const result = { text: analysisText };
+      updateTaskState('generalAnalysis', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en getGeminiAnalysis Nativa:", error);
+      updateTaskState('generalAnalysis', { status: 'FAILED', error: error.message });
+      throw error;
+    }
+  }
+
 
   try {
     const text = await generateContentViaBackend(`${fullPrompt}${useGoogleSearch ? '\n(Usar Google Search para este análisis)' : ''}`, 'generalAnalysis', systemInstruction);
@@ -774,7 +851,7 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
                   type: { type: Type.STRING, description: 'PHASE_LINE, AXIS_OF_ADVANCE, OBJECTIVE, ASSEMBLY_AREA' },
                   label: { type: Type.STRING },
                   locations: {
-                    type: Type.ARRAY,
+                    type: Array,
                     items: {
                       type: Type.OBJECT,
                       properties: {
@@ -792,7 +869,25 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
     }
   };
 
-  if (aiProvider === 'LOCAL_OLLAMA' || !ai) {
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('coaGeneration', { status: 'RUNNING', error: null, result: null });
+      const data = await callNativeAI('/wargaming/generate_coa', {
+        objetivo: objective,
+        unidades_amigas: unitContext,
+        inteligencia_enemiga: intelContext
+      });
+      const coaPlan = data as COAPlan;
+      updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
+      return coaPlan;
+    } catch (error: any) {
+      console.error("Error en generateCOAPlan Nativa:", error);
+      updateTaskState('coaGeneration', { status: 'FAILED', error: error.message });
+      throw error;
+    }
+  }
+
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || !ai) {
     try {
       // Prompt simplificado: no se envía el schema serializado (reduce tokens y evita confusión del modelo)
       const localPrompt = `${systemInstruction}\n\n${prompt}\n\nIMPORTANTE: DEBES RESPONDER ÚNICAMENTE CON UN OBJETO JSON VÁLIDO. NO ESCRIBAS TEXTO CONVERSACIONAL NI SALUDOS. Si no usas formato JSON, el sistema fallará.\n\nEstructura exacta requerida:\n{
@@ -948,16 +1043,22 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
 export const generateQ5ReportContentFromAAR = async (aar: AfterActionReport): Promise<Q5ContentPayload> => {
   const isInitialized = await ensureInitialized();
   if (aiProvider === 'GEMINI' && (!isInitialized || !ai)) {
-    const errorMsg = "Error: Cliente de IA no inicializado. No se puede generar Q5.";
-    updateTaskState('q5Generation', { status: 'FAILED', error: errorMsg });
-    return Promise.resolve({
-      que: errorMsg,
-      quien: "Error",
-      cuando: "Error",
-      donde: "Error",
-      hechos: "Error: Cliente AI no disponible. Verifique la configuración de API_KEY.",
-      accionesSubsiguientes: "Error"
-    });
+    throw new Error("Gemini AI client no inicializado. Configure la API key en Configuración.");
+  }
+
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('q5Generation', { status: 'RUNNING', error: null, result: null });
+      const data = await callNativeAI('/intelligence/generate_q5', {
+        aar: JSON.stringify(aar)
+      });
+      updateTaskState('q5Generation', { status: 'COMPLETED', result: data });
+      return data as Q5ContentPayload;
+    } catch (error: any) {
+      console.error("Error en generateQ5ReportContentFromAAR Nativa:", error);
+      updateTaskState('q5Generation', { status: 'FAILED', error: error.message });
+      throw error;
+    }
   }
 
   const systemInstruction = `Eres un oficial de estado mayor experto en la redacción de reportes militares concisos y precisos. Tu tarea es analizar el Reporte Post-Combate (AAR) proporcionado y generar el contenido para un reporte Q5. El reporte Q5 debe ser breve, directo y basado estrictamente en la información del AAR. Responde únicamente con un objeto JSON que contenga los campos 'que', 'quien', 'cuando', 'donde', 'hechos', y 'accionesSubsiguientes'.`;
@@ -1067,15 +1168,34 @@ const formatUnitsForLogisticsPrompt = (units: MilitaryUnit[]): string => {
 };
 
 export const getPredictiveLogisticsAnalysis = async (units: MilitaryUnit[], bypassCache = false): Promise<PredictedLogisticsNeed[]> => {
-  // Check cache first (valid for 4 minutes to prevent double calls)
-  if (!bypassCache && aiCache.predictiveLogistics && (Date.now() - aiCache.predictiveLogistics.timestamp < 240000)) {
-    console.log("📡 [aiCache] Returning cached predictive logistics analysis");
-    return aiCache.predictiveLogistics.data;
-  }
-
   const isInitialized = await ensureInitialized();
   if (aiProvider === 'GEMINI' && (!isInitialized || !ai)) {
-    throw new Error("Gemini AI client no inicializado. Verifique la configuración.");
+    throw new Error("Gemini AI client no inicializado.");
+  }
+
+  // Check cache first
+  if (!bypassCache && aiCache.predictiveLogistics) {
+    const age = Date.now() - aiCache.predictiveLogistics.timestamp;
+    if (age < 5 * 60 * 1000) {
+      console.log("[AI Cache] Hit para Predictive Logistics");
+      return aiCache.predictiveLogistics.data;
+    }
+  }
+
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('predictiveLogistics', { status: 'RUNNING', error: null });
+      const data = await callNativeAI('/logistics/predictive', {
+        inventario: formatUnitsForPrompt(units)
+      });
+      aiCache.predictiveLogistics = { data, timestamp: Date.now() };
+      updateTaskState('predictiveLogistics', { status: 'COMPLETED', result: data });
+      return data as PredictedLogisticsNeed[];
+    } catch (error: any) {
+      console.error("Error en getPredictiveLogisticsAnalysis Nativa:", error);
+      updateTaskState('predictiveLogistics', { status: 'FAILED', error: error.message });
+      throw error;
+    }
   }
 
   const unitContext = formatUnitsForLogisticsPrompt(units);
@@ -1170,6 +1290,24 @@ export const simulateCOAOutcome = async (
     throw new Error("Gemini AI client no inicializado. Verifique la configuración.");
   }
 
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('coaSimulation', { status: 'RUNNING', error: null, result: null });
+      const data = await callNativeAI('/wargaming/simulate_outcome', {
+        coa: JSON.stringify(coaPlan),
+        fuerzas_amigas_enemigas: `Amigas:\n${formatUnitsForPrompt(units)}\n\nInteligencia Enemiga:\n${formatIntelForPrompt(intelReports)}`
+      });
+      const resultText = typeof data === 'string' ? data : (data.outcome || JSON.stringify(data));
+      const result = { text: resultText };
+      updateTaskState('coaSimulation', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en simulateCOAOutcome Nativa:", error);
+      updateTaskState('coaSimulation', { status: 'FAILED', error: error.message });
+      throw error;
+    }
+  }
+
   const unitContext = formatUnitsForPrompt(units);
   const intelContext = formatIntelForPrompt(intelReports);
 
@@ -1217,6 +1355,25 @@ export const simulateBMAInterception = async (
   const isInitialized = await ensureInitialized();
   if (aiProvider === 'GEMINI' && (!isInitialized || !ai)) {
     throw new Error("Gemini AI client no inicializado. Verifique la configuración.");
+  }
+
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('bmaInterception', { status: 'RUNNING', error: null, result: null });
+      const data = await callNativeAI('/wargaming/simulate_bma', {
+        defensora: JSON.stringify(unit),
+        amenaza: JSON.stringify(threat),
+        clima: weather ? JSON.stringify(weather) : "Sin reporte"
+      });
+      const resultText = typeof data === 'string' ? data : (data.simulation || JSON.stringify(data));
+      const result = { text: resultText };
+      updateTaskState('bmaInterception', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en simulateBMAInterception Nativa:", error);
+      updateTaskState('bmaInterception', { status: 'FAILED', error: error.message });
+      throw error;
+    }
   }
 
   const systemInstruction = `Eres un oficial de control de daños y simulación táctica. Tu tarea es simular el resultado de una intercepción entre una unidad amiga y una amenaza de inteligencia. Considera el tipo de unidad vs tipo de amenaza, el clima actual y la doctrina militar. Proporciona: 
