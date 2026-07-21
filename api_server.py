@@ -1,7 +1,6 @@
 import uvicorn
 import random
 import time
-import requests
 import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,7 +37,7 @@ system_metrics = {
 import torch
 import os
 
-MODEL_PATH = "C:\\DESARROLLOS\\IA\\simcop_ai_engine\\training\\simcop_nlp_weights_quantized_int8.pth"
+MODEL_PATH = "simcop_nlp_weights_quantized_int8.pth"
 print(f"Cargando Red Neuronal Táctica NATIVA desde: {MODEL_PATH}...")
 
 class SimcopNativeEngine:
