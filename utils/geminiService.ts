@@ -228,8 +228,7 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
         body: JSON.stringify({
           model: localModel,
           messages,
-          temperature: 0.4,
-          response_format: { type: 'json_object' }
+          temperature: 0.4
         })
       });
 
