@@ -229,7 +229,11 @@ const SettingsView: React.FC = () => {
                             Google Gemini Cloud
                         </button>
                         <button
-                            onClick={() => setAiProvider('LOCAL_OLLAMA')}
+                            onClick={() => {
+                                setAiProvider('LOCAL_OLLAMA');
+                                setLocalEndpoint('http://localhost:11434');
+                                setLocalModel('llama3');
+                            }}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -249,7 +253,11 @@ const SettingsView: React.FC = () => {
                             IA Local (Ollama)
                         </button>
                         <button
-                            onClick={() => setAiProvider('LOCAL_LMLink')}
+                            onClick={() => {
+                                setAiProvider('LOCAL_LMLink');
+                                setLocalEndpoint('http://localhost:1234');
+                                setLocalModel('gemma4-damasco');
+                            }}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -269,7 +277,11 @@ const SettingsView: React.FC = () => {
                             LMLink
                         </button>
                         <button
-                            onClick={() => setAiProvider('NATIVE_SIMCOP')}
+                            onClick={() => {
+                                setAiProvider('NATIVE_SIMCOP');
+                                setLocalEndpoint('http://localhost:8000');
+                                setLocalModel('simcop_nlp_weights_quantized_int8.pth');
+                            }}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
