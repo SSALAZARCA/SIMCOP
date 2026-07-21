@@ -279,7 +279,7 @@ const SettingsView: React.FC = () => {
                         <button
                             onClick={() => {
                                 setAiProvider('NATIVE_SIMCOP');
-                                setLocalEndpoint('http://localhost:8000');
+                                setLocalEndpoint('/ai_api');
                                 setLocalModel('simcop_nlp_weights_quantized_int8.pth');
                             }}
                             style={{
@@ -432,7 +432,7 @@ const SettingsView: React.FC = () => {
                                     type="text"
                                     value={localEndpoint}
                                     onChange={(e) => setLocalEndpoint(e.target.value)}
-                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : aiProvider === 'NATIVE_SIMCOP' ? 'http://localhost:8000' : 'http://localhost:11434'}
+                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : aiProvider === 'NATIVE_SIMCOP' ? '/ai_api' : 'http://localhost:11434'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
