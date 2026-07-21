@@ -795,25 +795,29 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
   if (aiProvider === 'LOCAL_OLLAMA' || !ai) {
     try {
       // Prompt simplificado: no se envía el schema serializado (reduce tokens y evita confusión del modelo)
-      const localPrompt = `${systemInstruction}\n\n${prompt}\n\nResponde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
-{
-  "planName": "nombre del plan",
-  "conceptOfOperations": "concepto general",
+      const localPrompt = `${systemInstruction}\n\n${prompt}\n\nIMPORTANTE: DEBES RESPONDER ÚNICAMENTE CON UN OBJETO JSON VÁLIDO. NO ESCRIBAS TEXTO CONVERSACIONAL NI SALUDOS. Si no usas formato JSON, el sistema fallará.\n\nEstructura exacta requerida:\n{
+  "planName": "Nombre de la Operación",
+  "conceptOfOperations": "Concepto táctico general...",
   "phases": [
     {
-      "phaseName": "nombre fase",
-      "description": "descripción",
+      "phaseName": "Fase 1: Ejemplo",
+      "description": "Descripción detallada de la maniobra...",
       "graphics": [
         {
           "type": "PHASE_LINE",
-          "label": "etiqueta",
-          "locations": [{"lat": 0.0, "lon": 0.0}]
+          "label": "PL ALPHA",
+          "locations": [{"lat": 0.0, "lon": 0.0}, {"lat": 0.1, "lon": 0.1}]
+        },
+        {
+          "type": "OBJECTIVE",
+          "label": "OBJ TIGER",
+          "locations": [{"lat": 0.05, "lon": 0.05}]
         }
       ]
     }
   ]
 }
-No incluyas explicaciones adicionales, solo el JSON.`;
+(Asegúrate de incluir múltiples medidas tácticas de control en la sección 'graphics' de cada fase para que puedan ser graficadas en el mapa).`;
 
       const responseText = await generateContentViaBackend(localPrompt, 'coaGeneration');
       let jsonStr = responseText.trim();
