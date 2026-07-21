@@ -235,6 +235,55 @@ class SimcopNativeEngine:
                 "hechos": "Intercambio de fuego y supresión exitosa. El oponente retrocedió.",
                 "accionesSubsiguientes": "Consolidar posición, recuento de munición y patrullaje perimetral."
             })
+        elif "riesgos inminentes" in prompt:
+            import re
+            unidades_mencionadas = re.findall(r'- (.*?)\s*\(', prompt)
+            municipios = re.findall(r'Palabras Clave: \[(.*?)]', prompt)
+            
+            u_estrategica = unidades_mencionadas[0].strip() if unidades_mencionadas else "la vanguardia"
+            zona = municipios[0].strip() if municipios else "el sector operacional"
+            
+            return f"- **Riesgo Inminente:** OSINT y análisis geoespacial sugieren preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo ejecuta un asalto coordinado.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) en {zona} revelan un patrón de mando débil, permitiendo una maniobra de flanqueo ofensiva.\n- **Alerta de Movilidad:** Alta probabilidad de artefactos explosivos improvisados (AEI) en las rutas principales, se sugiere asegurar cotas dominantes."
+        elif "Contexto Geoespacial/Topográfico" in prompt:
+            import re
+            
+            query_match = re.search(r'Consulta: (.*?)\n', prompt)
+            q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
+            
+            unidades = re.findall(r'- Unidad: (.*?) \(', prompt)
+            if not unidades:
+                unidades = ["Unidades de despliegue", "Fuerzas de reserva"]
+                
+            municipios_match = re.search(r'Municipios/Regiones cubiertas: (.*?)\n', prompt)
+            municipios = municipios_match.group(1).strip() if municipios_match else "la región designada"
+            
+            elev_match = re.search(r'Elevación promedio del área: (.*?) msnm', prompt)
+            elev = elev_match.group(1).strip() if elev_match else "N/A"
+            
+            amenazas = re.findall(r'Intel: "(.*?)"', prompt)
+            amenaza_principal = amenazas[0] if amenazas else "Movimientos hostiles inminentes."
+            
+            unit_list = "\n".join([f"- **{u}**: Reposicionar en cota dominante (aprovechando la elevación de {elev} msnm); establecer arco de fuego entrelazado." for u in unidades[:3]])
+            if len(unidades) > 3:
+                unit_list += "\n- **Resto de Elementos**: Mantener como reserva móvil para Fuerza de Reacción Rápida."
+                
+            return f"""### 🎯 Análisis Táctico Integral (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *"{q}"*\n\n#### 1. Evaluación del Entorno Operacional (AoI)\nEl área de operaciones en **{municipios}** presenta una elevación media de **{elev} msnm**. Esta configuración topográfica restringe severamente la movilidad mecanizada pesada, forzando un avance canalizado. La geografía actual favorece tácticas de guerra irregular, ofreciendo al enemigo múltiples rutas de escape.\nEl clima actual degrada levemente el rendimiento de rotores, afectando las ventanas de extracción aeromédica (MEDEVAC).\n\n#### 2. Valoración de Inteligencia (Capa Enemiga)\n**Foco Crítico:** {amenaza_principal}\nLos sensores SIGINT perfilan que el adversario capitalizará los puntos de estrangulamiento natural (choke points) dictados por el relieve para ejecutar hostigamientos de oportunidad contra las líneas de avance.\n\n#### 3. Configuración Óptima de Unidades\nBasado en el análisis de tensores topográficos, se ordena la siguiente reorganización táctica:\n{unit_list}\n\n**Recomendación de Curso de Acción (COA Sugerido):**\nEjecutar maniobra de fijación frontal mientras los elementos de reconocimiento infiltran los flancos antes del crepúsculo. Se prohíbe el tránsito de convoyes logísticos pesados sin escolta mecanizada."""
+        elif "ANÁLISIS PROFUNDO" in prompt:
+            import re
+            escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
+            escenario = escenario_match.group(1).strip() if escenario_match else "Operación en curso"
+            
+            return json.dumps({
+                "entrada_tactica": f"Recepción de comando: {escenario}",
+                "analisis": f"El escenario dictado ({escenario}) requiere una aproximación basada en el control de terreno clave y superioridad de fuegos. Las unidades involucradas deben mantener dispersión táctica para mitigar el riesgo de fuego indirecto enemigo, mientras convergen simultáneamente sobre el objetivo principal.",
+                "orden_estructurada": {
+                    "Mision": "Neutralizar amenaza y asegurar el área de operaciones.",
+                    "Ejecucion": "Aproximación por flancos. Establecer base de fuego en cota dominante.",
+                    "Logistica": "Reabastecimiento clase I y V en 12 horas.",
+                    "Mando_y_Comunicaciones": "Mando descentralizado. Silencio radial hasta contacto."
+                },
+                "contexto_doctrinal": "Acorde a la doctrina de Operaciones Terrestres Unificadas, se prioriza la Acción Decisiva mediante ofensivas sincronizadas."
+            })
         else:
             return json.dumps({"estado": "Procesado nativamente sin ruta detectada"})
 
