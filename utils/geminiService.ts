@@ -876,7 +876,9 @@ No incluyas explicaciones adicionales, solo el JSON.`;
       jsonStr = extractAndRepairJson(jsonStr);
       
       if (!jsonStr) {
-        throw new Error("La IA se quedó 'pensando' o el límite de tokens se agotó antes de poder generar el plan en formato JSON. Inténtelo de nuevo.");
+        let snippet = responseText.trim().substring(0, 150);
+        if (responseText.length > 150) snippet += "...";
+        throw new Error(`La IA no generó un JSON válido. Respondió: "${snippet}". Verifique que el modelo entienda instrucciones de formato JSON.`);
       }
       
       const coaPlan = JSON.parse(jsonStr) as COAPlan;
@@ -1127,7 +1129,9 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
     }
 
     if (!cleanedJson || cleanedJson.trim() === "") {
-      throw new Error("La IA no generó predicciones válidas, probablemente por límite de tokens agotado.");
+        let snippet = jsonStr.trim().substring(0, 150);
+        if (jsonStr.length > 150) snippet += "...";
+        throw new Error(`La IA no generó un arreglo JSON válido. Respondió: "${snippet}"`);
     }
 
     const predictions = JSON.parse(cleanedJson) as PredictedLogisticsNeed[];
