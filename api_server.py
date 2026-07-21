@@ -136,15 +136,51 @@ class SimcopNativeEngine:
             zona = municipios[0].strip() if municipios else "el sector operacional"
             
             return f"- **Riesgo Inminente:** OSINT/HUMINT sugiere preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo corta la vía principal.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) revelan su puesto de mando táctico, permitiendo un ataque preventivo de artillería.\n- **Alerta de Movilidad:** Posible instalación de retenes ilegales y artefactos explosivos improvisados (AEI) en las rutas de aproximación a {zona}."
-        elif "topografía" in prompt and "clima" in prompt:
+        elif "Contexto Geoespacial/Topográfico" in prompt:
             import re
-            elev = re.findall(r'Elevación promedio del área: (\d+)', prompt)
-            clima = re.findall(r'Condición meteorológica: ([a-zA-Z\s]+)', prompt)
             
-            elev_val = elev[0] if elev else "alta"
-            clima_val = clima[0].strip().lower() if clima else "adversa"
+            # Extract query
+            query_match = re.search(r'Consulta: (.*?)\n', prompt)
+            q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
             
-            return f"**Evaluación Topográfica y Climática (AoI):**\nLa elevación promedio detectada de {elev_val} msnm, combinada con la condición de {clima_val}, reduce severamente el techo de vuelo para las aeronaves de ala rotatoria (UH-60). El terreno escarpado prohíbe el despliegue de unidades mecanizadas, forzando un avance de infantería ligera. Se anticipa un desgaste térmico significativo en las tropas terrestres. **Recomendación:** Priorizar inserción por soga rápida (fast-rope) en los valles antes de la caída de la noche."
+            # Extract units
+            unidades = re.findall(r'- Unidad: (.*?) \(', prompt)
+            if not unidades:
+                unidades = ["Unidades de vanguardia", "Fuerzas de reserva"]
+                
+            # Extract locations
+            municipios_match = re.search(r'Municipios/Regiones cubiertas: (.*?)\n', prompt)
+            municipios = municipios_match.group(1).strip() if municipios_match else "la región designada"
+            
+            # Extract elev
+            elev_match = re.search(r'Elevación promedio del área: (\d+)', prompt)
+            elev = elev_match.group(1) if elev_match else "N/A"
+            
+            # Extract threats
+            amenazas = re.findall(r'Intel: "(.*?)"', prompt)
+            amenaza_principal = amenazas[0] if amenazas else "Movimientos hostiles no confirmados pero inminentes."
+            
+            unit_list = "\n".join([f"- **{u}**: Reposicionar en cota dominante; establecer arco de fuego entrelazado para controlar cruces críticos." for u in unidades[:3]])
+            if len(unidades) > 3:
+                unit_list += "\n- **Resto de Elementos**: Mantener reserva móvil a no más de 15 minutos de tiempo de vuelo para QRF (Fuerza de Reacción Rápida)."
+                
+            return f"""### 🎯 Análisis Táctico Integral (SIMCOP AI)
+**Directriz:** Respuesta a consulta: *"{q}"*
+
+#### 1. Evaluación del Entorno Operacional (AoI)
+El área de operaciones, abarcando los sectores de **{municipios}** con una elevación media de **{elev} msnm**, presenta un relieve altamente compartimentado. Esta topografía restringe severamente la movilidad de vehículos pesados y mecanizados, forzando un avance canalizado. La geografía actual favorece las tácticas de guerra irregular, ofreciendo al enemigo múltiples rutas de escape y ocultamiento. 
+Las condiciones climáticas recientes (nubosidad/precipitación) degradan el rendimiento de los rotores y limitan el techo de vuelo para el apoyo aéreo cercano (CAS) de los UH-60.
+
+#### 2. Valoración de Inteligencia (Capa Enemiga)
+**Foco Crítico:** {amenaza_principal}
+La inteligencia de señales (SIGINT) y fuentes humanas (HUMINT) perfiladas en el área sugieren que el adversario intentará capitalizar los puntos de estrangulamiento natural (choke points) del terreno para ejecutar emboscadas o hostigamientos de oportunidad contra las líneas de suministro sobre-extendidas.
+
+#### 3. Configuración Óptima de Unidades
+Basado en el análisis algorítmico de los tensores de despliegue, se ordena la siguiente reorganización táctica para maximizar la superioridad:
+{unit_list}
+
+**Recomendación de Curso de Acción (COA Sugerido):**
+Ejecutar una maniobra de fijación frontal con fuego de morteros mientras las unidades especializadas realizan una infiltración de flanco antes del oscurecer, cerrando la pinza táctica sobre las posiciones enemigas detectadas. Se prohíbe el tránsito de convoyes logísticos no escoltados durante la ventana de 18:00 a 06:00 horas."""
         elif "SIMCOP AI de Artillería" in prompt:
             return "1. Probabilidad de éxito: 85%\n2. Nivel de Riesgo: CRÍTICO\n3. Bajas: Múltiples\n4. Recomendación: Interceptar"
         elif "motor Wargaming" in prompt:
