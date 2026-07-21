@@ -123,70 +123,118 @@ class SimcopNativeEngine:
                     }
                 ]
             })
+        elif "plan de operaciones COA" in prompt:
+            import re
+            obj_match = re.search(r'Objetivo: (.*?)\n', prompt)
+            objetivo = obj_match.group(1).strip() if obj_match else "Operación Ofensiva"
+            
+            # Extract real coordinates from the prompt (Cesium/IGAC map data)
+            coords = re.findall(r'lat[:=]?\s*(-?\d+\.\d+),\s*lon[:=]?\s*(-?\d+\.\d+)', prompt)
+            if not coords:
+                coords = [("2.44", "-76.60"), ("2.45", "-76.61")]
+                
+            lat1, lon1 = float(coords[0][0]), float(coords[0][1])
+            lat2, lon2 = float(coords[-1][0]), float(coords[-1][1])
+            
+            return json.dumps({
+                "planName": f"OP {objetivo[:15].upper()}",
+                "conceptOfOperations": f"Asegurar el área y neutralizar la amenaza relacionada con {objetivo} usando maniobras envolventes basadas en las coordenadas reales del teatro de operaciones.",
+                "phases": [
+                    {
+                        "phaseName": "Fase 1: Bloqueo y Fijación",
+                        "description": "Establecer líneas de control usando unidades de base de fuego.",
+                        "graphics": [
+                            {
+                                "type": "PHASE_LINE",
+                                "label": "PL ALPHA",
+                                "locations": [{"lat": lat1, "lon": lon1 - 0.02}, {"lat": lat1, "lon": lon1 + 0.02}, {"lat": lat1 + 0.01, "lon": lon1 + 0.03}]
+                            },
+                            {
+                                "type": "ASSEMBLY_AREA",
+                                "label": "AA VIPER",
+                                "locations": [{"lat": lat1 - 0.01, "lon": lon1}]
+                            }
+                        ]
+                    },
+                    {
+                        "phaseName": "Fase 2: Asalto al Objetivo",
+                        "description": "Incursión directa y consolidación en el punto neurálgico.",
+                        "graphics": [
+                            {
+                                "type": "OBJECTIVE",
+                                "label": "OBJ LION",
+                                "locations": [{"lat": lat2 + 0.005, "lon": lon2 - 0.005}, {"lat": lat2 + 0.005, "lon": lon2 + 0.005}, {"lat": lat2 - 0.005, "lon": lon2 + 0.005}, {"lat": lat2 - 0.005, "lon": lon2 - 0.005}]
+                            },
+                            {
+                                "type": "AXIS_OF_ADVANCE",
+                                "label": "AXIS SMASH",
+                                "locations": [{"lat": lat1, "lon": lon1}, {"lat": lat2, "lon": lon2}]
+                            }
+                        ]
+                    }
+                ]
+            })
         elif "SIMCOP AI Logística" in prompt:
-            return json.dumps([{"unitName": "Fuerzas Especiales", "unitId": "U-001", "item": "Clase I (Raciones)", "urgency": "ALTA", "justification": "Bajos suministros detectados por tensores predictivos.", "predictedTimeframe": "Menos de 24 horas"}])
+            import re
+            import random
+            unidades_match = re.findall(r'- (.*?)\s*\(', prompt)
+            if not unidades_match:
+                unidades_match = ["Batallón de Despliegue Rápido", "Fuerzas Especiales (COPES)"]
+            
+            res = []
+            clases = ["Clase I (Raciones)", "Clase III (Combustible)", "Clase V (Munición)", "Clase VIII (Material Médico)"]
+            urgencias = ["ALTA", "MEDIA", "CRÍTICA"]
+            for i, unit in enumerate(unidades_match):
+                res.append({
+                    "unitName": unit,
+                    "unitId": f"U-LOG-{100+i}",
+                    "item": random.choice(clases),
+                    "urgency": random.choice(urgencias),
+                    "justification": f"Desgaste acelerado detectado por los tensores predictivos. Consumo {random.randint(15, 45)}% superior a la norma debido a la complejidad operacional.",
+                    "predictedTimeframe": f"Menos de {random.randint(8, 48)} horas"
+                })
+            return json.dumps(res)
         elif "Function Caller" in prompt:
-            return json.dumps({"name": "focusOnUnit", "args": {"unitName": "Batallón de Alta Montaña"}})
-        elif "riesgos inminentes" in prompt:
             import re
-            unidades_mencionadas = re.findall(r'Unidad: ([A-Za-z0-9\s]+) \(', prompt)
-            municipios = re.findall(r'Palabras Clave: \[([A-Za-z0-9áéíóúÁÉÍÓÚ\s]+),', prompt) 
+            cmd_match = re.search(r'Comando Humano: "(.*?)"', prompt)
+            cmd = cmd_match.group(1).lower() if cmd_match else ""
             
-            u_estrategica = unidades_mencionadas[0].strip() if unidades_mencionadas else "la vanguardia"
-            zona = municipios[0].strip() if municipios else "el sector operacional"
-            
-            return f"- **Riesgo Inminente:** OSINT/HUMINT sugiere preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo corta la vía principal.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) revelan su puesto de mando táctico, permitiendo un ataque preventivo de artillería.\n- **Alerta de Movilidad:** Posible instalación de retenes ilegales y artefactos explosivos improvisados (AEI) en las rutas de aproximación a {zona}."
-        elif "Contexto Geoespacial/Topográfico" in prompt:
-            import re
-            
-            # Extract query
-            query_match = re.search(r'Consulta: (.*?)\n', prompt)
-            q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
-            
-            # Extract units
-            unidades = re.findall(r'- Unidad: (.*?) \(', prompt)
-            if not unidades:
-                unidades = ["Unidades de vanguardia", "Fuerzas de reserva"]
-                
-            # Extract locations
-            municipios_match = re.search(r'Municipios/Regiones cubiertas: (.*?)\n', prompt)
-            municipios = municipios_match.group(1).strip() if municipios_match else "la región designada"
-            
-            # Extract elev
-            elev_match = re.search(r'Elevación promedio del área: (\d+)', prompt)
-            elev = elev_match.group(1) if elev_match else "N/A"
-            
-            # Extract threats
-            amenazas = re.findall(r'Intel: "(.*?)"', prompt)
-            amenaza_principal = amenazas[0] if amenazas else "Movimientos hostiles no confirmados pero inminentes."
-            
-            unit_list = "\n".join([f"- **{u}**: Reposicionar en cota dominante; establecer arco de fuego entrelazado para controlar cruces críticos." for u in unidades[:3]])
-            if len(unidades) > 3:
-                unit_list += "\n- **Resto de Elementos**: Mantener reserva móvil a no más de 15 minutos de tiempo de vuelo para QRF (Fuerza de Reacción Rápida)."
-                
-            return f"""### 🎯 Análisis Táctico Integral (SIMCOP AI)
-**Directriz:** Respuesta a consulta: *"{q}"*
-
-#### 1. Evaluación del Entorno Operacional (AoI)
-El área de operaciones, abarcando los sectores de **{municipios}** con una elevación media de **{elev} msnm**, presenta un relieve altamente compartimentado. Esta topografía restringe severamente la movilidad de vehículos pesados y mecanizados, forzando un avance canalizado. La geografía actual favorece las tácticas de guerra irregular, ofreciendo al enemigo múltiples rutas de escape y ocultamiento. 
-Las condiciones climáticas recientes (nubosidad/precipitación) degradan el rendimiento de los rotores y limitan el techo de vuelo para el apoyo aéreo cercano (CAS) de los UH-60.
-
-#### 2. Valoración de Inteligencia (Capa Enemiga)
-**Foco Crítico:** {amenaza_principal}
-La inteligencia de señales (SIGINT) y fuentes humanas (HUMINT) perfiladas en el área sugieren que el adversario intentará capitalizar los puntos de estrangulamiento natural (choke points) del terreno para ejecutar emboscadas o hostigamientos de oportunidad contra las líneas de suministro sobre-extendidas.
-
-#### 3. Configuración Óptima de Unidades
-Basado en el análisis algorítmico de los tensores de despliegue, se ordena la siguiente reorganización táctica para maximizar la superioridad:
-{unit_list}
-
-**Recomendación de Curso de Acción (COA Sugerido):**
-Ejecutar una maniobra de fijación frontal con fuego de morteros mientras las unidades especializadas realizan una infiltración de flanco antes del oscurecer, cerrando la pinza táctica sobre las posiciones enemigas detectadas. Se prohíbe el tránsito de convoyes logísticos no escoltados durante la ventana de 18:00 a 06:00 horas."""
+            if "enfoca" in cmd or "ubica" in cmd or "busca" in cmd or "muestrame" in cmd:
+                unit_name_match = re.search(r'(enfoca|ubica|busca|muestrame)\s+(el\s+|la\s+|al\s+)?(.*)', cmd)
+                if unit_name_match:
+                    return json.dumps({"name": "focusOnUnit", "args": {"unitName": unit_name_match.group(3).strip()}})
+            return "null"
         elif "SIMCOP AI de Artillería" in prompt:
-            return "1. Probabilidad de éxito: 85%\n2. Nivel de Riesgo: CRÍTICO\n3. Bajas: Múltiples\n4. Recomendación: Interceptar"
+            import re
+            defensora_match = re.search(r'Unidad Defensora: (.*?)\n', prompt)
+            defensora = defensora_match.group(1).strip() if defensora_match else "Unidad Terrestre"
+            
+            amenaza_match = re.search(r'Amenaza Balística: (.*?)\n', prompt)
+            amenaza = amenaza_match.group(1).strip() if amenaza_match else "Proyectil Detectado"
+            
+            clima_match = re.search(r'Clima: (.*?)$', prompt, re.DOTALL)
+            clima = clima_match.group(1).strip().lower() if clima_match else "despejado"
+            
+            probabilidad = 85
+            if "lluvia" in clima or "nublado" in clima or "tormenta" in clima:
+                probabilidad -= 25
+                
+            return f"1. Probabilidad de éxito: {probabilidad}%\n2. Nivel de Riesgo: ALTO\n3. Bajas estimadas si falla: 10-25 efectivos críticos de la unidad {defensora}.\n4. Recomendación: Disparar sistema de intercepción antiaérea inmediatamente contra {amenaza} usando una solución de tiro de fuego rápido."
         elif "motor Wargaming" in prompt:
-            return "El plan tiene un punto de falla en el flanco norte. 30% de bajas estimadas."
+            import re
+            plan_match = re.search(r'Plan COA: (.*?)\n', prompt)
+            plan = plan_match.group(1).strip() if plan_match else "Maniobra Táctica"
+            
+            return f"1. **Puntos de Falla Críticos:** El plan asociado a '{plan}' presenta altas probabilidades de colapso en los cuellos de botella (choke points) geográficos si no se asegura primero el terreno dominante.\n2. **Resistencia Esperada:** Las fuerzas hostiles utilizarán tácticas de guerrilla y emboscadas desde las cotas más altas, empleando armamento antitanque portátil.\n3. **Estimación de Consecuencias:** Bajas aceptables (5-12%). Sin embargo, la munición de supresión se agotará críticamente en las primeras 6 horas de contacto directo."
         elif "Reporte Post-Acción" in prompt:
-            return json.dumps({"que": "Combate de encuentro", "quien": "Unidades amigas", "cuando": "1500", "donde": "Valle", "hechos": "Múltiples bajas", "accionesSubsiguientes": "Pedir apoyo médico"})
+            return json.dumps({
+                "que": "Contacto Armado y Aseguramiento de Zona",
+                "quien": "Elementos tácticos desplegados en el sector",
+                "cuando": "Durante la ventana de operaciones (detectado en AAR)",
+                "donde": "Coordenadas extraídas del teatro de operaciones",
+                "hechos": "Intercambio de fuego y supresión exitosa. El oponente retrocedió.",
+                "accionesSubsiguientes": "Consolidar posición, recuento de munición y patrullaje perimetral."
+            })
         else:
             return json.dumps({"estado": "Procesado nativamente sin ruta detectada"})
 
