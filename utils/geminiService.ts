@@ -591,8 +591,8 @@ export const getProactiveAnalysis = async (
     try {
       updateTaskState('proactiveAnalysis', { status: 'RUNNING', error: null });
       const data = await callNativeAI('/intelligence/proactive', {
-        unidades_amigas: unitContext,
-        inteligencia_reciente: intelContext,
+        unidades: unitContext,
+        osint: intelContext,
         alertas: alertContext
       });
       // La API devuelve un array JSON o un texto con las alertas. 

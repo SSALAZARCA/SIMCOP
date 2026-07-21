@@ -299,20 +299,20 @@ Cero texto introductorio, cero conclusiones largas, cero encabezados. Solo las v
 
 # 6. Análisis Topográfico, Climático y Táctico
 class GeminiAnalysisRequest(BaseModel):
-    aoi: Any
-    clima: Any
-    alertas: Any
-    topografia: Any
-    amenaza: Any
+    query: Any
+    unidades_amigas: Any
+    inteligencia: Any
+    geoContext: Any
+    enemyLayerActive: Any
 
 @app.post("/api/v1/intelligence/terrain_weather")
 def terrain_weather_analysis(req: GeminiAnalysisRequest):
     prompt = f"""Eres SIMCOP AI. Analiza estos parámetros:
-AOI: {req.aoi}
-Clima: {req.clima}
-Alertas MET: {req.alertas}
-Topografía: {req.topografia}
-Amenaza: {req.amenaza}
+Consulta: {req.query}
+Unidades Amigas: {req.unidades_amigas}
+Inteligencia: {req.inteligencia}
+Contexto Geoespacial/Topográfico: {req.geoContext}
+Capa Enemiga Activa: {req.enemyLayerActive}
 
 Un texto narrativo estructurado y profesional que responda a la consulta del operador.
 Obligatorio: Explicar explícitamente cómo la topografía/clima enviados afectan la movilidad o el vuelo. Citar fuentes al final si usas OSINT."""
