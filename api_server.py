@@ -284,6 +284,25 @@ class SimcopNativeEngine:
                 },
                 "contexto_doctrinal": "Acorde a la doctrina de Operaciones Terrestres Unificadas, se prioriza la Acción Decisiva mediante ofensivas sincronizadas."
             })
+        elif "Resumen Ejecutivo de Situación" in prompt:
+            import re
+            
+            amenaza_match = re.search(r'Amenaza Seleccionada: (.*?)\n', prompt)
+            amenaza = amenaza_match.group(1).strip() if amenaza_match else "Ninguna"
+            
+            clima_match = re.search(r'Clima Regional: (.*?)\n', prompt)
+            clima = clima_match.group(1).strip() if clima_match else "Desconocido"
+            
+            hotspots_match = re.search(r'Hotspots \(POL\): (\d+)', prompt)
+            hotspots = hotspots_match.group(1) if hotspots_match else "0"
+            
+            logistica_match = re.search(r'Riesgo Logístico: (\d+)', prompt)
+            logistica = logistica_match.group(1) if logistica_match else "0"
+            
+            return f"""- **Situación Crítica**: La amenaza {amenaza} representa el vector principal de fricción operacional en este momento.
+- **Factor Meteorológico**: El clima {clima} degrada la capacidad de apoyo aéreo cercano y observación.
+- **Riesgo Asimétrico**: Se han detectado {hotspots} posibles focos de insurgencia/hotspots que requieren patrullaje inmediato.
+- **Alerta de Sostenimiento**: {logistica} unidades presentan alertas logísticas. Riesgo de culminación táctica inminente si no se reabastece Clase V."""
         else:
             return json.dumps({"estado": "Procesado nativamente sin ruta detectada"})
 
@@ -504,6 +523,28 @@ Simula mentalmente el choque de fuerzas. Obligatoriamente debes escribir:
 2. Qué resistencia oponente específica se encontrará en el terreno.
 3. Estimación numérica o descriptiva de las bajas y el consumo de recursos de guerra."""
     return {"outcome": run_inference(prompt, expect_json=False).strip()}
+
+# 9. Resumen Ejecutivo BMA
+class BMABriefRequest(BaseModel):
+    threat: Any
+    recommendation: Any
+    weather: Any
+    hotspots_count: int
+    logistics_count: int
+
+@app.post("/api/v1/wargaming/bma_brief")
+def generate_bma_brief(req: BMABriefRequest):
+    prompt = f"""Eres SIMCOP BMA-AI, un asistente de análisis de batalla. Tu tarea es generar un "Resumen Ejecutivo de Situación" para un comandante regional. El resumen debe ser extremadamente conciso (máximo 150 palabras), directo y con tono militar profesional. Utiliza viñetas para los puntos clave. Enfócate en la amenaza seleccionada, el impacto del clima y los riesgos logísticos o de hotspots detectados.
+
+SITUACIÓN ACTUAL BMA:
+- Amenaza Seleccionada: {req.threat}
+- Recomendación de Respuesta: {req.recommendation}
+- Clima Regional: {req.weather}
+- Hotspots (POL): {req.hotspots_count} detectados.
+- Unidades con Riesgo Logístico: {req.logistics_count}
+
+Genera el Resumen Ejecutivo de Situación."""
+    return {"brief": run_inference(prompt, expect_json=False).strip()}
 
 # ENDPOINT LEGACY PARA DASHBOARD LOCAL
 class IntelligenceQuery(BaseModel):

@@ -1144,6 +1144,24 @@ export const getDoctrinalAssistantResponse = async (query: string): Promise<Gemi
 
   const systemInstruction = `Eres un asistente experto en la doctrina militar del Ejército Nacional de Colombia (EJC). Tu propósito es responder preguntas y proporcionar resúmenes basados en los manuales de doctrina, regulaciones y tácticas del EJC. Basa tus respuestas en la información disponible y utiliza Google Search para encontrar documentos y referencias doctrinales relevantes. Si usas fuentes externas, cítalas.`;
 
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('doctrinalAssistant', { status: 'RUNNING', error: null });
+      const data = await callNativeAI('/intelligence/query', {
+        texto: query,
+        unidades_disponibles: []
+      });
+      const analysisText = typeof data === 'string' ? data : (data.analisis_doctrinal || data.analisis || JSON.stringify(data));
+      const result = { text: analysisText };
+      updateTaskState('doctrinalAssistant', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en getDoctrinalAssistantResponse Nativa:", error);
+      updateTaskState('doctrinalAssistant', { status: 'FAILED', error: error.message });
+      throw error;
+    }
+  }
+
   try {
     const text = await generateContentViaBackend(`${systemInstruction}\n\n${query}\n(Usar Google Search para referencias doctrinales EJC)`, 'doctrinalAssistant');
     const result = { text };
@@ -1428,7 +1446,29 @@ SITUACIÓN ACTUAL BMA:
 - Unidades con Riesgo Logístico: ${logistics.length}
 
 Genera el Resumen Ejecutivo de Situación.
+Genera el Resumen Ejecutivo de Situación.
 `;
+
+  if (aiProvider === 'NATIVE_SIMCOP') {
+    try {
+      updateTaskState('bmaBrief', { status: 'RUNNING', error: null });
+      const data = await callNativeAI('/wargaming/bma_brief', {
+        threat: threat ? threat.title : 'Ninguna',
+        recommendation: recommendations.length > 0 ? recommendations[0].unitName : 'N/A',
+        weather: weather ? weather.condition : 'Desconocido',
+        hotspots_count: hotspots.length,
+        logistics_count: logistics.length
+      });
+      const text = typeof data === 'string' ? data : (data.brief || JSON.stringify(data));
+      updateTaskState('bmaBrief', { status: 'COMPLETED', result: text });
+      return text;
+    } catch (error: any) {
+      console.error("Error en getBMASituationBrief Nativa:", error);
+      const errorMessage = error.message || "Error al generar el resumen de situación nativo.";
+      updateTaskState('bmaBrief', { status: 'FAILED', error: errorMessage });
+      return errorMessage;
+    }
+  }
 
   try {
     const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`, 'bmaBrief');
