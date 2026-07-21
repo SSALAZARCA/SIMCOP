@@ -125,9 +125,23 @@ class SimcopNativeEngine:
         elif "Function Caller" in prompt:
             return json.dumps({"name": "focusOnUnit", "args": {"unitName": "Batallón de Alta Montaña"}})
         elif "riesgos inminentes" in prompt:
-            return "- Riesgo inminente detectado\n- Emboscada probable"
+            import re
+            unidades_mencionadas = re.findall(r'Unidad: ([A-Za-z0-9\s]+) \(', prompt)
+            municipios = re.findall(r'Palabras Clave: \[([A-Za-z0-9áéíóúÁÉÍÓÚ\s]+),', prompt) 
+            
+            u_estrategica = unidades_mencionadas[0].strip() if unidades_mencionadas else "la vanguardia"
+            zona = municipios[0].strip() if municipios else "el sector operacional"
+            
+            return f"- **Riesgo Inminente:** OSINT/HUMINT sugiere preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo corta la vía principal.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) revelan su puesto de mando táctico, permitiendo un ataque preventivo de artillería.\n- **Alerta de Movilidad:** Posible instalación de retenes ilegales y artefactos explosivos improvisados (AEI) en las rutas de aproximación a {zona}."
         elif "topografía" in prompt and "clima" in prompt:
-            return "Topografía densa impide avance rápido. Terreno no apto para mecanizados."
+            import re
+            elev = re.findall(r'Elevación promedio del área: (\d+)', prompt)
+            clima = re.findall(r'Condición meteorológica: ([a-zA-Z\s]+)', prompt)
+            
+            elev_val = elev[0] if elev else "alta"
+            clima_val = clima[0].strip().lower() if clima else "adversa"
+            
+            return f"**Evaluación Topográfica y Climática (AoI):**\nLa elevación promedio detectada de {elev_val} msnm, combinada con la condición de {clima_val}, reduce severamente el techo de vuelo para las aeronaves de ala rotatoria (UH-60). El terreno escarpado prohíbe el despliegue de unidades mecanizadas, forzando un avance de infantería ligera. Se anticipa un desgaste térmico significativo en las tropas terrestres. **Recomendación:** Priorizar inserción por soga rápida (fast-rope) en los valles antes de la caída de la noche."
         elif "SIMCOP AI de Artillería" in prompt:
             return "1. Probabilidad de éxito: 85%\n2. Nivel de Riesgo: CRÍTICO\n3. Bajas: Múltiples\n4. Recomendación: Interceptar"
         elif "motor Wargaming" in prompt:
