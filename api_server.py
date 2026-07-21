@@ -46,8 +46,12 @@ class SimcopNativeEngine:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if os.path.exists(MODEL_PATH):
             # En un entorno real, esto carga los state_dict() de la arquitectura Transformer
-            self.weights = torch.load(MODEL_PATH, map_location=self.device, weights_only=False)
-            print("[OK] Pesajes de la red neuronal (.pth) cargados NATIVAMENTE en la VRAM (RTX 5070 Ti).")
+            try:
+                self.weights = torch.load(MODEL_PATH, map_location=self.device, weights_only=False)
+                print("[OK] Pesajes de la red neuronal (.pth) cargados NATIVAMENTE en la VRAM (RTX 5070 Ti).")
+            except Exception as e:
+                print(f"[ADVERTENCIA] Error cargando el archivo .pth, continuando con inferencia simulada. Error: {e}")
+                self.weights = None
         else:
             self.weights = None
             print("[ADVERTENCIA] Archivo .pth no encontrado. Motor operando sin estado.")
