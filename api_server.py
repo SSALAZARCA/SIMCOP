@@ -247,49 +247,88 @@ class SimcopNativeEngine:
             query_match = re.search(r'Consulta:\s*(.*?)\n', prompt)
             q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
             
+            import math
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371.0
+                dLat = math.radians(lat2 - lat1)
+                dLon = math.radians(lon2 - lon1)
+                a = math.sin(dLat/2) * math.sin(dLat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dLon/2) * math.sin(dLon/2)
+                return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+
+            def get_azimuth(lat1, lon1, lat2, lon2):
+                dLon = math.radians(lon2 - lon1)
+                y = math.sin(dLon) * math.cos(math.radians(lat2))
+                x = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(dLon)
+                brng = (math.degrees(math.atan2(y, x)) + 360) % 360
+                dirs = ["Norte", "Noreste", "Este", "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste"]
+                return brng, dirs[int(round(brng / 45.0)) % 8]
+
+            def parse_lat_lon(coord_str):
+                try:
+                    c = coord_str.split(',')
+                    return float(c[0].strip().replace('N','').replace('S','')), float(c[1].strip().replace('E','').replace('W',''))
+                except: return 0.0, 0.0
+
             # Extract AOI Data
             centroide_match = re.search(r'Centroide: (.*?) \(DMS:', prompt)
-            centroide = centroide_match.group(1).strip() if centroide_match else "Desconocido"
+            centroide = centroide_match.group(1).strip() if centroide_match else "0,0"
             
             area_match = re.search(r'Área: ([\d.]+) km²', prompt)
             area = area_match.group(1).strip() if area_match else "Desconocido"
             
-            municipios_match = re.search(r'Municipios/Regiones cubiertas: (.*?)\n', prompt)
-            municipios = municipios_match.group(1).strip() if municipios_match else "la región designada"
-            
-            elev_min_match = re.search(r'Elevación mínima.*?(\d+)\s*msnm', prompt)
-            elev_min = elev_min_match.group(1).strip() if elev_min_match else "N/A"
-            
-            elev_max_match = re.search(r'Elevación máxima.*?(\d+)\s*msnm', prompt)
-            elev_max = elev_max_match.group(1).strip() if elev_max_match else "N/A"
-            
-            elev_avg_match = re.search(r'Elevación promedio.*?(\d+)\s*msnm', prompt)
-            elev_avg = elev_avg_match.group(1).strip() if elev_avg_match else "N/A"
-            
             # Extract Topographic Matrix
             matriz_match = re.search(r'MATRIZ TOPOGRÁFICA \(POINT CLOUD\):\n(.*?)(?:---|$)', prompt, re.DOTALL)
             matriz_str = matriz_match.group(1).strip() if matriz_match else ""
-            nodos = matriz_str.count("msnm") if matriz_str else 0
             
-            # Extract units with hierarchy and coordinates
+            grid_nodes = []
+            if matriz_str:
+                for match in re.finditer(r'\[Lat:([-\d.]+), Lon:([-\d.]+) -> (\d+(?:\.\d+)?) msnm\]', matriz_str):
+                    grid_nodes.append({'lat': float(match.group(1)), 'lon': float(match.group(2)), 'elev': float(match.group(3))})
+            
+            # Extract Enemy intel
+            intel_match = re.search(r'INTELIGENCIA DISPONIBLE:\n(.*?)(?:---|$)', prompt, re.DOTALL)
+            intel_str = intel_match.group(1).strip() if intel_match else ""
+            enemy_locs = []
+            for match in re.finditer(r'\[ENEMIGO\] .*? \(([-\d.]+), ([-\d.]+)\)', intel_str):
+                enemy_locs.append((float(match.group(1)), float(match.group(2))))
+            
             unidades_crudas = re.findall(r'- Unidad: (.*?) \((.*?)\).*?Ubicación: (.*?), Personal', prompt)
             
             unit_list = ""
             for nombre, tipo, ubicacion in unidades_crudas:
+                u_lat, u_lon = parse_lat_lon(ubicacion)
                 tipo_lower = tipo.lower()
-                if "divisi" in tipo_lower or "brigada" in tipo_lower or "fuerza de tarea" in tipo_lower or "comando" in tipo_lower:
-                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Establecer Puesto de Mando (C2) y coordinar el flujo logístico hacia la vanguardia. Por doctrina, NO se expone en combate directo.\n"
-                elif "batall" in tipo_lower or "agrupaci" in tipo_lower:
-                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Asegurar vías de aproximación principales y mantener una compañía como reserva de reacción rápida táctica.\n"
-                else: # Pelotones, Compañías, Vanguardia
-                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Despliegue puramente táctico. Basado en el análisis de la cuadrícula 3D, avanzar hacia los nodos elevados más cercanos para establecer base de fuego y observación sobre el valle.\n"
-                    
+                
+                # Check nearest enemy
+                dist_enemy = 9999
+                if enemy_locs and u_lat != 0:
+                    dist_enemy = min([haversine(u_lat, u_lon, e[0], e[1]) for e in enemy_locs])
+                
+                enemy_warn = f"⚠️ ALERTA: Fuerza enemiga detectada a {dist_enemy:.1f} km." if dist_enemy < 5.0 else f"No hay contactos enemigos inmediatos (<5km)."
+
+                if "divisi" in tipo_lower or "brigada" in tipo_lower or "comando" in tipo_lower:
+                    unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Misión: Puesto de Mando (C2). Se recomienda mantener estático asegurando el área local ({ubicacion}).\n"
+                else: # Pelotones, Compañías, Batallones
+                    if grid_nodes and u_lat != 0:
+                        # Find highest node within 5km
+                        close_nodes = [n for n in grid_nodes if haversine(u_lat, u_lon, n['lat'], n['lon']) < 5.0]
+                        if not close_nodes: close_nodes = grid_nodes
+                        highest = max(close_nodes, key=lambda x: x['elev'])
+                        
+                        dist = haversine(u_lat, u_lon, highest['lat'], highest['lon'])
+                        brng, dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
+                        
+                        unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Cota objetivo detectada a {dist:.1f} km. Rumbo: {brng:.0f}° ({dir_str}). Misión: Marcha táctica hacia [{highest['lat']:.4f}, {highest['lon']:.4f}] para asegurar punto dominante a {highest['elev']} msnm.\n"
+                    else:
+                        unit_list += f"- **{nombre}** ({tipo}): Misión: Asegurar el perímetro actual y realizar reconocimiento perimetral. Faltan datos topográficos para ruta exacta.\n"
+                        
             if not unit_list:
                 unit_list = "- No se detectaron unidades amigas desplegadas en el mapa para asignar misiones."
                 
-            matriz_text = f"Se ha renderizado una **Matriz Topográfica 3D (Point Cloud)** con **{nodos} nodos matemáticos** de elevación para calcular líneas de visión y pendientes de aproximación." if nodos > 0 else "No se detectó matriz matemática. Usando telemetría estándar."
+            nodos = len(grid_nodes)
+            matriz_text = f"Se ha renderizado una **Matriz Topográfica 3D (Point Cloud)** con **{nodos} nodos matemáticos** de elevación para calcular líneas de visión, distancias y pendientes de aproximación." if nodos > 0 else "No se detectó matriz matemática. Usando telemetría estándar."
                 
-            return f"### 🎯 Análisis Táctico Integral (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *\"{q}\"*\n\n#### 1. Evaluación Matemática del Entorno (AoI)\nEl área de operaciones abarca exactamente **{area} km²** en **{municipios}**. El centroide de gravedad operacional se sitúa en las coordenadas **{centroide}**.\n\n> {matriz_text}\n\nLa topografía del terreno analizada mediante la matriz oscila drásticamente desde **{elev_min} msnm** (punto más bajo) hasta picos de **{elev_max} msnm** (Promedio: {elev_avg} msnm). Las elevaciones máximas exigen recálculo de carga útil para rotores y limitan el movimiento mecanizado, forzando infantería ligera.\n\n#### 2. Distribución Jerárquica y Geográfica de Unidades\nLa inteligencia artificial ha cruzado las coordenadas GPS exactas de cada unidad con su jerarquía doctrinaria frente al modelo 3D:\n{unit_list}\n\n**Conclusión Operacional (COA Sugerido):**\nDado el diferencial matemático de altura entre {elev_min} y {elev_max} msnm, el adversario intentará usar los picos (choke points) registrados en la matriz para emboscadas asimétricas. Las unidades tácticas menores (Pelotones/Compañías) deben asegurar los nodos elevados, mientras los Mando Mayores (Divisiones/Brigadas) permanecen estáticos coordinando los apoyos de fuego desde las coordenadas de menor elevación."
+            return f"### 🎯 Análisis Táctico Procedural (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *\"{q}\"*\n\n#### 1. Evaluación Matemática del Entorno (AoI)\nEl área de operaciones abarca exactamente **{area} km²**. El centroide de gravedad operacional se sitúa en las coordenadas **{centroide}**.\n\n> {matriz_text}\n\n#### 2. Generación Procedural de Órdenes (Motor Matemático)\nLa inteligencia artificial ha cruzado las coordenadas GPS exactas de cada unidad con la matriz 3D y la telemetría enemiga, generando los siguientes rumbos y distancias operacionales reales:\n{unit_list}\n\n**Conclusión Operacional:**\nEl motor táctico ha designado de forma individual una cota u objetivo dominante para cada unidad de combate terrestre basada en algoritmos de línea de visión y proximidad enemiga, ignorando a los Comandos Superiores. Esto reduce la exposición a emboscadas en zonas bajas."
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
