@@ -356,14 +356,22 @@ class SimcopNativeEngine:
                 for match in re.finditer(r'\[Lat:([-\d.]+), Lon:([-\d.]+) -> (\d+(?:\.\d+)?) msnm\]', matriz_str):
                     grid_nodes.append({'lat': float(match.group(1)), 'lon': float(match.group(2)), 'elev': float(match.group(3))})
             
+            unidades_crudas = re.findall(r'- Unidad: (.*?) \((.*?)\).*?Ubicación: (.*?), Personal', prompt)
+            
+            if not grid_nodes:
+                for _, _, u_loc in unidades_crudas:
+                    ulat, ulon = parse_lat_lon(u_loc)
+                    if ulat != 0:
+                        grid_nodes.append({'lat': ulat + 0.03, 'lon': ulon + 0.03, 'elev': 2800.0})
+                        grid_nodes.append({'lat': ulat - 0.03, 'lon': ulon - 0.03, 'elev': 1200.0})
+                        grid_nodes.append({'lat': ulat + 0.015, 'lon': ulon - 0.015, 'elev': 2100.0})
+                        
             # Extract Enemy intel
             intel_match = re.search(r'INTELIGENCIA DISPONIBLE:\n(.*?)(?:---|$)', prompt, re.DOTALL)
             intel_str = intel_match.group(1).strip() if intel_match else ""
             enemy_locs = []
             for match in re.finditer(r'\[ENEMIGO\] .*? \(([-\d.]+), ([-\d.]+)\)', intel_str):
                 enemy_locs.append((float(match.group(1)), float(match.group(2))))
-            
-            unidades_crudas = re.findall(r'- Unidad: (.*?) \((.*?)\).*?Ubicación: (.*?), Personal', prompt)
             
             amenaza_text = ""
             if len(enemy_locs) > 0:
