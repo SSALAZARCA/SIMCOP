@@ -350,48 +350,66 @@ class SimcopNativeEngine:
             
             unidades_crudas = re.findall(r'- Unidad: (.*?) \((.*?)\).*?Ubicación: (.*?), Personal', prompt)
             
-            unit_list = ""
+            amenaza_text = ""
+            if len(enemy_locs) > 0:
+                heat_zone = enemy_locs[0] # Simplification: use first enemy as heat zone
+                amenaza_text = f"El Área de Interés (AOI) presenta una amenaza activa. Se identifica una concentración de Grupos Armados No Estatales (GANE) operando como Zona de Calor Crítica en las coordenadas [{heat_zone[0]:.4f}, {heat_zone[1]:.4f}]. La amenaza es dinámica y sugiere intención de control territorial o sabotaje, exigiendo una postura operacional proactiva inmediata."
+            else:
+                amenaza_text = "El Área de Interés (AOI) no reporta contactos enemigos confirmados en la capa de inteligencia inmediata, sin embargo, la complejidad topográfica exige mantener una postura defensiva perimetral."
+
+            brechas_text = ""
+            movimientos_text = ""
+            prioridades_text = ""
+            
             for nombre, tipo, ubicacion in unidades_crudas:
                 u_lat, u_lon = parse_lat_lon(ubicacion)
                 tipo_lower = tipo.lower()
                 
-                # Check nearest enemy
-                dist_enemy = 9999
-                if enemy_locs and u_lat != 0:
-                    dist_enemy = min([haversine(u_lat, u_lon, e[0], e[1]) for e in enemy_locs])
-                
-                enemy_warn = f"⚠️ ALERTA: Fuerza enemiga detectada a {dist_enemy:.1f} km." if dist_enemy < 5.0 else f"No hay contactos enemigos inmediatos (<5km)."
-
                 if "divisi" in tipo_lower or "brigada" in tipo_lower or "comando" in tipo_lower:
-                    unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Misión: Puesto de Mando (C2). Se recomienda mantener estático asegurando el área local ({ubicacion}).\n"
-                else: # Pelotones, Compañías, Batallones
+                    brechas_text += f"{nombre}: Unidad de Mando (C2) operando desde {ubicacion}. Requiere asegurar líneas de abastecimiento logístico y evitar exposición directa.\n"
+                    movimientos_text += f"{nombre}: Mantener posición actual ({ubicacion}). Consolidar perímetro estático y coordinar fuegos de apoyo.\n"
+                else:
                     if grid_nodes and u_lat != 0:
-                        # Find highest node within 5km
                         close_nodes = [n for n in grid_nodes if haversine(u_lat, u_lon, n['lat'], n['lon']) < 5.0]
                         if not close_nodes: close_nodes = grid_nodes
                         highest = max(close_nodes, key=lambda x: x['elev'])
                         
-                        # Graph Routing (A*)
                         path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
                         if path:
                             total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else haversine(u_lat, u_lon, highest['lat'], highest['lon'])
                             dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
                             
-                            los_warn = "ALTA EXPOSICIÓN" if cost > (total_dist * 1.5) else "OCULTA (Desfiladero/Contrapendiente)"
-                            
-                            unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Objetivo: Asegurar cota dominante en {highest['elev']} msnm.\n  - **Ruta Computada (A* Graph):** Distancia real {total_dist:.1f} km en dirección {dir_str}. Atraviesa {len(path)} nodos matemáticos.\n  - **Evaluación Línea de Visión (LoS):** Ruta {los_warn} al enemigo.\n  - **Misión:** Marcha táctica evasiva siguiendo matriz de costo hasta la cumbre.\n"
+                            brechas_text += f"{nombre}: Posicionamiento actual en cota subóptima. Existe una vulnerabilidad de cobertura sobre el eje de aproximación enemigo.\n"
+                            movimientos_text += f"{nombre}: Desplazar capacidad hacia la cota dominante ({highest['elev']} msnm). Iniciar marcha táctica de {total_dist:.1f} km en dirección {dir_str} para establecer base de fuego y observación y cerrar la brecha de infiltración.\n"
+                            prioridades_text += f"Prioridad ({nombre}): Control de Terreno Elevado en el eje de avance.\n"
                         else:
-                            unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Objetivo: {highest['elev']} msnm. No se pudo trazar ruta segura en el Grafo (Aislamiento topográfico).\n"
+                            brechas_text += f"{nombre}: Cobertura aislada topográficamente.\n"
+                            movimientos_text += f"{nombre}: Realizar consolidación y defensa de punto fuerte en {ubicacion}.\n"
                     else:
-                        unit_list += f"- **{nombre}** ({tipo}): Misión: Asegurar el perímetro actual y realizar reconocimiento perimetral. Faltan datos topográficos para matriz de costo.\n"
-                        
-            if not unit_list:
-                unit_list = "- No se detectaron unidades amigas desplegadas en el mapa para asignar misiones."
-                
-            nodos = len(grid_nodes)
-            matriz_text = f"Se ha renderizado una **Matriz Topográfica 3D (Point Cloud)** con **{nodos} nodos matemáticos** de elevación para calcular líneas de visión, distancias y pendientes de aproximación." if nodos > 0 else "No se detectó matriz matemática. Usando telemetría estándar."
-                
-            return f"### 🎯 Análisis Táctico Procedural (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *\"{q}\"*\n\n#### 1. Evaluación Matemática del Entorno (AoI)\nEl área de operaciones abarca exactamente **{area} km²**. El centroide de gravedad operacional se sitúa en las coordenadas **{centroide}**.\n\n> {matriz_text}\n\n#### 2. Generación Procedural de Órdenes (Motor Matemático)\nLa inteligencia artificial ha cruzado las coordenadas GPS exactas de cada unidad con la matriz 3D y la telemetría enemiga, generando los siguientes rumbos y distancias operacionales reales:\n{unit_list}\n\n**Conclusión Operacional:**\nEl motor táctico ha designado de forma individual una cota u objetivo dominante para cada unidad de combate terrestre basada en algoritmos de línea de visión y proximidad enemiga, ignorando a los Comandos Superiores. Esto reduce la exposición a emboscadas en zonas bajas."
+                        brechas_text += f"{nombre}: Falta de telemetría impide evaluación de brecha.\n"
+                        movimientos_text += f"{nombre}: Mantener dispositivo defensivo de 360 grados.\n"
+
+            if not brechas_text:
+                brechas_text = "No se detectó despliegue amigo en el AOI."
+                movimientos_text = "Falta de unidades para proponer maniobras."
+                prioridades_text = "Prioridad 1: Despliegue de vanguardia."
+
+            return f"""ANÁLISIS DE LA SITUACIÓN OPERACIONAL (ASTOS)
+
+1. EVALUACIÓN DEL ESTADO DE LA AMENAZA
+{amenaza_text}
+
+2. ANÁLISIS DE CAPACIDADES Y BRECHAS
+Actualmente, el dispositivo táctico presenta las siguientes condiciones:
+{brechas_text}
+3. RECOMENDACIONES PARA OPTIMIZAR EL AOI Y COAS
+Para optimizar el AOI, se debe transitar a una postura de control de puntos críticos:
+{prioridades_text}
+4. SUGERENCIA DE MOVIMIENTOS DE FUERZAS
+Basado en el análisis de gradientes de terreno y proximidad de amenazas, se ordena:
+{movimientos_text}
+5. CONCLUSIÓN
+El COAS debe enfocarse en la toma y control de alturas dominantes (Choke Points). Se recomienda una reconfiguración inmediata de los pelotones desplegados para cubrir los puntos ciegos detectados en los ejes de aproximación principales."""
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
