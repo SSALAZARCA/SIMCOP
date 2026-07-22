@@ -2,6 +2,7 @@ import uvicorn
 import random
 import time
 import json
+import re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -124,7 +125,7 @@ class SimcopNativeEngine:
                 ]
             })
         elif "plan de operaciones COA" in prompt:
-            import re
+
             obj_match = re.search(r'Objetivo: (.*?)\n', prompt)
             objetivo = obj_match.group(1).strip() if obj_match else "Operación Ofensiva"
             
@@ -175,8 +176,6 @@ class SimcopNativeEngine:
                 ]
             })
         elif "SIMCOP AI Logística" in prompt:
-            import re
-            import random
             unidades_match = re.findall(r'- (.*?)\s*\(', prompt)
             if not unidades_match:
                 unidades_match = ["Batallón de Despliegue Rápido", "Fuerzas Especiales (COPES)"]
@@ -195,7 +194,7 @@ class SimcopNativeEngine:
                 })
             return json.dumps(res)
         elif "Function Caller" in prompt:
-            import re
+
             cmd_match = re.search(r'Comando Humano: "(.*?)"', prompt)
             cmd = cmd_match.group(1).lower() if cmd_match else ""
             
@@ -205,7 +204,7 @@ class SimcopNativeEngine:
                     return json.dumps({"name": "focusOnUnit", "args": {"unitName": unit_name_match.group(3).strip()}})
             return "null"
         elif "SIMCOP AI de Artillería" in prompt:
-            import re
+
             defensora_match = re.search(r'Unidad Defensora: (.*?)\n', prompt)
             defensora = defensora_match.group(1).strip() if defensora_match else "Unidad Terrestre"
             
@@ -221,7 +220,7 @@ class SimcopNativeEngine:
                 
             return f"1. Probabilidad de éxito: {probabilidad}%\n2. Nivel de Riesgo: ALTO\n3. Bajas estimadas si falla: 10-25 efectivos críticos de la unidad {defensora}.\n4. Recomendación: Disparar sistema de intercepción antiaérea inmediatamente contra {amenaza} usando una solución de tiro de fuego rápido."
         elif "motor Wargaming" in prompt:
-            import re
+
             plan_match = re.search(r'Plan COA: (.*?)\n', prompt)
             plan = plan_match.group(1).strip() if plan_match else "Maniobra Táctica"
             
@@ -236,7 +235,7 @@ class SimcopNativeEngine:
                 "accionesSubsiguientes": "Consolidar posición, recuento de munición y patrullaje perimetral."
             })
         elif "riesgos inminentes" in prompt:
-            import re
+
             unidades_mencionadas = re.findall(r'- (.*?)\s*\(', prompt)
             municipios = re.findall(r'Palabras Clave: \[(.*?)]', prompt)
             
@@ -245,7 +244,7 @@ class SimcopNativeEngine:
             
             return f"- **Riesgo Inminente:** OSINT y análisis geoespacial sugieren preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo ejecuta un asalto coordinado.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) en {zona} revelan un patrón de mando débil, permitiendo una maniobra de flanqueo ofensiva.\n- **Alerta de Movilidad:** Alta probabilidad de artefactos explosivos improvisados (AEI) en las rutas principales, se sugiere asegurar cotas dominantes."
         elif "Contexto Geoespacial/Topográfico" in prompt:
-            import re
+
             
             query_match = re.search(r'Consulta: (.*?)\n', prompt)
             q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
@@ -269,7 +268,7 @@ class SimcopNativeEngine:
                 
             return f"""### 🎯 Análisis Táctico Integral (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *"{q}"*\n\n#### 1. Evaluación del Entorno Operacional (AoI)\nEl área de operaciones en **{municipios}** presenta una elevación media de **{elev} msnm**. Esta configuración topográfica restringe severamente la movilidad mecanizada pesada, forzando un avance canalizado. La geografía actual favorece tácticas de guerra irregular, ofreciendo al enemigo múltiples rutas de escape.\nEl clima actual degrada levemente el rendimiento de rotores, afectando las ventanas de extracción aeromédica (MEDEVAC).\n\n#### 2. Valoración de Inteligencia (Capa Enemiga)\n**Foco Crítico:** {amenaza_principal}\nLos sensores SIGINT perfilan que el adversario capitalizará los puntos de estrangulamiento natural (choke points) dictados por el relieve para ejecutar hostigamientos de oportunidad contra las líneas de avance.\n\n#### 3. Configuración Óptima de Unidades\nBasado en el análisis de tensores topográficos, se ordena la siguiente reorganización táctica:\n{unit_list}\n\n**Recomendación de Curso de Acción (COA Sugerido):**\nEjecutar maniobra de fijación frontal mientras los elementos de reconocimiento infiltran los flancos antes del crepúsculo. Se prohíbe el tránsito de convoyes logísticos pesados sin escolta mecanizada."""
         elif "ANÁLISIS PROFUNDO" in prompt:
-            import re
+
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else "Operación en curso"
             
@@ -285,7 +284,7 @@ class SimcopNativeEngine:
                 "contexto_doctrinal": "Acorde a la doctrina de Operaciones Terrestres Unificadas, se prioriza la Acción Decisiva mediante ofensivas sincronizadas."
             })
         elif "Resumen Ejecutivo de Situación" in prompt:
-            import re
+
             
             amenaza_match = re.search(r'Amenaza Seleccionada: (.*?)\n', prompt)
             amenaza = amenaza_match.group(1).strip() if amenaza_match else "Ninguna"
