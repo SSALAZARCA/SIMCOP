@@ -374,11 +374,19 @@ class SimcopNativeEngine:
                 enemy_locs.append((float(match.group(1)), float(match.group(2))))
             
             amenaza_text = ""
+            if "No hay informes de inteligencia" not in intel_str and intel_str.strip():
+                # Extract text lines of intel
+                intel_lines = [line.strip() for line in intel_str.split('\n') if line.strip() and not line.startswith("INTELIGENCIA")]
+                amenaza_text += "La inteligencia operacional confirma las siguientes vulnerabilidades y amenazas en el Teatro de Operaciones:\n"
+                for line in intel_lines:
+                    amenaza_text += f"{line}\n"
+                amenaza_text += "\nEl Estado Mayor evalúa que esta información de inteligencia altera significativamente el balance de poder. El análisis cinético debe subordinarse a la mitigación de estas alertas específicas.\n"
+            else:
+                amenaza_text = "El Área de Interés (AOI) no reporta alertas de inteligencia confirmadas en las fuentes (HUMINT/SIGINT/OSINT). Sin embargo, la doctrina obliga a mantener una postura de guardia perimetral frente a amenazas híbridas no detectadas.\n"
+                
             if len(enemy_locs) > 0:
                 heat_zone = enemy_locs[0] # Simplification: use first enemy as heat zone
-                amenaza_text = f"El Área de Interés (AOI) presenta una amenaza activa. Se identifica una concentración de Grupos Armados No Estatales (GANE) operando como Zona de Calor Crítica en las coordenadas [{heat_zone[0]:.4f}, {heat_zone[1]:.4f}]. La amenaza es dinámica y sugiere intención de control territorial o sabotaje, exigiendo una postura operacional proactiva inmediata."
-            else:
-                amenaza_text = "El Área de Interés (AOI) no reporta contactos enemigos confirmados en la capa de inteligencia inmediata, sin embargo, la complejidad topográfica exige mantener una postura defensiva perimetral."
+                amenaza_text += f"\n[!] ALERTA TÁCTICA: Se ha detectado y georreferenciado un foco enemigo crítico en coordenadas {heat_zone}. Las capacidades adversarias en esta zona de calor dictan una reubicación de fuerzas inmediata."
 
             brechas_text = ""
             movimientos_text = ""
