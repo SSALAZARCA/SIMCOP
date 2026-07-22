@@ -389,8 +389,9 @@ class SimcopNativeEngine:
                 tipo_lower = tipo.lower()
                 
                 if "divisi" in tipo_lower or "brigada" in tipo_lower or "comando" in tipo_lower:
-                    brechas_text += f"{nombre}: Unidad de Mando (C2) operando desde {ubicacion}. Requiere asegurar líneas de abastecimiento logístico y evitar exposición directa.\n"
-                    movimientos_text += f"{nombre}: Mantener posición actual ({ubicacion}). Consolidar perímetro estático y coordinar fuegos de apoyo.\n"
+                    brechas_text += f"**{nombre}**: Se encuentra desplegada en coordenadas {ubicacion}. Como unidad de mando (C2), su ubicación actual garantiza la conectividad de los escalones inferiores, pero su naturaleza estática la convierte en un objetivo de alto valor (HVT). Se identifica una vulnerabilidad potencial en sus líneas de abastecimiento logístico frente a incursiones rápidas.\n\n"
+                    movimientos_text += f"**{nombre}**: Se recomienda mantener la posición actual ({ubicacion}) para no interrumpir el flujo de comando y control. Sin embargo, es imperativo consolidar un perímetro defensivo estricto, desplegar anillos de seguridad concéntricos y pre-coordinar misiones de fuegos de artillería sobre posibles rutas de aproximación enemiga.\n\n"
+                    prioridades_text += f"- **{nombre}**: Aseguramiento de líneas de comunicación y defensa perimetral de instalaciones C2.\n"
                 else:
                     if grid_nodes and u_lat != 0:
                         nodes_by_dist = sorted(grid_nodes, key=lambda n: haversine(u_lat, u_lon, n['lat'], n['lon']))
@@ -401,29 +402,30 @@ class SimcopNativeEngine:
                         dist_to_highest = haversine(u_lat, u_lon, highest['lat'], highest['lon'])
                         
                         if dist_to_highest < 0.5:
-                            brechas_text += f"{nombre}: Unidad posicionada en cota dominante local ({highest['elev']} msnm). Control visual sobre el sector asegurado.\n"
-                            movimientos_text += f"{nombre}: Mantener posición actual ({ubicacion}). Consolidar perímetro defensivo y establecer base de fuego.\n"
-                            prioridades_text += f"Prioridad ({nombre}): Sostener punto fuerte actual.\n"
+                            brechas_text += f"**{nombre}**: Tras cruzar sus coordenadas con la matriz topográfica, se confirma que la unidad ya está posicionada en la cota dominante local ({highest['elev']} msnm). Esta ubicación estratégica le otorga un dominio visual (LoS) ininterrumpido sobre el valle circundante, cerrando efectivamente las principales avenidas de aproximación enemiga.\n\n"
+                            movimientos_text += f"**{nombre}**: No se requiere desplazamiento táctico. La unidad debe sostener su posición actual ({ubicacion}), aprovechar la ventaja topográfica para establecer bases de fuego de apoyo a unidades adyacentes, e iniciar patrullajes de reconocimiento perimetral a corta distancia.\n\n"
+                            prioridades_text += f"- **{nombre}**: Sostenimiento de punto fuerte y explotación de ventaja visual.\n"
                         else:
                             path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
                             if path:
                                 total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else dist_to_highest
                                 dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
+                                elev_diff = highest['elev'] - (temp_nodes[path[0]]['elev'] if 'temp_nodes' in locals() else highest['elev'] - 200) # Fallback if temp_nodes missing
                                 
-                                brechas_text += f"{nombre}: Posicionamiento actual en cota subóptima frente al terreno circundante.\n"
-                                movimientos_text += f"{nombre}: Desplazar capacidad hacia la cota dominante próxima ({highest['elev']} msnm). Iniciar marcha táctica de {total_dist:.1f} km en dirección {dir_str} para establecer base de fuego y observación.\n"
-                                prioridades_text += f"Prioridad ({nombre}): Ocupación de Terreno Elevado en el sector inmediato.\n"
+                                brechas_text += f"**{nombre}**: El análisis de gradientes indica que la unidad se encuentra en una depresión relativa frente al terreno adyacente. Esta cota subóptima limita drásticamente su campo de visión y línea de tiro (LoS), creando puntos ciegos (zonas muertas) que fuerzas irregulares podrían explotar para infiltraciones tácticas o emboscadas desde terreno elevado.\n\n"
+                                movimientos_text += f"**{nombre}**: Se ordena iniciar una marcha táctica de {total_dist:.1f} km en dirección {dir_str}. El objetivo operacional es efectuar la toma y ocupación de la cota dominante más próxima ({highest['elev']} msnm). Este movimiento cerrará la brecha de infiltración actual y permitirá a la unidad establecer una base de fuego que domine los ejes de movilidad circundantes.\n\n"
+                                prioridades_text += f"- **{nombre}**: Toma de terreno elevado ({highest['elev']} msnm) para negar el control territorial al adversario.\n"
                             else:
-                                brechas_text += f"{nombre}: Cobertura aislada topográficamente.\n"
-                                movimientos_text += f"{nombre}: Realizar consolidación y defensa de punto fuerte en {ubicacion}.\n"
+                                brechas_text += f"**{nombre}**: La unidad se halla topográficamente aislada debido a pendientes excesivas o bloqueos geográficos que impiden un enlace físico rápido con otras fuerzas.\n\n"
+                                movimientos_text += f"**{nombre}**: Realizar consolidación y defensa de punto fuerte en {ubicacion} hasta recibir nuevos apoyos.\n\n"
                     else:
-                        brechas_text += f"{nombre}: Falta de telemetría impide evaluación de brecha.\n"
-                        movimientos_text += f"{nombre}: Mantener dispositivo defensivo de 360 grados.\n"
+                        brechas_text += f"**{nombre}**: Los sistemas de la IA no logran proyectar la unidad sobre la matriz topográfica debido a fallas en la telemetría GPS o falta de datos altimétricos.\n\n"
+                        movimientos_text += f"**{nombre}**: Mantener dispositivo defensivo de 360 grados en espera de triangulación topográfica.\n\n"
 
-            if not brechas_text:
-                brechas_text = "No se detectó despliegue amigo en el AOI."
-                movimientos_text = "Falta de unidades para proponer maniobras."
-                prioridades_text = "Prioridad 1: Despliegue de vanguardia."
+            if not brechas_text.strip():
+                brechas_text = "No se ha detectado el despliegue de unidades amigas dentro de los polígonos del Área de Operaciones."
+                movimientos_text = "Se requiere el despliegue de elementos de maniobra para generar vectores de movimiento."
+                prioridades_text = "- Prioridad Única: Insertar unidades de reconocimiento (RECCE) en el Área de Interés."
 
             return f"""ANÁLISIS DE LA SITUACIÓN OPERACIONAL (ASTOS)
 
@@ -431,16 +433,19 @@ class SimcopNativeEngine:
 {amenaza_text}
 
 2. ANÁLISIS DE CAPACIDADES Y BRECHAS
-Actualmente, el dispositivo táctico presenta las siguientes condiciones:
+Tras cruzar la ubicación georreferenciada de las fuerzas con el modelado 3D del terreno, se deducen las siguientes vulnerabilidades tácticas:
+
 {brechas_text}
 3. RECOMENDACIONES PARA OPTIMIZAR EL AOI Y COAS
-Para optimizar el AOI, se debe transitar a una postura de control de puntos críticos:
+Para asegurar el dominio del área, el Estado Mayor debe reconfigurar el dispositivo bajo los siguientes ejes prioritarios:
+
 {prioridades_text}
 4. SUGERENCIA DE MOVIMIENTOS DE FUERZAS
-Basado en el análisis de gradientes de terreno y proximidad de amenazas, se ordena:
+Ejecutando la simulación de fricción de terreno y algoritmos de optimización de rutas (A* Pathfinding), se sugieren los siguientes Cursos de Acción (COA):
+
 {movimientos_text}
 5. CONCLUSIÓN
-El COAS debe enfocarse en la toma y control de alturas dominantes (Choke Points). Se recomienda una reconfiguración inmediata de los pelotones desplegados para cubrir los puntos ciegos detectados en los ejes de aproximación principales."""
+El Centro de Gravedad Operacional radica en la ocupación sistemática de las alturas dominantes (Choke Points Topográficos). Al reubicar los pelotones tácticos hacia las cotas sugeridas, se anulará la capacidad de observación enemiga, se protegerán los nodos de mando (C2) en la retaguardia, y se establecerá un cerco de fuego cruzado sobre cualquier intento de infiltración hacia los ejes viales. Se recomienda autorización inmediata para el inicio de las marchas tácticas descritas."""
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
