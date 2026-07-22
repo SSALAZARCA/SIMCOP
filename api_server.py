@@ -321,8 +321,23 @@ class SimcopNativeEngine:
 
             def parse_lat_lon(coord_str):
                 try:
-                    c = coord_str.split(',')
-                    return float(c[0].strip().replace('N','').replace('S','')), float(c[1].strip().replace('E','').replace('W',''))
+                    coord_str = coord_str.strip('[]() ')
+                    if '°' in coord_str:
+                        parts = coord_str.split(',')
+                        if len(parts) != 2: return 0.0, 0.0
+                        
+                        def dms_to_dec(dms_str):
+                            dms_str = dms_str.strip()
+                            match = re.search(r"(\d+)°\s*(\d+)'\s*(\d+(?:\.\d+)?)\"\s*([NSWE])", dms_str, re.IGNORECASE)
+                            if match:
+                                dec = float(match.group(1)) + float(match.group(2))/60.0 + float(match.group(3))/3600.0
+                                if match.group(4).upper() in ['S', 'W']: dec = -dec
+                                return dec
+                            return 0.0
+                        return dms_to_dec(parts[0]), dms_to_dec(parts[1])
+                    else:
+                        c = coord_str.split(',')
+                        return float(c[0].strip().replace('N','').replace('S','')), float(c[1].strip().replace('E','').replace('W',''))
                 except: return 0.0, 0.0
 
             # Extract AOI Data
