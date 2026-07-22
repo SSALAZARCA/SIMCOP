@@ -393,21 +393,29 @@ class SimcopNativeEngine:
                     movimientos_text += f"{nombre}: Mantener posición actual ({ubicacion}). Consolidar perímetro estático y coordinar fuegos de apoyo.\n"
                 else:
                     if grid_nodes and u_lat != 0:
-                        close_nodes = [n for n in grid_nodes if haversine(u_lat, u_lon, n['lat'], n['lon']) < 5.0]
-                        if not close_nodes: close_nodes = grid_nodes
-                        highest = max(close_nodes, key=lambda x: x['elev'])
+                        nodes_by_dist = sorted(grid_nodes, key=lambda n: haversine(u_lat, u_lon, n['lat'], n['lon']))
+                        local_nodes = [n for n in nodes_by_dist if haversine(u_lat, u_lon, n['lat'], n['lon']) < 3.0]
+                        if not local_nodes: local_nodes = nodes_by_dist[:5]
                         
-                        path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
-                        if path:
-                            total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else haversine(u_lat, u_lon, highest['lat'], highest['lon'])
-                            dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
-                            
-                            brechas_text += f"{nombre}: Posicionamiento actual en cota subóptima. Existe una vulnerabilidad de cobertura sobre el eje de aproximación enemigo.\n"
-                            movimientos_text += f"{nombre}: Desplazar capacidad hacia la cota dominante ({highest['elev']} msnm). Iniciar marcha táctica de {total_dist:.1f} km en dirección {dir_str} para establecer base de fuego y observación y cerrar la brecha de infiltración.\n"
-                            prioridades_text += f"Prioridad ({nombre}): Control de Terreno Elevado en el eje de avance.\n"
+                        highest = max(local_nodes, key=lambda x: x['elev'])
+                        dist_to_highest = haversine(u_lat, u_lon, highest['lat'], highest['lon'])
+                        
+                        if dist_to_highest < 0.5:
+                            brechas_text += f"{nombre}: Unidad posicionada en cota dominante local ({highest['elev']} msnm). Control visual sobre el sector asegurado.\n"
+                            movimientos_text += f"{nombre}: Mantener posición actual ({ubicacion}). Consolidar perímetro defensivo y establecer base de fuego.\n"
+                            prioridades_text += f"Prioridad ({nombre}): Sostener punto fuerte actual.\n"
                         else:
-                            brechas_text += f"{nombre}: Cobertura aislada topográficamente.\n"
-                            movimientos_text += f"{nombre}: Realizar consolidación y defensa de punto fuerte en {ubicacion}.\n"
+                            path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
+                            if path:
+                                total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else dist_to_highest
+                                dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
+                                
+                                brechas_text += f"{nombre}: Posicionamiento actual en cota subóptima frente al terreno circundante.\n"
+                                movimientos_text += f"{nombre}: Desplazar capacidad hacia la cota dominante próxima ({highest['elev']} msnm). Iniciar marcha táctica de {total_dist:.1f} km en dirección {dir_str} para establecer base de fuego y observación.\n"
+                                prioridades_text += f"Prioridad ({nombre}): Ocupación de Terreno Elevado en el sector inmediato.\n"
+                            else:
+                                brechas_text += f"{nombre}: Cobertura aislada topográficamente.\n"
+                                movimientos_text += f"{nombre}: Realizar consolidación y defensa de punto fuerte en {ubicacion}.\n"
                     else:
                         brechas_text += f"{nombre}: Falta de telemetría impide evaluación de brecha.\n"
                         movimientos_text += f"{nombre}: Mantener dispositivo defensivo de 360 grados.\n"
