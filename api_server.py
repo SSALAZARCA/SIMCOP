@@ -422,30 +422,31 @@ class SimcopNativeEngine:
                         brechas_text += f"**{nombre}**: Los sistemas de la IA no logran proyectar la unidad sobre la matriz topográfica debido a fallas en la telemetría GPS o falta de datos altimétricos.\n\n"
                         movimientos_text += f"**{nombre}**: Mantener dispositivo defensivo de 360 grados en espera de triangulación topográfica.\n\n"
 
-            if not brechas_text.strip():
-                brechas_text = "No se ha detectado el despliegue de unidades amigas dentro de los polígonos del Área de Operaciones."
-                movimientos_text = "Se requiere el despliegue de elementos de maniobra para generar vectores de movimiento."
-                prioridades_text = "- Prioridad Única: Insertar unidades de reconocimiento (RECCE) en el Área de Interés."
+            query_match = re.search(r'CONSULTA:\n(.*)', prompt, re.DOTALL)
+            user_query = query_match.group(1).strip() if query_match else "Análisis de optimización del AOI"
 
-            return f"""ANÁLISIS DE LA SITUACIÓN OPERACIONAL (ASTOS)
+            return f"""**RESPUESTA DE LA IA A LA DIRECTIVA DEL COMANDANTE:**
+En atención a su requerimiento operacional: *"{user_query}"*, he procesado la telemetría del Área de Operaciones cruzando las capacidades orgánicas de nuestros pelotones con la matriz altimétrica (A-Star Pathfinding) y la inteligencia disponible. A continuación, presento la configuración óptima sugerida con máximo rigor doctrinal.
+
+ANÁLISIS DE LA SITUACIÓN OPERACIONAL (ASTOS)
 
 1. EVALUACIÓN DEL ESTADO DE LA AMENAZA
 {amenaza_text}
 
 2. ANÁLISIS DE CAPACIDADES Y BRECHAS
-Tras cruzar la ubicación georreferenciada de las fuerzas con el modelado 3D del terreno, se deducen las siguientes vulnerabilidades tácticas:
+Para responder a su directiva, se cruzó la ubicación georreferenciada de las fuerzas con el modelado 3D del terreno, deduciendo las siguientes vulnerabilidades tácticas:
 
 {brechas_text}
 3. RECOMENDACIONES PARA OPTIMIZAR EL AOI Y COAS
-Para asegurar el dominio del área, el Estado Mayor debe reconfigurar el dispositivo bajo los siguientes ejes prioritarios:
+Para asegurar el dominio del área y cumplir con el propósito de su consulta, el Estado Mayor debe reconfigurar el dispositivo bajo los siguientes ejes prioritarios:
 
 {prioridades_text}
 4. SUGERENCIA DE MOVIMIENTOS DE FUERZAS
-Ejecutando la simulación de fricción de terreno y algoritmos de optimización de rutas (A* Pathfinding), se sugieren los siguientes Cursos de Acción (COA):
+Ejecutando la simulación de fricción de terreno, se sugieren los siguientes Cursos de Acción (COA) diseñados específicamente para maximizar las capacidades de los pelotones desplegados:
 
 {movimientos_text}
-5. CONCLUSIÓN
-El Centro de Gravedad Operacional radica en la ocupación sistemática de las alturas dominantes (Choke Points Topográficos). Al reubicar los pelotones tácticos hacia las cotas sugeridas, se anulará la capacidad de observación enemiga, se protegerán los nodos de mando (C2) en la retaguardia, y se establecerá un cerco de fuego cruzado sobre cualquier intento de infiltración hacia los ejes viales. Se recomienda autorización inmediata para el inicio de las marchas tácticas descritas."""
+5. CONCLUSIÓN E INSTRUCCIONES DE MANDO
+Para satisfacer el propósito de su consulta táctica (*"{user_query}"*), el Centro de Gravedad Operacional radica en la reconfiguración inmediata del AOI mediante la ocupación de las alturas dominantes señaladas. Al reubicar los pelotones hacia estas cotas, se anulará la capacidad de observación enemiga, se protegerán los nodos de mando (C2) y se configurará la mejor postura defensiva-ofensiva posible con las unidades actuales. Se recomienda autorización inmediata para iniciar las marchas tácticas descritas."""
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
