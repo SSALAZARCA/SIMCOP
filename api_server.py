@@ -327,7 +327,7 @@ class SimcopNativeEngine:
                         if len(parts) != 2: return 0.0, 0.0
                         
                         def dms_to_dec(dms_str):
-                            dms_str = dms_str.strip()
+                            dms_str = dms_str.strip().replace('′', "'").replace('″', '"')
                             match = re.search(r"(\d+)°\s*(\d+)'\s*(\d+(?:\.\d+)?)\"\s*([NSWE])", dms_str, re.IGNORECASE)
                             if match:
                                 dec = float(match.group(1)) + float(match.group(2))/60.0 + float(match.group(3))/3600.0
