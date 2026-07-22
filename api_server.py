@@ -244,44 +244,83 @@ class SimcopNativeEngine:
             
             return f"- **Riesgo Inminente:** OSINT y análisis geoespacial sugieren preparación de área de aniquilamiento (emboscada) en las inmediaciones de {zona}.\n- **Vulnerabilidad Táctica:** La unidad {u_estrategica} presenta líneas de suministro extendidas y está en riesgo de quedar aislada si el enemigo ejecuta un asalto coordinado.\n- **Oportunidad Operacional:** Las firmas electromagnéticas enemigas (SIGINT) en {zona} revelan un patrón de mando débil, permitiendo una maniobra de flanqueo ofensiva.\n- **Alerta de Movilidad:** Alta probabilidad de artefactos explosivos improvisados (AEI) en las rutas principales, se sugiere asegurar cotas dominantes."
         elif "Contexto Geoespacial/Topográfico" in prompt:
-
-            
-            query_match = re.search(r'Consulta: (.*?)\n', prompt)
+            query_match = re.search(r'Consulta:\s*(.*?)\n', prompt)
             q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
             
-            unidades = re.findall(r'- Unidad: (.*?) \(', prompt)
-            if not unidades:
-                unidades = ["Unidades de despliegue", "Fuerzas de reserva"]
-                
+            # Extract AOI Data
+            centroide_match = re.search(r'Centroide: (.*?) \(DMS:', prompt)
+            centroide = centroide_match.group(1).strip() if centroide_match else "Desconocido"
+            
+            area_match = re.search(r'Área: ([\d.]+) km²', prompt)
+            area = area_match.group(1).strip() if area_match else "Desconocido"
+            
             municipios_match = re.search(r'Municipios/Regiones cubiertas: (.*?)\n', prompt)
             municipios = municipios_match.group(1).strip() if municipios_match else "la región designada"
             
-            elev_match = re.search(r'Elevación promedio del área: (.*?) msnm', prompt)
-            elev = elev_match.group(1).strip() if elev_match else "N/A"
+            elev_min_match = re.search(r'Elevación mínima.*?(\d+)\s*msnm', prompt)
+            elev_min = elev_min_match.group(1).strip() if elev_min_match else "N/A"
             
-            amenazas = re.findall(r'Intel: "(.*?)"', prompt)
-            amenaza_principal = amenazas[0] if amenazas else "Movimientos hostiles inminentes."
+            elev_max_match = re.search(r'Elevación máxima.*?(\d+)\s*msnm', prompt)
+            elev_max = elev_max_match.group(1).strip() if elev_max_match else "N/A"
             
-            unit_list = "\n".join([f"- **{u}**: Reposicionar en cota dominante (aprovechando la elevación de {elev} msnm); establecer arco de fuego entrelazado." for u in unidades[:3]])
-            if len(unidades) > 3:
-                unit_list += "\n- **Resto de Elementos**: Mantener como reserva móvil para Fuerza de Reacción Rápida."
+            elev_avg_match = re.search(r'Elevación promedio.*?(\d+)\s*msnm', prompt)
+            elev_avg = elev_avg_match.group(1).strip() if elev_avg_match else "N/A"
+            
+            # Extract units with hierarchy and coordinates
+            unidades_crudas = re.findall(r'- Unidad: (.*?) \((.*?)\).*?Ubicación: (.*?), Personal', prompt)
+            
+            unit_list = ""
+            for nombre, tipo, ubicacion in unidades_crudas:
+                tipo_lower = tipo.lower()
+                if "divisi" in tipo_lower or "brigada" in tipo_lower or "fuerza de tarea" in tipo_lower or "comando" in tipo_lower:
+                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Establecer Puesto de Mando (C2) y coordinar el flujo logístico hacia la vanguardia. Por doctrina, NO se expone en combate directo.\n"
+                elif "batall" in tipo_lower or "agrupaci" in tipo_lower:
+                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Asegurar vías de aproximación principales y mantener una compañía como reserva de reacción rápida táctica.\n"
+                else: # Pelotones, Compañías, Vanguardia
+                    unit_list += f"- **{nombre}** ({tipo}): Ubicada en {ubicacion}. Misión: Despliegue puramente táctico. Si la cota máxima del sector es de {elev_max} msnm, avanzar hacia los puntos elevados circundantes para establecer base de fuego y observación.\n"
+                    
+            if not unit_list:
+                unit_list = "- No se detectaron unidades amigas desplegadas en el mapa para asignar misiones."
                 
-            return f"""### 🎯 Análisis Táctico Integral (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *"{q}"*\n\n#### 1. Evaluación del Entorno Operacional (AoI)\nEl área de operaciones en **{municipios}** presenta una elevación media de **{elev} msnm**. Esta configuración topográfica restringe severamente la movilidad mecanizada pesada, forzando un avance canalizado. La geografía actual favorece tácticas de guerra irregular, ofreciendo al enemigo múltiples rutas de escape.\nEl clima actual degrada levemente el rendimiento de rotores, afectando las ventanas de extracción aeromédica (MEDEVAC).\n\n#### 2. Valoración de Inteligencia (Capa Enemiga)\n**Foco Crítico:** {amenaza_principal}\nLos sensores SIGINT perfilan que el adversario capitalizará los puntos de estrangulamiento natural (choke points) dictados por el relieve para ejecutar hostigamientos de oportunidad contra las líneas de avance.\n\n#### 3. Configuración Óptima de Unidades\nBasado en el análisis de tensores topográficos, se ordena la siguiente reorganización táctica:\n{unit_list}\n\n**Recomendación de Curso de Acción (COA Sugerido):**\nEjecutar maniobra de fijación frontal mientras los elementos de reconocimiento infiltran los flancos antes del crepúsculo. Se prohíbe el tránsito de convoyes logísticos pesados sin escolta mecanizada."""
+            return f"### 🎯 Análisis Táctico Integral (SIMCOP AI)\n**Directriz:** Respuesta a consulta: *\"{q}\"*\n\n#### 1. Evaluación Matemática del Entorno (AoI)\nEl área de operaciones abarca exactamente **{area} km²** en **{municipios}**. El centroide de gravedad operacional se sitúa en las coordenadas **{centroide}**. La topografía del terreno analizada oscila drásticamente desde **{elev_min} msnm** (punto más bajo) hasta picos de **{elev_max} msnm** (Promedio: {elev_avg} msnm). Las elevaciones máximas exigen recálculo de carga útil para rotores y limitan el movimiento mecanizado, forzando infantería ligera.\n\n#### 2. Distribución Jerárquica y Geográfica de Unidades\nLa inteligencia artificial ha cruzado las coordenadas GPS exactas de cada unidad con su jerarquía doctrinaria en combate:\n{unit_list}\n\n**Conclusión Operacional (COA Sugerido):**\nDado el diferencial de altura entre {elev_min} y {elev_max} msnm, el adversario intentará usar los picos (choke points) para emboscadas asimétricas. Las unidades tácticas menores (Pelotones/Compañías) deben asegurar el terreno elevado circundante, mientras los Mando Mayores (Divisiones/Brigadas) permanecen estáticos coordinando los apoyos de fuego desde el fondo del valle."
         elif "ANÁLISIS PROFUNDO" in prompt:
-
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
-            escenario = escenario_match.group(1).strip() if escenario_match else "Operación en curso"
+            escenario = escenario_match.group(1).strip() if escenario_match else ""
+            
+            escenario_lower = escenario.lower()
+            if "que es un coa" in escenario_lower or "qué es un coa" in escenario_lower or "curso de accion" in escenario_lower:
+                return json.dumps({
+                    "entrada_tactica": f"Consulta doctrinal procesada (NLP): {escenario}",
+                    "analisis": "Un Curso de Acción (COA) es un esquema detallado y factible que cumple la intención y la misión del comandante. Representa una de varias opciones tácticas posibles para alcanzar el Estado Final Deseado, integrando capacidades de fuego, maniobra y terreno frente al oponente.",
+                    "orden_estructurada": {
+                        "Fase 1": "Análisis de la Misión y Mapeo",
+                        "Fase 2": "Desarrollo de COAs",
+                        "Fase 3": "Juego de Guerra (Wargaming)",
+                        "Fase 4": "Comparación y Aprobación Final del COA por el Comandante"
+                    },
+                    "contexto_doctrinal": "Doctrina de Planeamiento Operacional del Ejército. Un COA debe ser Apto, Factible, Aceptable, Distinguible y Completo (AFADC)."
+                })
+            elif "que es" in escenario_lower or "define" in escenario_lower:
+                return json.dumps({
+                    "entrada_tactica": f"Consulta doctrinal (NLP): {escenario}",
+                    "analisis": f"El concepto consultado ('{escenario}') pertenece al cuerpo doctrinario operacional, indispensable para la sincronización de las seis funciones de conducción de la guerra (Mando, Inteligencia, Maniobra, Fuegos, Sostenimiento y Protección).",
+                    "orden_estructurada": {
+                        "Concepto": "Término Doctrinario Operacional",
+                        "Aplicación": "Planeamiento militar y evaluación táctica continua."
+                    },
+                    "contexto_doctrinal": "Referencia: Manuales de Campaña y Doctrina Terrestre (EJC)."
+                })
             
             return json.dumps({
                 "entrada_tactica": f"Recepción de comando: {escenario}",
-                "analisis": f"El escenario dictado ({escenario}) requiere una aproximación basada en el control de terreno clave y superioridad de fuegos. Las unidades involucradas deben mantener dispersión táctica para mitigar el riesgo de fuego indirecto enemigo, mientras convergen simultáneamente sobre el objetivo principal.",
+                "analisis": f"El escenario dictado ({escenario}) exige un control total del terreno clave. Las unidades involucradas deben mantener dispersión táctica para mitigar fuegos indirectos, convergiendo sincronizadamente.",
                 "orden_estructurada": {
-                    "Mision": "Neutralizar amenaza y asegurar el área de operaciones.",
+                    "Mision": "Asegurar el área y neutralizar la amenaza asimétrica.",
                     "Ejecucion": "Aproximación por flancos. Establecer base de fuego en cota dominante.",
-                    "Logistica": "Reabastecimiento clase I y V en 12 horas.",
+                    "Logistica": "Reabastecimiento de Clase I y V en 12h.",
                     "Mando_y_Comunicaciones": "Mando descentralizado. Silencio radial hasta contacto."
                 },
-                "contexto_doctrinal": "Acorde a la doctrina de Operaciones Terrestres Unificadas, se prioriza la Acción Decisiva mediante ofensivas sincronizadas."
+                "contexto_doctrinal": "Basado en Operaciones Terrestres Unificadas y Acción Decisiva."
             })
         elif "Resumen Ejecutivo de Situación" in prompt:
 
