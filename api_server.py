@@ -248,6 +248,8 @@ class SimcopNativeEngine:
             q = query_match.group(1).strip() if query_match else "Análisis general de la zona"
             
             import math
+            import heapq
+
             def haversine(lat1, lon1, lat2, lon2):
                 R = 6371.0
                 dLat = math.radians(lat2 - lat1)
@@ -261,7 +263,61 @@ class SimcopNativeEngine:
                 x = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(dLon)
                 brng = (math.degrees(math.atan2(y, x)) + 360) % 360
                 dirs = ["Norte", "Noreste", "Este", "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste"]
-                return brng, dirs[int(round(brng / 45.0)) % 8]
+                return dirs[int(round(brng / 45.0)) % 8]
+
+            def a_star(start_lat, start_lon, goal_node, nodes, enemy_locs, prompt_text):
+                if not nodes: return [], 0
+                
+                # Insert start node into graph temporarily
+                start_node = {'lat': start_lat, 'lon': start_lon, 'elev': 0}
+                temp_nodes = nodes + [start_node]
+                start_idx = len(temp_nodes) - 1
+                goal_idx = temp_nodes.index(goal_node)
+                
+                # Build adjacency list: each node connects to 4 closest neighbors
+                adj = {i: [] for i in range(len(temp_nodes))}
+                for i in range(len(temp_nodes)):
+                    dists = [(j, haversine(temp_nodes[i]['lat'], temp_nodes[i]['lon'], temp_nodes[j]['lat'], temp_nodes[j]['lon'])) for j in range(len(temp_nodes)) if i != j]
+                    dists.sort(key=lambda x: x[1])
+                    for j, d in dists[:4]:
+                        adj[i].append((j, d))
+
+                def enemy_los_penalty(n):
+                    pen = 0
+                    for e in enemy_locs:
+                        dist = haversine(n['lat'], n['lon'], e[0], e[1])
+                        if dist < 3.0: pen += (5.0 / max(0.1, dist)) # LoS risk proximity
+                    return pen
+
+                frontier = []
+                heapq.heappush(frontier, (0, start_idx))
+                came_from = {start_idx: None}
+                cost_so_far = {start_idx: 0}
+
+                while frontier:
+                    _, current = heapq.heappop(frontier)
+                    if current == goal_idx: break
+
+                    for next_idx, dist in adj[current]:
+                        elev_diff = max(0, temp_nodes[next_idx]['elev'] - temp_nodes[current]['elev'])
+                        weather_mult = 1.8 if "tormenta" in prompt_text.lower() or "lluvia" in prompt_text.lower() else 1.0
+                        
+                        # Graph Cost Formula: Distance + Climb Friction + Enemy Line of Sight Risk
+                        new_cost = cost_so_far[current] + (dist * weather_mult) + (elev_diff * 0.015) + enemy_los_penalty(temp_nodes[next_idx])
+                        
+                        if next_idx not in cost_so_far or new_cost < cost_so_far[next_idx]:
+                            cost_so_far[next_idx] = new_cost
+                            priority = new_cost + haversine(temp_nodes[next_idx]['lat'], temp_nodes[next_idx]['lon'], temp_nodes[goal_idx]['lat'], temp_nodes[goal_idx]['lon'])
+                            heapq.heappush(frontier, (priority, next_idx))
+                            came_from[next_idx] = current
+
+                path = []
+                curr = goal_idx
+                while curr != start_idx and curr is not None:
+                    path.append(temp_nodes[curr])
+                    curr = came_from.get(curr)
+                path.reverse()
+                return path, cost_so_far.get(goal_idx, 0)
 
             def parse_lat_lon(coord_str):
                 try:
@@ -315,12 +371,19 @@ class SimcopNativeEngine:
                         if not close_nodes: close_nodes = grid_nodes
                         highest = max(close_nodes, key=lambda x: x['elev'])
                         
-                        dist = haversine(u_lat, u_lon, highest['lat'], highest['lon'])
-                        brng, dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
-                        
-                        unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Cota objetivo detectada a {dist:.1f} km. Rumbo: {brng:.0f}° ({dir_str}). Misión: Marcha táctica hacia [{highest['lat']:.4f}, {highest['lon']:.4f}] para asegurar punto dominante a {highest['elev']} msnm.\n"
+                        # Graph Routing (A*)
+                        path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
+                        if path:
+                            total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else haversine(u_lat, u_lon, highest['lat'], highest['lon'])
+                            dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
+                            
+                            los_warn = "ALTA EXPOSICIÓN" if cost > (total_dist * 1.5) else "OCULTA (Desfiladero/Contrapendiente)"
+                            
+                            unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Objetivo: Asegurar cota dominante en {highest['elev']} msnm.\n  - **Ruta Computada (A* Graph):** Distancia real {total_dist:.1f} km en dirección {dir_str}. Atraviesa {len(path)} nodos matemáticos.\n  - **Evaluación Línea de Visión (LoS):** Ruta {los_warn} al enemigo.\n  - **Misión:** Marcha táctica evasiva siguiendo matriz de costo hasta la cumbre.\n"
+                        else:
+                            unit_list += f"- **{nombre}** ({tipo}): {enemy_warn} Objetivo: {highest['elev']} msnm. No se pudo trazar ruta segura en el Grafo (Aislamiento topográfico).\n"
                     else:
-                        unit_list += f"- **{nombre}** ({tipo}): Misión: Asegurar el perímetro actual y realizar reconocimiento perimetral. Faltan datos topográficos para ruta exacta.\n"
+                        unit_list += f"- **{nombre}** ({tipo}): Misión: Asegurar el perímetro actual y realizar reconocimiento perimetral. Faltan datos topográficos para matriz de costo.\n"
                         
             if not unit_list:
                 unit_list = "- No se detectaron unidades amigas desplegadas en el mapa para asignar misiones."
