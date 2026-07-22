@@ -657,6 +657,7 @@ export interface AoiGeoContext {
   elevationAvg?: number;     // average elevation across sampled points
   elevationRange?: number;   // max - min (relief)
   terrainType?: string;      // classified terrain description
+  elevationGrid?: {lat: number, lon: number, elev: number}[]; // Full point cloud matrix
 }
 
 export const getGeminiAnalysis = async (
@@ -742,6 +743,8 @@ TOPOGRAFÍA DEL AOI:
 - Elevación promedio del área: ${geoContext.elevationAvg!.toFixed(0)} msnm
 - Rango altitudinal (relieve): ${geoContext.elevationRange!.toFixed(0)} m${geoContext.terrainType ? `
 - Clasificación del terreno: ${geoContext.terrainType}` : ''}` : ''}
+${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA (POINT CLOUD):
+${geoContext.elevationGrid.map(p => `[Lat:${p.lat.toFixed(5)}, Lon:${p.lon.toFixed(5)} -> ${p.elev} msnm]`).join(' | ')}` : ''}
 ---`;
   }
 

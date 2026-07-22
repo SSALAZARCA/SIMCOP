@@ -347,6 +347,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         let elevationAvg: number | undefined;
         let elevationRange: number | undefined;
         let terrainType: string | undefined;
+        let elevationGrid: {lat: number, lon: number, elev: number}[] | undefined;
 
         try {
           const locString = limitedSamples.map(p => `${p.lat},${p.lon}`).join('|');
@@ -359,6 +360,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               elevationMax = Math.max(...elevValues);
               elevationAvg = Math.round(elevValues.reduce((a, b) => a + b, 0) / elevValues.length);
               elevationRange = elevationMax - elevationMin;
+              elevationGrid = elevData.results.map((r: any) => ({ lat: r.latitude, lon: r.longitude, elev: r.elevation }));
               // Classify terrain type based on elevation and relief
               if (elevationAvg < 200) terrainType = 'Llanura / Planicie (0-200 msnm) — terreno plano, movilidad alta';
               else if (elevationAvg < 800) terrainType = 'Piedemonte / Colinas bajas (200-800 msnm) — terreno ondulado, movilidad media';
@@ -377,7 +379,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         setLoadingMessage("Determinando cobertura geográfica del AOI...");
         const coordinates = targetAoiGeoJson.geometry.coordinates[0];
         const uniqueCoords: [number, number][] = [];
-        coordinates.forEach(coord => {
+        coordinates.forEach((coord: number[]) => {
           if (uniqueCoords.length < 4 && !uniqueCoords.some(c => c[0] === coord[0] && c[1] === coord[1])) {
             uniqueCoords.push(coord as [number, number]);
           }
@@ -401,7 +403,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           elevationMax,
           elevationAvg,
           elevationRange,
-          terrainType
+          terrainType,
+          elevationGrid
         };
 
         setCurrentGeoContext(geoContext);
