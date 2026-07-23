@@ -506,38 +506,46 @@ class SimcopNativeEngine:
 
                 tacticas_recomendadas_text = """
 
-**5. TÁCTICAS MILITARES DOCTRINALES RECOMENDADAS:**
-- **Táctica de Maniobra:** Avanzar por corredores desenfilados hasta asegurar la cota de mayor altitud local para constituir una Base de Fuegos (BDF).
-- **Táctica de Reconocimiento:** Desplegar patrulla avanzada de exploración a 500m del grueso y emplear sensores aéreos (UAV) para batir puntos ciegos.
-- **Táctica de Seguridad y EMCON:** Aplicar disciplina de emisiones electromagnéticas (EMCON) y mantener dispositivo defensivo perimetral de 360° en los descansos tácticos.
-- **Táctica de Fuegos y Neutralización:** Pre-registrar concentrados de fuegos de artillería/morteros sobre los sectores de amenaza enemiga identificados antes de empeñar a la infantería."""
+**5. TÁCTICAS, TÉCNICAS Y PROCEDIMIENTOS (TTPs) RECOMENDADOS:**
+- **A. TÁCTICAS (Empleo de la Fuerza):**
+  • Maniobra de avance por desenfilada topográfica para asegurar la cota dominante.
+  • Constitución de una Base de Fuegos (BDF) en terreno elevado para control visual (LoS).
+- **B. TÉCNICAS (Métodos de Combate):**
+  • Saltos vigilados alternados entre escuadras para mantener cobertura continua.
+  • Reconocimiento preventivo mediante sensores aéreos (UAV) sobre puntos ciegos.
+  • Aplicación de disciplina electromagnética (EMCON) ante reportes SIGINT.
+- **C. PROCEDIMIENTOS (SOP - Secuencia de Ejecución Paso a Paso):**
+  1. *Fase de Reconocimiento:* Desplegar micro-UAV y patrulla de exploración a 500m del grueso.
+  2. *Fase de Preparación:* Pre-registrar fuegos indirectos de artillería/morteros sobre coordenadas enemigas.
+  3. *Fase de Ejecución:* Iniciar marcha por la ruta desenfilada sugerida por la matriz A-Star.
+  4. *Fase de Consolidación:* Ocupar la cota asignada y establecer dispositivo defensivo en 360°."""
 
                 return f"**Análisis Operacional y Plan de Neutralización para {target_unit}:**\n\nRespecto a su requerimiento sobre **{target_unit}**, presento la evaluación táctica cruzando el terreno, la disposición de fuerzas propias y la inteligencia del enemigo:\n\n1. **DISPOSICIÓN TÁCTICA Y TERRENO:**\n{unit_brecha}\n\n2. **ACCIONES ESPECÍFICAS PARA MITIGAR LA AMENAZA ENEMIGA:**\n{mitigacion_text}\n\n3. **MANIOBRA Y CURSO DE ACCIÓN (COA) SUGERIDO:**\n{unit_mov}{amenaza_cercana_text}{tacticas_recomendadas_text}\n\n*Nota de Asesoría:* Estas acciones se someten a consideración del Mando para su aprobación o ajuste según el desarrollo de la situación en el terreno."
             
             elif "riesgo" in user_query.lower() or "emboscada" in user_query.lower() or "amenaza" in user_query.lower():
                 return f"**Evaluación de Riesgos y Mitigación Operacional:**\n\nComandante, he evaluado las vulnerabilidades del Área de Operaciones:\n\n{amenaza_text}\n\n**PLAN DE MITIGACIÓN SUGERIDO:**\n{mitigacion_text}\n\nSe recomienda al Mando reubicar las unidades en posición desajustada hacia cotas dominantes desenfiladas para anular la capacidad del adversario."
             
-            elif "tactica" in user_query.lower() or "táctica" in user_query.lower() or "técnica" in user_query.lower() or "tecnica" in user_query.lower():
-                return f"""**Propuesta de Tácticas Militares Recomendadas para el AOI:**
+            elif "ttp" in user_query.lower() or "tactica" in user_query.lower() or "táctica" in user_query.lower() or "técnica" in user_query.lower() or "tecnica" in user_query.lower() or "procedimiento" in user_query.lower():
+                return f"""**TÁCTICAS, TÉCNICAS Y PROCEDIMIENTOS (TTPs) SUGERIDOS PARA EL AOI:**
 
-En atención a su consulta sobre las tácticas militares a emplear (*"{user_query}"*), el Estado Mayor sugiere aplicar las siguientes técnicas tácticas doctrinales adaptadas al terreno e inteligencia actual:
+En atención a su consulta sobre el marco doctrinal de TTPs (*"{user_query}"*), el Estado Mayor propone la siguiente estructura de combate:
 
-1. **TÁCTICA DE MANIOBRA (Ocupación Desenfilada y Fuegos Apoyados):**
-   - **Toma de Cotas Dominantes:** Se propone avanzar mediante marchas tácticas por desenfilada de terreno hasta alcanzar la cota de mayor altitud local. Esto garantiza dominio de la Línea de Tiro (LoS) y elimina zonas ciegas.
-   - **Base de Fuegos (BDF):** Establecer un elemento de base de fuegos en la elevación conquistada para proveer cobertura a la maniobra de las unidades amigas en el valle.
+1. **TÁCTICAS (Maniobra y Empleo de Fuerzas):**
+   - **Conquista de Cota Dominante:** Ocupar la altura de mayor cota local para dominar la Línea de Tiro (LoS) y negar capacidad de observación al enemigo.
+   - **Base de Fuegos (BDF):** Emplazar elementos de apoyo sobre la elevación para cubrir la marcha de las unidades adyacentes.
 
-2. **TÁCTICA DE RECONOCIMIENTO Y EXPLORACIÓN:**
-   - **Patrullaje Avanzado:** Desplegar elementos de exploración a 500 metros del grueso de la tropa para verificar el terreno antes del avance principal.
-   - **Reconocimiento por Fuegos/Vigilancia UAV:** Utilizar sensores aéreos sobre los puntos notificados por inteligencia (HUMINT/OSINT) para fijar posiciones hostiles sin arriesgar personal.
+2. **TÉCNICAS (Métodos Ejecutivos de Combate):**
+   - **Saltos Vigilados:** Avance coordinado por elementos donde una escuadra sostiene base de fuegos mientras la otra efectúa el movimiento.
+   - **Detección Electrónica y EMCON:** Control de emisiones de comunicaciones (EMCON) para evadir rastreo SIGINT adversario.
+   - **Reconocimiento por Fuegos/UAV:** Exploración aérea con micro-drones en zonas de depresión antes de la entrada del grueso de la tropa.
 
-3. **TÁCTICA DE SEGURIDAD Y MITIGACIÓN DE AMENAZAS:**
-   - **Defensa Perimetral en 360°:** Mantener postura de seguridad circular durante descansos tácticos o consolidación de posiciones.
-   - **Disciplina Electromagnética (EMCON):** Aplicar restricciones en emisiones radiofónicas ante posibles interceptaciones enemigas (SIGINT).
+3. **PROCEDIMIENTOS OPERATIVOS NORMALIZADOS (SOP - Secuencia de Ejecución):**
+   - **Paso 1 (Exploración):** Lanzar elemento de reconocimiento avanzado a 500m del eje de avance.
+   - **Paso 2 (Apoyo de Fuegos):** Pre-registrar coordenadas de concentrados de morteros/artillería sobre los puntos notificados por inteligencia (HUMINT/OSINT).
+   - **Paso 3 (Marcha Desenfilada):** Desplazar la tropa por la ruta de menor fricción topográfica proyectada por el algoritmo A-Star.
+   - **Paso 4 (Consolidación y Reorganización):** Ocupar la cota, establecer perímetro defensivo en 360° y reorganizar sectores de tiro entrelazados.
 
-4. **TÁCTICA DE NEUTRALIZACIÓN:**
-   - **Pre-registro de Fuegos Indirectos:** Coordinar puntos de concentración de fuegos (morteros/artillería) sobre las coordenadas de las zonas de calor enemigas antes del empeñamiento directo de la infantería.
-
-*Sugerencia al Mando:* Se recomienda integrar estas 4 técnicas en las órdenes de operaciones (OPORD) emitidas a los comandantes de pelotón."""
+*Sugerencia al Mando:* Se recomienda transmitir estos TTPs a los comandantes de pelotón para estandarizar la ejecución táctica."""
             
             else:
                 return f"**Evaluación Operacional del AOI:**\n\nComandante, respecto a su requerimiento (*\"{user_query}\"*), presento el análisis de situación:\n\n{amenaza_text}\n\n**MEDIDAS DE MITIGACIÓN DE LA AMENAZA:**\n{mitigacion_text}\n\n**MANIOBRAS SUGERIDAS PARA LAS FUERZAS:**\n{movimientos_text}\n\nSe somete a consideración del Mando la aprobación de estos movimientos tácticos."
