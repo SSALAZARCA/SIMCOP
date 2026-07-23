@@ -398,7 +398,6 @@ class SimcopNativeEngine:
                 
                 if "divisi" in tipo_lower or "brigada" in tipo_lower or "comando" in tipo_lower:
                     brechas_text += f"**{nombre}**: Se encuentra desplegada en coordenadas {ubicacion}. Como unidad de mando (C2), su ubicación actual garantiza la conectividad de los escalones inferiores, pero su naturaleza estática la convierte en un objetivo de alto valor (HVT). Se identifica una vulnerabilidad potencial en sus líneas de abastecimiento logístico frente a incursiones rápidas.\n\n"
-                    movimientos_text += f"**{nombre}**: Se recomienda mantener la posición actual ({ubicacion}) para no interrumpir el flujo de comando y control. Sin embargo, es imperativo consolidar un perímetro defensivo estricto, desplegar anillos de seguridad concéntricos y pre-coordinar misiones de fuegos de artillería sobre posibles rutas de aproximación enemiga.\n\n"
                     prioridades_text += f"- **{nombre}**: Aseguramiento de líneas de comunicación y defensa perimetral de instalaciones C2.\n"
                 else:
                     if grid_nodes and u_lat != 0:
@@ -407,25 +406,52 @@ class SimcopNativeEngine:
                         if not local_nodes: local_nodes = nodes_by_dist[:5]
                         
                         highest = max(local_nodes, key=lambda x: x['elev'])
+                        lowest = min(local_nodes, key=lambda x: x['elev'])
+                        current_elev = nodes_by_dist[0]['elev'] if nodes_by_dist else 1500.0
                         dist_to_highest = haversine(u_lat, u_lon, highest['lat'], highest['lon'])
                         
-                        if dist_to_highest < 0.5:
-                            brechas_text += f"**{nombre}**: Tras cruzar sus coordenadas con la matriz topográfica, se confirma que la unidad ya está posicionada en la cota dominante local ({highest['elev']} msnm). Esta ubicación estratégica le otorga un dominio visual (LoS) ininterrumpido sobre el valle circundante, cerrando efectivamente las principales avenidas de aproximación enemiga.\n\n"
-                            movimientos_text += f"**{nombre}**: No se requiere desplazamiento táctico. La unidad debe sostener su posición actual ({ubicacion}), aprovechar la ventaja topográfica para establecer bases de fuego de apoyo a unidades adyacentes, e iniciar patrullajes de reconocimiento perimetral a corta distancia.\n\n"
-                            prioridades_text += f"- **{nombre}**: Sostenimiento de punto fuerte y explotación de ventaja visual.\n"
-                        else:
+                        # Verificar presencia enemiga cercana a la unidad (< 2 km)
+                        enemy_near = False
+                        dist_to_enemy = 999.0
+                        if enemy_locs:
+                            closest_e = min(enemy_locs, key=lambda e: haversine(u_lat, u_lon, e[0], e[1]))
+                            dist_to_enemy = haversine(u_lat, u_lon, closest_e[0], closest_e[1])
+                            if dist_to_enemy < 2.0:
+                                enemy_near = True
+
+                        # Evaluaciones dinámicas según tipo de unidad y terreno real
+                        rel_elev = current_elev - lowest['elev']
+                        elev_range = max(1.0, highest['elev'] - lowest['elev'])
+                        pos_ratio = rel_elev / elev_range  # 0.0 (valle/depresión) a 1.0 (cresta/cumbre)
+
+                        if enemy_near:
+                            dir_e = get_azimuth(u_lat, u_lon, closest_e[0], closest_e[1])
+                            brechas_text += f"**{nombre}**: ¡CONTACTO Y AMENAZA DIRECTA! La unidad registra presencia adversaria confirmada a solo {dist_to_enemy:.2f} km en dirección {dir_e}. Su posición actual ({current_elev:.0f} msnm) está expuesta al fuego directo/indirecto enemigo.\n\n"
+                            movimientos_text += f"**{nombre}**: Se recomienda NO realizar marchas administrativas expuestas. Se propone consolidar de inmediato un dispositivo defensivo de 360°, entrelazar sectores de tiro de ametralladoras y fijar al adversario con fuegos de contención mientras se coordina apoyo aéreo o de artillería.\n\n"
+                            prioridades_text += f"- **{nombre}**: Fijación de la amenaza enemiga a {dist_to_enemy:.2f} km y contención de avance.\n"
+                        elif pos_ratio > 0.75:
+                            brechas_text += f"**{nombre}**: La unidad domina la cresta dominante del sector ({current_elev:.0f} msnm). Posee excelente campo de observación (LoS), pero se encuentra desprotegida contra el viento y fuego de morteros enemigos sobre la silueta de la cumbre.\n\n"
+                            movimientos_text += f"**{nombre}**: Se recomienda replegar el grueso de la tropa hacia la contrapendiente (desenfilada de cumbre) manteniendo solo un puesto de observación (PO) en la cresta, garantizando protección de la tropa sin perder el control visual.\n\n"
+                            prioridades_text += f"- **{nombre}**: Protección en contrapendiente y mantenimiento de Puesto de Observación (PO).\n"
+                        elif "reconocimiento" in tipo_lower or "inteligencia" in tipo_lower or "uav" in tipo_lower:
+                            brechas_text += f"**{nombre}**: Como elemento de reconocimiento en coordenadas {ubicacion} ({current_elev:.0f} msnm), requiere sigilo operacional. Avanzar a cumbres abiertas comprometería su firma térmica y visual.\n\n"
+                            movimientos_text += f"**{nombre}**: Se sugiere mantener infiltración en corredores cubiertos por la vegetación/terreno, estableciendo Puestos de Observación (PO) ocultos y operando sensores electro-ópticos/UAV sin revelar la posición del elemento.\n\n"
+                            prioridades_text += f"- **{nombre}**: Reconocimiento encubierto y adquisición de blancos sin delatar posición.\n"
+                        elif "blindad" in tipo_lower or "caballer" in tipo_lower or "mecanizad" in tipo_lower:
+                            brechas_text += f"**{nombre}**: Unidad de movilidad mecanizada en coordenadas {ubicacion}. Las pendientes superiores al 25% hacia las cumbres restringen la movilidad de sus vehículos, dejándolos vulnerables en cuellos de botella.\n\n"
+                            movimientos_text += f"**{nombre}**: Se recomienda controlar los ejes viales y corredores de movilidad plana del valle, estableciendo puntos de control (Checkpoints) y arrollamiento móvil en terreno llano.\n\n"
+                            prioridades_text += f"- **{nombre}**: Control de avenidas de aproximación mecanizadas sobre corredores llanos.\n"
+                        elif pos_ratio < 0.3:
                             path, cost = a_star(u_lat, u_lon, highest, grid_nodes, enemy_locs, prompt)
-                            if path:
-                                total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if len(path)>1 else dist_to_highest
-                                dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
-                                elev_diff = highest['elev'] - (temp_nodes[path[0]]['elev'] if 'temp_nodes' in locals() else highest['elev'] - 200) # Fallback if temp_nodes missing
-                                
-                                brechas_text += f"**{nombre}**: El análisis de gradientes indica que la unidad se encuentra en una depresión relativa frente al terreno adyacente. Esta cota subóptima limita drásticamente su campo de visión y línea de tiro (LoS), creando puntos ciegos (zonas muertas) que fuerzas irregulares podrían explotar para infiltraciones tácticas o emboscadas desde terreno elevado.\n\n"
-                                movimientos_text += f"**{nombre}**: Se recomienda considerar una marcha táctica de {total_dist:.1f} km en dirección {dir_str}. El objetivo operacional es efectuar la toma y ocupación de la cota dominante más próxima ({highest['elev']} msnm). Este movimiento cerrará la brecha de infiltración actual y permitirá a la unidad establecer una base de fuego que domine los ejes de movilidad circundantes.\n\n"
-                                prioridades_text += f"- **{nombre}**: Toma de terreno elevado ({highest['elev']} msnm) para negar el control territorial al adversario.\n"
-                            else:
-                                brechas_text += f"**{nombre}**: La unidad se halla topográficamente aislada debido a pendientes excesivas o bloqueos geográficos que impiden un enlace físico rápido con otras fuerzas.\n\n"
-                                movimientos_text += f"**{nombre}**: Se sugiere realizar consolidación y defensa de punto fuerte en {ubicacion} hasta recibir nuevos apoyos.\n\n"
+                            total_dist = sum([haversine(path[i]['lat'], path[i]['lon'], path[i+1]['lat'], path[i+1]['lon']) for i in range(len(path)-1)]) if (path and len(path)>1) else dist_to_highest
+                            dir_str = get_azimuth(u_lat, u_lon, highest['lat'], highest['lon'])
+                            brechas_text += f"**{nombre}**: Se encuentra desplegada en el fondo del valle ({current_elev:.0f} msnm), encajonada entre elevaciones que limitan su radio de telecomunicaciones HF/VHF y su visibilidad visual.\n\n"
+                            movimientos_text += f"**{nombre}**: Se recomienda efectuar un escalonamiento táctico de {total_dist:.1f} km en dirección {dir_str} hacia terreno intermedio elevado ({highest['elev']:.0f} msnm) para recuperar enlace de mando y salir de la zona encajonada.\n\n"
+                            prioridades_text += f"- **{nombre}**: Salida de zona encajonada y recuperación de enlace de mando C2.\n"
+                        else:
+                            brechas_text += f"**{nombre}**: Se encuentra posicionada en una meseta/ladera intermedia ({current_elev:.0f} msnm) con equilibrio aceptable entre cobertura de terreno y visibilidad de los accesos principales.\n\n"
+                            movimientos_text += f"**{nombre}**: Se sugiere consolidar la posición actual, patrullar los flancos hacia los desfiladeros cercanos y mantener patrullas móviles de enlace con las unidades amigas adyacentes.\n\n"
+                            prioridades_text += f"- **{nombre}**: Consolidación de posición intermedia y patrullaje de flancos.\n"
                     else:
                         brechas_text += f"**{nombre}**: Los sistemas de la IA no logran proyectar la unidad sobre la matriz topográfica debido a fallas en la telemetría GPS o falta de datos altimétricos.\n\n"
                         movimientos_text += f"**{nombre}**: Se sugiere mantener dispositivo defensivo de 360 grados en espera de triangulación topográfica.\n\n"
