@@ -835,14 +835,49 @@ GEOMETRÍA GENERAL DEL TERRENO (MARCO ESPACIAL Y BOUNDING BOX):
 - Municipios/Regiones cubiertas: ${municipalitiesStr}
 - Condición meteorológica: ${weatherStr}
 ${weatherHazards}
-TOPOGRAFÍA Y GEOMETRÍA GENERAL DEL AOI:
-- Elevación en centroide: ${geoContext.elevationMeters.toFixed(0)} msnm${geoContext.elevationMin !== undefined ? `
-- Elevación mínima (punto más bajo): ${geoContext.elevationMin.toFixed(0)} msnm
-- Elevación máxima (punto más alto): ${geoContext.elevationMax!.toFixed(0)} msnm
-- Elevación promedio del área: ${geoContext.elevationAvg!.toFixed(0)} msnm
-- Rango altitudinal (relieve): ${geoContext.elevationRange!.toFixed(0)} m${geoContext.terrainType ? `
-- Clasificación del terreno: ${geoContext.terrainType}` : ''}` : ''}${geometryPrompt}
-${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA (POINT CLOUD):
+    // Cálculo de la Distribución Altimétrica por Cuadrantes Tácticos
+    let quadrantPrompt = '';
+    if (geoContext.elevationGrid && geoContext.elevationGrid.length > 0) {
+      const grid = geoContext.elevationGrid;
+      const cLat = geoContext.centroid.lat;
+      const cLon = geoContext.centroid.lon;
+
+      const nwNodes = grid.filter(p => p.lat >= cLat && p.lon <= cLon);
+      const neNodes = grid.filter(p => p.lat >= cLat && p.lon > cLon);
+      const swNodes = grid.filter(p => p.lat < cLat && p.lon <= cLon);
+      const seNodes = grid.filter(p => p.lat < cLat && p.lon > cLon);
+
+      const getAvg = (nodes: typeof grid) => nodes.length > 0 ? (nodes.reduce((a, b) => a + b.elev, 0) / nodes.length) : geoContext.elevationMeters;
+      const getMaxNode = (nodes: typeof grid) => nodes.length > 0 ? nodes.reduce((a, b) => a.elev > b.elev ? a : b) : null;
+
+      const maxNodeGlobal = grid.reduce((a, b) => a.elev > b.elev ? a : b);
+      const minNodeGlobal = grid.reduce((a, b) => a.elev < b.elev ? a : b);
+
+      const nwMax = getMaxNode(nwNodes);
+      const neMax = getMaxNode(neNodes);
+
+      quadrantPrompt = `
+PERFIL ALTIMÉTRICO DISTRIBUIDO Y COTAS CRÍTICAS DEL AOI:
+- Cota Dominante Máxima (Punto Más Alto): ${maxNodeGlobal.elev} msnm [Ubicación: ${maxNodeGlobal.lat.toFixed(4)}°, ${maxNodeGlobal.lon.toFixed(4)}°]
+- Depresión Mínima (Fondo de Valle): ${minNodeGlobal.elev} msnm [Ubicación: ${minNodeGlobal.lat.toFixed(4)}°, ${minNodeGlobal.lon.toFixed(4)}°]
+- Desnivel Altitudinal Total (Relieve): ${(maxNodeGlobal.elev - minNodeGlobal.elev)} metros
+- Distribución Altimétrica por Cuadrantes Tácticos:
+  • Sector Noroeste (NW): Promedio ${getAvg(nwNodes).toFixed(0)} msnm ${nwMax ? `(Cota Max: ${nwMax.elev} msnm)` : ''}
+  • Sector Noreste (NE): Promedio ${getAvg(neNodes).toFixed(0)} msnm ${neMax ? `(Cota Max: ${neMax.elev} msnm)` : ''}
+  • Sector Suroeste (SW): Promedio ${getAvg(swNodes).toFixed(0)} msnm
+  • Sector Sureste (SE): Promedio ${getAvg(seNodes).toFixed(0)} msnm`;
+    }
+
+    geoPrompt = `
+ÁREA DE OPERACIONES (AOI) ACTIVA:
+- Centroide Geométrico del Sector: ${geoContext.centroid.lat.toFixed(4)}°, ${geoContext.centroid.lon.toFixed(4)} (DMS: ${geoContext.centroid.dms})
+- Área Total del Cuadrante: ${geoContext.areaKm2.toFixed(2)} km²
+- Municipios/Regiones cubiertas: ${municipalitiesStr}
+- Condición meteorológica: ${weatherStr}
+${weatherHazards}
+TOPOGRAFÍA Y GEOMETRÍA GENERAL DEL AOI:${geometryPrompt}
+${quadrantPrompt}
+${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA DE PUNTOS SAMPLING (POINT CLOUD):
 ${geoContext.elevationGrid.map(p => `[Lat:${p.lat.toFixed(5)}, Lon:${p.lon.toFixed(5)} -> ${p.elev} msnm]`).join(' | ')}` : ''}
 ---`;
   }
