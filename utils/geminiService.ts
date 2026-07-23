@@ -788,6 +788,46 @@ export const getGeminiAnalysis = async (
       ? geoContext.municipalities.join(', ')
       : 'No determinado';
 
+    // Cálculo de la Geometría General del AOI (Bounding Box y Gradientes Espaciales)
+    let geometryPrompt = '';
+    if (geoContext.elevationGrid && geoContext.elevationGrid.length > 0) {
+      const lats = geoContext.elevationGrid.map(p => p.lat);
+      const lons = geoContext.elevationGrid.map(p => p.lon);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLon = Math.min(...lons);
+      const maxLon = Math.max(...lons);
+
+      const nsDistKm = calculateDistanceKm(minLat, geoContext.centroid.lon, maxLat, geoContext.centroid.lon);
+      const ewDistKm = calculateDistanceKm(geoContext.centroid.lat, minLon, geoContext.centroid.lat, maxLon);
+
+      // Estimación de Gradientes de Pendiente (Slope Geometry)
+      let maxSlope = 0;
+      let totalSlope = 0;
+      let countSlope = 0;
+      const grid = geoContext.elevationGrid;
+      for (let i = 0; i < grid.length - 1; i++) {
+        for (let j = i + 1; j < Math.min(grid.length, i + 5); j++) {
+          const dKm = calculateDistanceKm(grid[i].lat, grid[i].lon, grid[j].lat, grid[j].lon);
+          if (dKm > 0.05 && dKm < 2.0) {
+            const elevDiff = Math.abs(grid[i].elev - grid[j].elev);
+            const slopePct = (elevDiff / (dKm * 1000)) * 100;
+            if (slopePct > maxSlope) maxSlope = slopePct;
+            totalSlope += slopePct;
+            countSlope++;
+          }
+        }
+      }
+      const avgSlope = countSlope > 0 ? (totalSlope / countSlope) : 5.0;
+
+      geometryPrompt = `
+GEOMETRÍA GENERAL DEL TERRENO (MARCO ESPACIAL Y BOUNDING BOX):
+- Polígono Bounding Box: [Sur: ${minLat.toFixed(4)}°, Norte: ${maxLat.toFixed(4)}°, Oeste: ${minLon.toFixed(4)}°, Este: ${maxLon.toFixed(4)}°]
+- Dimensiones del Cuadrante: ${nsDistKm.toFixed(2)} km (Eje Norte-Sur) x ${ewDistKm.toFixed(2)} km (Eje Este-Oeste)
+- Geometría de Pendientes (Gradientes de Fricción): Pendiente Máxima Registrada: ${maxSlope.toFixed(1)}% | Pendiente Promedio: ${avgSlope.toFixed(1)}%
+- Perfil Topográfico General: ${maxSlope > 35 ? 'Terreno de alta escarpadura y barreras naturales infranqueables para vehículos' : maxSlope > 15 ? 'Terreno accidentado con laderas de pendiente moderada' : 'Terreno relativamente llano con ondulaciones suaves'}.`;
+    }
+
     geoPrompt = `
 ÁREA DE OPERACIONES (AOI) ACTIVA:
 - Centroide: ${geoContext.centroid.lat.toFixed(4)}, ${geoContext.centroid.lon.toFixed(4)} (DMS: ${geoContext.centroid.dms})
@@ -795,13 +835,13 @@ export const getGeminiAnalysis = async (
 - Municipios/Regiones cubiertas: ${municipalitiesStr}
 - Condición meteorológica: ${weatherStr}
 ${weatherHazards}
-TOPOGRAFÍA DEL AOI:
+TOPOGRAFÍA Y GEOMETRÍA GENERAL DEL AOI:
 - Elevación en centroide: ${geoContext.elevationMeters.toFixed(0)} msnm${geoContext.elevationMin !== undefined ? `
 - Elevación mínima (punto más bajo): ${geoContext.elevationMin.toFixed(0)} msnm
 - Elevación máxima (punto más alto): ${geoContext.elevationMax!.toFixed(0)} msnm
 - Elevación promedio del área: ${geoContext.elevationAvg!.toFixed(0)} msnm
 - Rango altitudinal (relieve): ${geoContext.elevationRange!.toFixed(0)} m${geoContext.terrainType ? `
-- Clasificación del terreno: ${geoContext.terrainType}` : ''}` : ''}
+- Clasificación del terreno: ${geoContext.terrainType}` : ''}` : ''}${geometryPrompt}
 ${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA (POINT CLOUD):
 ${geoContext.elevationGrid.map(p => `[Lat:${p.lat.toFixed(5)}, Lon:${p.lon.toFixed(5)} -> ${p.elev} msnm]`).join(' | ')}` : ''}
 ---`;
