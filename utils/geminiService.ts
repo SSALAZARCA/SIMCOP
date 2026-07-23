@@ -464,13 +464,72 @@ export const translateUnitStatus = (status: string): string => {
   }
 };
 
-const formatUnitsForPrompt = (units: MilitaryUnit[]): string => {
+const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const getBearingCardinal = (lat1: number, lon1: number, lat2: number, lon2: number): string => {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+  let brng = Math.atan2(y, x) * 180 / Math.PI;
+  brng = (brng + 360) % 360;
+  const directions = ['Norte', 'Noreste', 'Este', 'Sureste', 'Sur', 'Suroeste', 'Oeste', 'Noroeste'];
+  return directions[Math.round(brng / 45) % 8];
+};
+
+const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceReport[] = []): string => {
   if (units.length === 0) return "Actualmente no se reportan unidades amigas.";
   return units.slice(0, 15).map(u => {
     const totalPersonnel = (u.personnelBreakdown?.officers || 0) + (u.personnelBreakdown?.ncos || 0) + (u.personnelBreakdown?.professionalSoldiers || 0) + (u.personnelBreakdown?.slRegulars || 0);
     const translatedType = translateUnitType(u.type);
     const translatedStatus = translateUnitStatus(u.status);
-    return `- Unidad: ${escapeTemplateLiteralContent(u.name)} (${translatedType}), Cmdte: ${formatCommander(u.commander)}, Estado: ${translatedStatus}, Ubicación: ${decimalToDMS(u.location)}, Personal Total: ${totalPersonnel}, Últ. Movimiento: ${Math.floor((Date.now() - u.lastMovementTimestamp) / 60000)} mins atrás.`;
+
+    // Conciencia Situacional: Apoyo Mutuo (Unidades amigas a menos de 3.5 km)
+    const friendlySupport: string[] = [];
+    if (u.location && u.location.lat && u.location.lon) {
+      units.forEach(other => {
+        if (other.id !== u.id && other.location && other.location.lat && other.location.lon) {
+          const dist = calculateDistanceKm(u.location.lat, u.location.lon, other.location.lat, other.location.lon);
+          if (dist < 3.5) {
+            friendlySupport.push(`${escapeTemplateLiteralContent(other.name)} (a ${dist.toFixed(1)} km)`);
+          }
+        }
+      });
+    }
+    const supportStr = friendlySupport.length > 0 ? `Apoyo Amigo Cercano: [${friendlySupport.join(', ')}]` : 'Apoyo Amigo: Aislada (> 3.5 km de otras fuerzas)';
+
+    // Conciencia Situacional: Amenaza de Inteligencia más cercana
+    let closestIntelStr = 'Amenaza Cercana: Sin focos enemigos directos reportados en radio de 5 km';
+    if (u.location && u.location.lat && u.location.lon && intelReports.length > 0) {
+      let minDist = 999;
+      let closestReport: IntelligenceReport | null = null;
+      intelReports.forEach(r => {
+        if (r.location && r.location.lat && r.location.lon) {
+          const dist = calculateDistanceKm(u.location.lat, u.location.lon, r.location.lat, r.location.lon);
+          if (dist < minDist) {
+            minDist = dist;
+            closestReport = r;
+          }
+        }
+      });
+
+      if (closestReport && minDist < 15) {
+        const reportObj = closestReport as IntelligenceReport;
+        const azimuth = getBearingCardinal(u.location.lat, u.location.lon, reportObj.location.lat, reportObj.location.lon);
+        closestIntelStr = `Amenaza Enemiga Más Cercana: "${escapeTemplateLiteralContent(reportObj.title)}" a ${minDist.toFixed(1)} km en azimut ${azimuth}`;
+      }
+    }
+
+    return `- Unidad: ${escapeTemplateLiteralContent(u.name)} (${translatedType}), Cmdte: ${formatCommander(u.commander)}, Estado: ${translatedStatus}, Ubicación: ${decimalToDMS(u.location)}, Personal Total: ${totalPersonnel}, Últ. Movimiento: ${Math.floor((Date.now() - u.lastMovementTimestamp) / 60000)} mins atrás. CONCIENCIA SITUACIONAL: ${supportStr} | ${closestIntelStr}.`;
   }).join('\n');
 };
 
@@ -670,7 +729,7 @@ export const getGeminiAnalysis = async (
 ): Promise<GeminiAnalysisResult> => {
   await ensureInitialized();
 
-  const unitContext = formatUnitsForPrompt(units);
+  const unitContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
 
   let systemInstruction = `Eres un analista militar integrado al sistema SIMCOP. Se te proporciona información en tiempo real: estado de unidades, informes de inteligencia, contexto topográfico (alturas, relieve, escarpadura) y meteorología detallada (vientos, visibilidad, techo de nubes). Analiza de manera obligatoria y rigurosa cómo la topografía y el clima limitan o favorecen las operaciones tácticas descritas en la consulta del usuario (por ejemplo, restricciones de vuelo de UAVs por viento/nubes, oclusión de comunicaciones por el relieve montañoso, y riesgos físicos para las patrullas terrestres). Responde la consulta de forma completa, estructurada y con criterio militar profesional. Las coordenadas geográficas están en formato Grados Minutos Segundos (DMS). Si usas Google Search, cita las fuentes al final.`;
