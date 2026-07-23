@@ -818,14 +818,33 @@ export const getGeminiAnalysis = async (
           }
         }
       }
-      const avgSlope = countSlope > 0 ? (totalSlope / countSlope) : 5.0;
+      // Análisis de Micro-Relieve Quebrado Colombiano (Cañadas, Cuchillas, Farallones)
+      let microReliefHazards: string[] = [];
+      for (let i = 0; i < grid.length; i++) {
+        const neighbors = grid.filter((p, idx) => idx !== i && calculateDistanceKm(grid[i].lat, grid[i].lon, p.lat, p.lon) < 0.6);
+        if (neighbors.length >= 2) {
+          const maxNeighborElev = Math.max(...neighbors.map(n => n.elev));
+          const minNeighborElev = Math.min(...neighbors.map(n => n.elev));
+          const localDrop = maxNeighborElev - grid[i].elev;
+          const localRise = grid[i].elev - minNeighborElev;
+
+          if (localDrop > 180) {
+            microReliefHazards.push(`Cañada/Vaguada Encajonada de Alta Fricción en [${grid[i].lat.toFixed(4)}°, ${grid[i].lon.toFixed(4)}°] (Depresión de ${localDrop}m respecto a las cumbres vecinas -> Alto Riesgo de Emboscada y Pérdida de Comunicaciones).`);
+          } else if (localRise > 200 && grid[i].elev > 2000) {
+            microReliefHazards.push(`Cuchilla/Fila de Montaña Estrecha en [${grid[i].lat.toFixed(4)}°, ${grid[i].lon.toFixed(4)}°] (Elevación de ${grid[i].elev} msnm -> Eje Táctico de Observación Directa).`);
+          }
+        }
+      }
+      const microReliefStr = microReliefHazards.length > 0
+        ? `\nANÁLISIS DE MICRO-RELIEVE QUEBRADO COLOMBIANO:\n` + microReliefHazards.slice(0, 4).map(h => `- [MICRO-RELIEVE] ${h}`).join('\n')
+        : '';
 
       geometryPrompt = `
 GEOMETRÍA GENERAL DEL TERRENO (MARCO ESPACIAL Y BOUNDING BOX):
 - Polígono Bounding Box: [Sur: ${minLat.toFixed(4)}°, Norte: ${maxLat.toFixed(4)}°, Oeste: ${minLon.toFixed(4)}°, Este: ${maxLon.toFixed(4)}°]
 - Dimensiones del Cuadrante: ${nsDistKm.toFixed(2)} km (Eje Norte-Sur) x ${ewDistKm.toFixed(2)} km (Eje Este-Oeste)
 - Geometría de Pendientes (Gradientes de Fricción): Pendiente Máxima Registrada: ${maxSlope.toFixed(1)}% | Pendiente Promedio: ${avgSlope.toFixed(1)}%
-- Perfil Topográfico General: ${maxSlope > 35 ? 'Terreno de alta escarpadura y barreras naturales infranqueables para vehículos' : maxSlope > 15 ? 'Terreno accidentado con laderas de pendiente moderada' : 'Terreno relativamente llano con ondulaciones suaves'}.`;
+- Perfil Topográfico General: ${maxSlope > 35 ? 'Terreno de alta escarpadura y barreras naturales infranqueables para vehículos' : maxSlope > 15 ? 'Terreno accidentado con laderas de pendiente moderada' : 'Terreno relativamente llano con ondulaciones suaves'}.${microReliefStr}`;
     }
 
     geoPrompt = `
