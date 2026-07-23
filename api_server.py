@@ -421,14 +421,14 @@ class SimcopNativeEngine:
                                 elev_diff = highest['elev'] - (temp_nodes[path[0]]['elev'] if 'temp_nodes' in locals() else highest['elev'] - 200) # Fallback if temp_nodes missing
                                 
                                 brechas_text += f"**{nombre}**: El análisis de gradientes indica que la unidad se encuentra en una depresión relativa frente al terreno adyacente. Esta cota subóptima limita drásticamente su campo de visión y línea de tiro (LoS), creando puntos ciegos (zonas muertas) que fuerzas irregulares podrían explotar para infiltraciones tácticas o emboscadas desde terreno elevado.\n\n"
-                                movimientos_text += f"**{nombre}**: Se ordena iniciar una marcha táctica de {total_dist:.1f} km en dirección {dir_str}. El objetivo operacional es efectuar la toma y ocupación de la cota dominante más próxima ({highest['elev']} msnm). Este movimiento cerrará la brecha de infiltración actual y permitirá a la unidad establecer una base de fuego que domine los ejes de movilidad circundantes.\n\n"
+                                movimientos_text += f"**{nombre}**: Se recomienda considerar una marcha táctica de {total_dist:.1f} km en dirección {dir_str}. El objetivo operacional es efectuar la toma y ocupación de la cota dominante más próxima ({highest['elev']} msnm). Este movimiento cerrará la brecha de infiltración actual y permitirá a la unidad establecer una base de fuego que domine los ejes de movilidad circundantes.\n\n"
                                 prioridades_text += f"- **{nombre}**: Toma de terreno elevado ({highest['elev']} msnm) para negar el control territorial al adversario.\n"
                             else:
                                 brechas_text += f"**{nombre}**: La unidad se halla topográficamente aislada debido a pendientes excesivas o bloqueos geográficos que impiden un enlace físico rápido con otras fuerzas.\n\n"
-                                movimientos_text += f"**{nombre}**: Realizar consolidación y defensa de punto fuerte en {ubicacion} hasta recibir nuevos apoyos.\n\n"
+                                movimientos_text += f"**{nombre}**: Se sugiere realizar consolidación y defensa de punto fuerte en {ubicacion} hasta recibir nuevos apoyos.\n\n"
                     else:
                         brechas_text += f"**{nombre}**: Los sistemas de la IA no logran proyectar la unidad sobre la matriz topográfica debido a fallas en la telemetría GPS o falta de datos altimétricos.\n\n"
-                        movimientos_text += f"**{nombre}**: Mantener dispositivo defensivo de 360 grados en espera de triangulación topográfica.\n\n"
+                        movimientos_text += f"**{nombre}**: Se sugiere mantener dispositivo defensivo de 360 grados en espera de triangulación topográfica.\n\n"
 
             query_match = re.search(r'CONSULTA:\n(.*)', prompt, re.DOTALL)
             user_query = query_match.group(1).strip() if query_match else "Análisis de optimización del AOI"
@@ -439,7 +439,27 @@ class SimcopNativeEngine:
                 if nombre.lower() in user_query.lower():
                     target_unit = nombre
                     break
-                    
+            
+            # Construcción de Mitigación Operacional basada en Inteligencia
+            mitigacion_amenazas = []
+            if intel_lines:
+                for idx, line in enumerate(intel_lines, 1):
+                    line_lower = line.lower()
+                    if "humint" in line_lower:
+                        mitigacion_amenazas.append(f"• **Frente a reporte HUMINT ({line.strip()})**: Se sugiere desplegar un elemento de reconocimiento avanzado a distancia de seguridad antes de cualquier avance, realizando patrullaje de exploración para confirmar la composición y fuerza exacta del enemigo.")
+                    elif "osint" in line_lower:
+                        mitigacion_amenazas.append(f"• **Frente a reporte OSINT ({line.strip()})**: Se recomienda evitar los ejes de movilidad principales expuestos y emplear corredores tácticos desenfilados, estableciendo puestos de observación sobre los puntos de control enemigo reportados.")
+                    elif "sigint" in line_lower:
+                        mitigacion_amenazas.append(f"• **Frente a reporte SIGINT ({line.strip()})**: Se sugiere aplicar disciplina de emisiones electromagnéticas (EMCON) y mantener monitoreo de banda de frecuencia para prevenir interceptaciones de mando y control.")
+                    else:
+                        mitigacion_amenazas.append(f"• **Mitigación para {line.strip()}**: Se recomienda coordinar apoyos de fuegos indirectos pre-registrados sobre la amenaza e incrementar la postura defensiva perimetral.")
+            elif len(enemy_locs) > 0:
+                mitigacion_amenazas.append(f"• **Frente a Zona de Calor Enemiga ({enemy_locs[0]})**: Se propone establecer una cortina defensiva desenfilada y neutralizar la amenaza mediante proyección de fuegos de apoyo antes de la maniobra terrestre.")
+            else:
+                mitigacion_amenazas.append("• **Mitigación Operacional General**: Mantener patrullajes de reconocimiento continuo en 360° para prevenir sorpresa táctica y asegurar los flancos de las unidades amigas.")
+
+            mitigacion_text = "\n".join(mitigacion_amenazas)
+
             if target_unit:
                 unit_brecha = ""
                 unit_mov = ""
@@ -452,20 +472,13 @@ class SimcopNativeEngine:
                         unit_mov = line.replace(f"**{target_unit}**: ", "").strip()
                         break
                 
-                # Integrar la amenaza para que no parezca solo topografía
-                enemy_context = ""
-                if len(enemy_locs) > 0:
-                    enemy_context = f"\n\n**INTELIGENCIA DEL ADVERSARIO:**\nEl análisis cruza este movimiento con la presencia de hostiles en la Zona de Calor detectada. La maniobra recomendada para {target_unit} no solo busca ventaja topográfica, sino que posiciona a la unidad para bloquear posibles rutas de ataque desde la zona enemiga, protegiendo a las tropas amigas adyacentes."
-                elif "No hay informes de inteligencia" not in intel_str and intel_str.strip():
-                    enemy_context = f"\n\n**INTELIGENCIA Y DOCTRINA:**\nTomando en cuenta los últimos reportes (HUMINT/SIGINT/OSINT) sobre amenazas en el sector, la posición topográfica actual de {target_unit} es altamente vulnerable frente a tácticas de sabotaje o emboscada enemiga."
-                
-                return f"**Análisis Integral para {target_unit}:**\n\nAl cruzar la telemetría topográfica de {target_unit} con el panorama de inteligencia actual y la disposición de tropas propias, encuentro lo siguiente:\n\n{unit_brecha}{enemy_context}\n\nPara garantizar la supremacía táctica y mitigar estas vulnerabilidades, te recomiendo la siguiente orden de maniobra:\n\n{unit_mov}\n\nQuedo atento si necesitas evaluar otra unidad, o cruzar este dato con reportes de inteligencia adicionales."
+                return f"**Análisis Operacional y Sugerencias Tácticas para {target_unit}:**\n\nRespecto a su requerimiento sobre **{target_unit}**, presento la evaluación táctica cruzando el terreno, la disposición de fuerzas propias y la inteligencia del enemigo:\n\n1. **DISPOSICIÓN TÁCTICA Y TERRENO:**\n{unit_brecha}\n\n2. **ACCIONES ESPECÍFICAS PARA MITIGAR LA AMENAZA ENEMIGA:**\n{mitigacion_text}\n\n3. **MANIOBRA Y CURSO DE ACCIÓN (COA) SUGERIDO:**\n{unit_mov}\n\n*Nota de Asesoría:* Estas acciones se someten a consideración del Mando para su aprobación o ajuste según el desarrollo de la situación en el terreno."
             
             elif "riesgo" in user_query.lower() or "emboscada" in user_query.lower() or "amenaza" in user_query.lower():
-                return f"**Análisis de Riesgos:**\n\nHe procesado tu consulta sobre riesgos en el Área de Operaciones. {amenaza_text}\n\nRecomiendo reubicar inmediatamente a las unidades que se encuentran en zonas de depresión (puntos ciegos) hacia las cotas dominantes más cercanas para evitar sorpresas tácticas."
+                return f"**Evaluación de Riesgos y Mitigación Operacional:**\n\nComandante, he evaluado las vulnerabilidades del Área de Operaciones:\n\n{amenaza_text}\n\n**PLAN DE MITIGACIÓN SUGERIDO:**\n{mitigacion_text}\n\nSe recomienda al Mando reubicar las unidades en posición desajustada hacia cotas dominantes desenfiladas para anular la capacidad del adversario."
             
             else:
-                return f"**Análisis General del AOI:**\n\nComandante, respecto a su orden (*\"{user_query}\"*), he evaluado el Área de Operaciones.\n\n{amenaza_text}\n\nA nivel topográfico, he detectado que varias de nuestras unidades están en desventaja visual. Para corregir esto, sugiero las siguientes maniobras inmediatas:\n\n{movimientos_text}\n\nCon estos movimientos aseguraremos el control de las elevaciones clave."
+                return f"**Evaluación Operacional del AOI:**\n\nComandante, respecto a su requerimiento (*\"{user_query}\"*), presento el análisis de situación:\n\n{amenaza_text}\n\n**MEDIDAS DE MITIGACIÓN DE LA AMENAZA:**\n{mitigacion_text}\n\n**MANIOBRAS SUGERIDAS PARA LAS FUERZAS:**\n{movimientos_text}\n\nSe somete a consideración del Mando la aprobación de estos movimientos tácticos."
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
