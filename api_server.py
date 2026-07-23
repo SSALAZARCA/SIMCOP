@@ -440,10 +440,23 @@ class SimcopNativeEngine:
                     target_unit = nombre
                     break
             
-            # Construcción de Mitigación Operacional basada en Inteligencia
+            # Construcción de Mitigación Operacional y Neutralización basada en Inteligencia
             mitigacion_amenazas = []
+            coordenadas_enemigas = []
+            
+            # Buscar coordenadas explícitas de enemigos en enemy_locs o intel_str
+            if len(enemy_locs) > 0:
+                for elat, elon in enemy_locs:
+                    coordenadas_enemigas.append(f"{elat:.4f}° N, {elon:.4f}° W (Zona de Calor Confirmada)")
+            
+            # Buscar menciones de cotas o ubicaciones en intel_lines
             if intel_lines:
-                for idx, line in enumerate(intel_lines, 1):
+                for line in intel_lines:
+                    # Extraer patrones de coordenadas o cotas si existen
+                    cota_match = re.search(r'cota\s+(\d+)', line, re.IGNORECASE)
+                    if cota_match:
+                        coordenadas_enemigas.append(f"Área cota {cota_match.group(1)} msnm (Reporte HUMINT/OSINT)")
+                    
                     line_lower = line.lower()
                     if "humint" in line_lower:
                         mitigacion_amenazas.append(f"• **Frente a reporte HUMINT ({line.strip()})**: Se sugiere desplegar un elemento de reconocimiento avanzado a distancia de seguridad antes de cualquier avance, realizando patrullaje de exploración para confirmar la composición y fuerza exacta del enemigo.")
@@ -463,6 +476,12 @@ class SimcopNativeEngine:
             if target_unit:
                 unit_brecha = ""
                 unit_mov = ""
+                u_lat_target, u_lon_target = 0.0, 0.0
+                for nombre, tipo, ubicacion in unidades_crudas:
+                    if nombre.lower() == target_unit.lower():
+                        u_lat_target, u_lon_target = parse_lat_lon(ubicacion)
+                        break
+
                 for line in brechas_text.split('\n\n'):
                     if target_unit in line:
                         unit_brecha = line.replace(f"**{target_unit}**: ", "").strip()
@@ -471,8 +490,21 @@ class SimcopNativeEngine:
                     if target_unit in line:
                         unit_mov = line.replace(f"**{target_unit}**: ", "").strip()
                         break
-                
-                return f"**Análisis Operacional y Sugerencias Tácticas para {target_unit}:**\n\nRespecto a su requerimiento sobre **{target_unit}**, presento la evaluación táctica cruzando el terreno, la disposición de fuerzas propias y la inteligencia del enemigo:\n\n1. **DISPOSICIÓN TÁCTICA Y TERRENO:**\n{unit_brecha}\n\n2. **ACCIONES ESPECÍFICAS PARA MITIGAR LA AMENAZA ENEMIGA:**\n{mitigacion_text}\n\n3. **MANIOBRA Y CURSO DE ACCIÓN (COA) SUGERIDO:**\n{unit_mov}\n\n*Nota de Asesoría:* Estas acciones se someten a consideración del Mando para su aprobación o ajuste según el desarrollo de la situación en el terreno."
+
+                # Cálculo de la amenaza enemiga más cercana
+                amenaza_cercana_text = ""
+                if enemy_locs and u_lat_target != 0:
+                    closest_enemy = min(enemy_locs, key=lambda e: haversine(u_lat_target, u_lon_target, e[0], e[1]))
+                    dist_enemy = haversine(u_lat_target, u_lon_target, closest_enemy[0], closest_enemy[1])
+                    azimuth_enemy = get_azimuth(u_lat_target, u_lon_target, closest_enemy[0], closest_enemy[1])
+                    amenaza_cercana_text = f"\n\n**4. COORDENADAS PROBABLES DE LA AMENAZA Y PLAN DE NEUTRALIZACIÓN:**\n- **Ubicación Georreferenciada Más Cercana:** Coordenadas `[{closest_enemy[0]:.4f}°, {closest_enemy[1]:.4f}°]` (Distancia aproximada: {dist_enemy:.2f} km en azimut {azimuth_enemy} respecto a {target_unit}).\n- **Sugerencia de Neutralización:** Para neutralizar de forma efectiva esta amenaza más cercana antes de iniciar la aproximación terrestre, se propone coordinar un concentrado de fuegos indirectos de artillería/morteros sobre el punto `[{closest_enemy[0]:.4f}°, {closest_enemy[1]:.4f}°]`, combinado con la fijación de la posición enemiga desde la cota dominada para cortar sus líneas de repliegue."
+                elif coordenadas_enemigas:
+                    coords_str = ", ".join(coordenadas_enemigas)
+                    amenaza_cercana_text = f"\n\n**4. COORDENADAS Y SECTORES DE AMENAZA IDENTIFICADOS:**\n- **Ubicaciones Notificadas por Inteligencia:** {coords_str}.\n- **Sugerencia de Neutralización:** Se recomienda ejecutar patrullaje de reconocimiento ofensivo con apoyo de drones (UAV) sobre los sectores {coords_str} para fijar al adversario y neutralizar su ventaja táctica mediante fuegos de cobertura antes de la consolidación de la tropa."
+                else:
+                    amenaza_cercana_text = f"\n\n**4. ESTIMACIÓN DE AMENAZA Y NEUTRALIZACIÓN:**\n- **Sector Estimado de Amenaza:** Eje de aproximación frontal respecto a las cotas dominantes desprotegidas.\n- **Sugerencia de Neutralización:** Se propone neutralizar el riesgo mediante la ocupación preventiva del terreno elevado más cercano para cortar los campos de tiro del adversario y mantener fuegos pre-planificados sobre las avenidas de aproximación."
+
+                return f"**Análisis Operacional y Plan de Neutralización para {target_unit}:**\n\nRespecto a su requerimiento sobre **{target_unit}**, presento la evaluación táctica cruzando el terreno, la disposición de fuerzas propias y la inteligencia del enemigo:\n\n1. **DISPOSICIÓN TÁCTICA Y TERRENO:**\n{unit_brecha}\n\n2. **ACCIONES ESPECÍFICAS PARA MITIGAR LA AMENAZA ENEMIGA:**\n{mitigacion_text}\n\n3. **MANIOBRA Y CURSO DE ACCIÓN (COA) SUGERIDO:**\n{unit_mov}{amenaza_cercana_text}\n\n*Nota de Asesoría:* Estas acciones se someten a consideración del Mando para su aprobación o ajuste según el desarrollo de la situación en el terreno."
             
             elif "riesgo" in user_query.lower() or "emboscada" in user_query.lower() or "amenaza" in user_query.lower():
                 return f"**Evaluación de Riesgos y Mitigación Operacional:**\n\nComandante, he evaluado las vulnerabilidades del Área de Operaciones:\n\n{amenaza_text}\n\n**PLAN DE MITIGACIÓN SUGERIDO:**\n{mitigacion_text}\n\nSe recomienda al Mando reubicar las unidades en posición desajustada hacia cotas dominantes desenfiladas para anular la capacidad del adversario."
