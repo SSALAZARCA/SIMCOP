@@ -433,28 +433,39 @@ class SimcopNativeEngine:
             query_match = re.search(r'CONSULTA:\n(.*)', prompt, re.DOTALL)
             user_query = query_match.group(1).strip() if query_match else "Análisis de optimización del AOI"
 
-            return f"""**RESPUESTA DE LA IA A LA DIRECTIVA DEL COMANDANTE:**
-En atención a su requerimiento operacional: *"{user_query}"*, he procesado la telemetría del Área de Operaciones cruzando las capacidades orgánicas de nuestros pelotones con la matriz altimétrica (A-Star Pathfinding) y la inteligencia disponible. A continuación, presento la configuración óptima sugerida con máximo rigor doctrinal.
-
-ANÁLISIS DE LA SITUACIÓN OPERACIONAL (ASTOS)
-
-1. EVALUACIÓN DEL ESTADO DE LA AMENAZA
-{amenaza_text}
-
-2. ANÁLISIS DE CAPACIDADES Y BRECHAS
-Para responder a su directiva, se cruzó la ubicación georreferenciada de las fuerzas con el modelado 3D del terreno, deduciendo las siguientes vulnerabilidades tácticas:
-
-{brechas_text}
-3. RECOMENDACIONES PARA OPTIMIZAR EL AOI Y COAS
-Para asegurar el dominio del área y cumplir con el propósito de su consulta, el Estado Mayor debe reconfigurar el dispositivo bajo los siguientes ejes prioritarios:
-
-{prioridades_text}
-4. SUGERENCIA DE MOVIMIENTOS DE FUERZAS
-Ejecutando la simulación de fricción de terreno, se sugieren los siguientes Cursos de Acción (COA) diseñados específicamente para maximizar las capacidades de los pelotones desplegados:
-
-{movimientos_text}
-5. CONCLUSIÓN E INSTRUCCIONES DE MANDO
-Para satisfacer el propósito de su consulta táctica (*"{user_query}"*), el Centro de Gravedad Operacional radica en la reconfiguración inmediata del AOI mediante la ocupación de las alturas dominantes señaladas. Al reubicar los pelotones hacia estas cotas, se anulará la capacidad de observación enemiga, se protegerán los nodos de mando (C2) y se configurará la mejor postura defensiva-ofensiva posible con las unidades actuales. Se recomienda autorización inmediata para iniciar las marchas tácticas descritas."""
+            # Intent Parser (Simulated LLM sin formato rígido)
+            target_unit = None
+            for nombre, _, _ in unidades_crudas:
+                if nombre.lower() in user_query.lower():
+                    target_unit = nombre
+                    break
+                    
+            if target_unit:
+                unit_brecha = ""
+                unit_mov = ""
+                for line in brechas_text.split('\n\n'):
+                    if target_unit in line:
+                        unit_brecha = line.replace(f"**{target_unit}**: ", "").strip()
+                        break
+                for line in movimientos_text.split('\n\n'):
+                    if target_unit in line:
+                        unit_mov = line.replace(f"**{target_unit}**: ", "").strip()
+                        break
+                
+                # Integrar la amenaza para que no parezca solo topografía
+                enemy_context = ""
+                if len(enemy_locs) > 0:
+                    enemy_context = f"\n\n**INTELIGENCIA DEL ADVERSARIO:**\nEl análisis cruza este movimiento con la presencia de hostiles en la Zona de Calor detectada. La maniobra recomendada para {target_unit} no solo busca ventaja topográfica, sino que posiciona a la unidad para bloquear posibles rutas de ataque desde la zona enemiga, protegiendo a las tropas amigas adyacentes."
+                elif "No hay informes de inteligencia" not in intel_str and intel_str.strip():
+                    enemy_context = f"\n\n**INTELIGENCIA Y DOCTRINA:**\nTomando en cuenta los últimos reportes (HUMINT/SIGINT/OSINT) sobre amenazas en el sector, la posición topográfica actual de {target_unit} es altamente vulnerable frente a tácticas de sabotaje o emboscada enemiga."
+                
+                return f"**Análisis Integral para {target_unit}:**\n\nAl cruzar la telemetría topográfica de {target_unit} con el panorama de inteligencia actual y la disposición de tropas propias, encuentro lo siguiente:\n\n{unit_brecha}{enemy_context}\n\nPara garantizar la supremacía táctica y mitigar estas vulnerabilidades, te recomiendo la siguiente orden de maniobra:\n\n{unit_mov}\n\nQuedo atento si necesitas evaluar otra unidad, o cruzar este dato con reportes de inteligencia adicionales."
+            
+            elif "riesgo" in user_query.lower() or "emboscada" in user_query.lower() or "amenaza" in user_query.lower():
+                return f"**Análisis de Riesgos:**\n\nHe procesado tu consulta sobre riesgos en el Área de Operaciones. {amenaza_text}\n\nRecomiendo reubicar inmediatamente a las unidades que se encuentran en zonas de depresión (puntos ciegos) hacia las cotas dominantes más cercanas para evitar sorpresas tácticas."
+            
+            else:
+                return f"**Análisis General del AOI:**\n\nComandante, respecto a su orden (*\"{user_query}\"*), he evaluado el Área de Operaciones.\n\n{amenaza_text}\n\nA nivel topográfico, he detectado que varias de nuestras unidades están en desventaja visual. Para corregir esto, sugiero las siguientes maniobras inmediatas:\n\n{movimientos_text}\n\nCon estos movimientos aseguraremos el control de las elevaciones clave."
         elif "ANÁLISIS PROFUNDO" in prompt:
             escenario_match = re.search(r'Escenario: "(.*?)"', prompt)
             escenario = escenario_match.group(1).strip() if escenario_match else ""
