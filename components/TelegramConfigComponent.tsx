@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { User, UserTelegramConfig, ArtilleryPiece } from '../types';
 import { UserRole } from '../types';
+import { configService } from '../services/configService';
 
 interface TelegramConfigProps {
   allUsers: User[];

@@ -5,7 +5,7 @@ import { initializeApiKey } from '../utils/geminiService';
 import NativeAITelemetry from './NativeAITelemetry';
 
 const SettingsView: React.FC = () => {
-    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink' | 'NATIVE_SIMCOP'>('GEMINI');
+    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink' | 'NATIVE_SIMCOP' | 'OMNIROUTE'>('GEMINI');
     const [localEndpoint, setLocalEndpoint] = useState('http://localhost:11434');
     const [localModel, setLocalModel] = useState('llama3');
     const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -31,9 +31,21 @@ const SettingsView: React.FC = () => {
                 // Load AI Provider Config
                 const aiConfig = await configService.getAIProviderConfig();
                 if (aiConfig) {
-                    setAiProvider(aiConfig.provider as any);
-                    setLocalEndpoint(aiConfig.localEndpoint || 'http://localhost:11434');
-                    setLocalModel(aiConfig.localModel || 'llama3');
+                    const prov = (aiConfig.provider || 'GEMINI') as any;
+                    setAiProvider(prov);
+                    if (prov === 'OMNIROUTE') {
+                        setLocalEndpoint(aiConfig.localEndpoint || 'https://api.omniroute.ai/v1');
+                        setLocalModel(aiConfig.localModel || 'omni-default');
+                    } else if (prov === 'LOCAL_LMLink') {
+                        setLocalEndpoint(aiConfig.localEndpoint || 'http://localhost:1234');
+                        setLocalModel(aiConfig.localModel || 'gemma4-damasco');
+                    } else if (prov === 'NATIVE_SIMCOP') {
+                        setLocalEndpoint(aiConfig.localEndpoint || '/ai_api');
+                        setLocalModel(aiConfig.localModel || 'simcop_nlp_weights_quantized_int8.pth');
+                    } else {
+                        setLocalEndpoint(aiConfig.localEndpoint || 'http://localhost:11434');
+                        setLocalModel(aiConfig.localModel || 'llama3');
+                    }
                 }
             } catch (error) {
                 console.error('Error loading config:', error);
@@ -62,9 +74,22 @@ const SettingsView: React.FC = () => {
                 setTimeout(() => setSaveStatus('idle'), 3000);
                 return;
             }
+        } else if (aiProvider === 'OMNIROUTE') {
+            if (!localEndpoint.trim()) {
+                setErrorMessage('El endpoint de OmniRoute no puede estar vacío');
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+                return;
+            }
+            if (!localModel.trim()) {
+                setErrorMessage('El modelo de OmniRoute no puede estar vacío');
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+                return;
+            }
         } else {
             if (!localEndpoint.trim()) {
-                setErrorMessage('El endpoint de Ollama no puede estar vacío');
+                setErrorMessage('El endpoint de IA no puede estar vacío');
                 setSaveStatus('error');
                 setTimeout(() => setSaveStatus('idle'), 3000);
                 return;
@@ -81,15 +106,17 @@ const SettingsView: React.FC = () => {
             setLoading(true);
             console.log('🔑 Guardando configuración de IA...');
 
-            // Save API key if Gemini is selected or if LMLink has an optional key
-            if (aiProvider === 'GEMINI' || aiProvider === 'LOCAL_LMLink') {
-                await configService.saveGeminiApiKey(geminiApiKey, 'admin');
-                await initializeApiKey();
-                setSavedKey(geminiApiKey);
+            // Save API key if Gemini, OmniRoute, or LMLink is selected
+            if (aiProvider === 'GEMINI' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
+                if (geminiApiKey && geminiApiKey.trim()) {
+                    await configService.saveGeminiApiKey(geminiApiKey);
+                    await initializeApiKey();
+                    setSavedKey(geminiApiKey);
+                }
             }
 
             // Save AI Provider Config (provider, localEndpoint, localModel)
-            await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel, 'admin');
+            await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel);
 
             setSaveStatus('success');
             setErrorMessage('');
@@ -114,7 +141,7 @@ const SettingsView: React.FC = () => {
             // Delete key
             await configService.deleteGeminiApiKey();
             // Reset provider to Gemini default
-            await configService.saveAIProviderConfig('GEMINI', 'http://localhost:11434', 'llama3', 'admin');
+            await configService.saveAIProviderConfig('GEMINI', 'http://localhost:11434', 'llama3');
             
             setGeminiApiKey('');
             setSavedKey('');
@@ -201,10 +228,10 @@ const SettingsView: React.FC = () => {
                     </label>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '1rem',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '0.75rem',
                         backgroundColor: '#0f172a',
-                        padding: '0.375rem',
+                        padding: '0.5rem',
                         borderRadius: '8px',
                         border: '1px solid #334155'
                     }}>
@@ -227,6 +254,30 @@ const SettingsView: React.FC = () => {
                         >
                             <Key size={18} />
                             Google Gemini Cloud
+                        </button>
+                        <button
+                            onClick={() => {
+                                setAiProvider('OMNIROUTE');
+                                setLocalEndpoint('https://api.omniroute.ai/v1');
+                                setLocalModel('omni-default');
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                transition: 'all 0.2s',
+                                backgroundColor: aiProvider === 'OMNIROUTE' ? '#8b5cf6' : 'transparent',
+                                color: aiProvider === 'OMNIROUTE' ? 'white' : '#94a3b8',
+                            }}
+                        >
+                            <Cpu size={18} />
+                            OmniRoute (Router IA)
                         </button>
                         <button
                             onClick={() => {
@@ -407,14 +458,14 @@ const SettingsView: React.FC = () => {
                             gap: '0.75rem',
                             marginBottom: '1.25rem',
                         }}>
-                            <Server size={22} color="#10b981" />
+                            <Server size={22} color={aiProvider === 'OMNIROUTE' ? '#8b5cf6' : '#10b981'} />
                             <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc' }}>
-                                {aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : aiProvider === 'NATIVE_SIMCOP' ? 'Motor Nativo SIMCOP AI (PyTorch)' : 'Servidor Local de IA (Ollama)'}
+                                {aiProvider === 'OMNIROUTE' ? 'Proveedor OmniRoute AI (Router Multi-Modelo)' : aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : aiProvider === 'NATIVE_SIMCOP' ? 'Motor Nativo SIMCOP AI (PyTorch)' : 'Servidor Local de IA (Ollama)'}
                             </h3>
                         </div>
 
                         <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>
-                            {aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : aiProvider === 'NATIVE_SIMCOP' ? 'Conéctate directamente al motor de inteligencia artificial especializado FastAPI + PyTorch de SIMCOP. Para el VPS, asegúrate de ingresar la IP o URL del backend (ej: http://TU_IP_DEL_VPS/api/v1).' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
+                            {aiProvider === 'OMNIROUTE' ? 'Enruta consultas tácticas y de combate a través del gateway OmniRoute (compatible con endpoints OpenAI / DeepSeek / Claude / GPT / LLaMA). Permite balanceo inteligente y modelos de última generación con cifrado de transporte.' : aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : aiProvider === 'NATIVE_SIMCOP' ? 'Conéctate directamente al motor de inteligencia artificial especializado FastAPI + PyTorch de SIMCOP. Para el VPS, asegúrate de ingresar la IP o URL del backend (ej: http://TU_IP_DEL_VPS/api/v1).' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -426,13 +477,13 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    Dirección del Servidor {aiProvider === 'NATIVE_SIMCOP' ? '(Backend API)' : '(Túnel Local)'}
+                                    Dirección del Servidor {aiProvider === 'OMNIROUTE' ? '(URL Base OmniRoute)' : aiProvider === 'NATIVE_SIMCOP' ? '(Backend API)' : '(Túnel Local)'}
                                 </label>
                                 <input
                                     type="text"
                                     value={localEndpoint}
                                     onChange={(e) => setLocalEndpoint(e.target.value)}
-                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : aiProvider === 'NATIVE_SIMCOP' ? '/ai_api' : 'http://localhost:11434'}
+                                    placeholder={aiProvider === 'OMNIROUTE' ? 'https://api.omniroute.ai/v1' : aiProvider === 'LOCAL_LMLink' ? 'http://localhost:1234' : aiProvider === 'NATIVE_SIMCOP' ? '/ai_api' : 'http://localhost:11434'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -453,13 +504,13 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    {aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : aiProvider === 'NATIVE_SIMCOP' ? 'Modelo Quantizado PTH' : 'Modelo Ollama a Utilizar'}
+                                    {aiProvider === 'OMNIROUTE' ? 'Modelo OmniRoute (ej. omni-default, deepseek-r1)' : aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : aiProvider === 'NATIVE_SIMCOP' ? 'Modelo Quantizado PTH' : 'Modelo Ollama a Utilizar'}
                                 </label>
                                 <input
                                     type="text"
                                     value={localModel}
                                     onChange={(e) => setLocalModel(e.target.value)}
-                                    placeholder={aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : aiProvider === 'NATIVE_SIMCOP' ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3'}
+                                    placeholder={aiProvider === 'OMNIROUTE' ? 'omni-default' : aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : aiProvider === 'NATIVE_SIMCOP' ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -474,7 +525,7 @@ const SettingsView: React.FC = () => {
                             </div>
                         </div>
 
-                        {aiProvider === 'LOCAL_LMLink' && (
+                        {(aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{
                                     display: 'block',
@@ -483,14 +534,14 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    API Key de LMLink (Opcional si usas Tailscale)
+                                    {aiProvider === 'OMNIROUTE' ? 'API Key / Token de OmniRoute (Bearer Token)' : 'API Key de LMLink (Opcional si usas Tailscale)'}
                                 </label>
                                 <div style={{ position: 'relative' }}>
                                     <input
                                         type={showKey ? 'text' : 'password'}
                                         value={geminiApiKey}
                                         onChange={(e) => setGeminiApiKey(e.target.value)}
-                                        placeholder="Ingresa la contraseña / Token de acceso"
+                                        placeholder={aiProvider === 'OMNIROUTE' ? 'sk-or-...' : 'Ingresa la contraseña / Token de acceso'}
                                         disabled={loading}
                                         style={{
                                             width: '100%',
@@ -505,6 +556,7 @@ const SettingsView: React.FC = () => {
                                         }}
                                     />
                                     <button
+                                        type="button"
                                         onClick={() => setShowKey(!showKey)}
                                         disabled={loading}
                                         style={{
@@ -522,6 +574,19 @@ const SettingsView: React.FC = () => {
                                         {showKey ? 'Ocultar' : 'Mostrar'}
                                     </button>
                                 </div>
+                                {savedKey && (
+                                    <div style={{
+                                        backgroundColor: aiProvider === 'OMNIROUTE' ? 'rgba(139, 92, 246, 0.08)' : 'rgba(59, 130, 246, 0.08)',
+                                        padding: '0.75rem 1rem',
+                                        borderRadius: '8px',
+                                        border: aiProvider === 'OMNIROUTE' ? '1px solid #6d28d9' : '1px solid #1e3a8a',
+                                        color: aiProvider === 'OMNIROUTE' ? '#c4b5fd' : '#60a5fa',
+                                        fontSize: '0.875rem',
+                                        marginTop: '0.75rem'
+                                    }}>
+                                        ✓ Clave / Token actual guardado: {maskApiKey(savedKey)}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -533,7 +598,7 @@ const SettingsView: React.FC = () => {
                             marginTop: '0.5rem'
                         }}>
                             <p style={{ margin: 0, color: '#a7f3d0', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                                \uD83D\uDCA1 <strong>Requisito:</strong> {aiProvider === 'LOCAL_LMLink' ? 'Aseg\u00FArate de haber iniciado el t\u00FAnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviar\u00E1 las peticiones a tu localhost y el agente lms las cifrar\u00E1 y enviar\u00E1 por la red Mesh (Wireguard) hacia tu GPU central.' : 'Aseg\u00FArate de que Ollama est\u00E9 ejecut\u00E1ndose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
+                                💡 <strong>Requisito:</strong> {aiProvider === 'OMNIROUTE' ? 'OmniRoute AI Gateway configurado. Las consultas operacionales se enrutan de forma segura hacia el router multimodelo con autenticación Bearer y saneamiento de tokens de razonamiento.' : aiProvider === 'LOCAL_LMLink' ? 'Asegúrate de haber iniciado el túnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviará las peticiones a tu localhost y el agente lms las cifrará y enviará por la red Mesh (Wireguard) hacia tu GPU central.' : 'Asegúrate de que Ollama esté ejecutándose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
                             </p>
                         </div>
                     </div>
@@ -623,14 +688,14 @@ const SettingsView: React.FC = () => {
                                 <input 
                                     type="text" 
                                     readOnly 
-                                    value="simcop-osint-secret-2026" 
+                                    value="Configurado en variable de entorno OSINT_WEBHOOK_SECRET" 
                                     style={{ flex: 1, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#a3e635', padding: '0.5rem', borderRadius: '4px', fontSize: '0.875rem' }}
                                 />
                                 <button 
-                                    onClick={() => navigator.clipboard.writeText('simcop-osint-secret-2026')}
+                                    onClick={() => alert('El token debe ser configurado y consultado en el entorno del servidor via OSINT_WEBHOOK_SECRET.')}
                                     style={{ backgroundColor: '#334155', border: 'none', color: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
                                 >
-                                    Copiar
+                                    Info
                                 </button>
                             </div>
                         </div>

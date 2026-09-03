@@ -17,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/bma")
 @Transactional
+@org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
 public class BMAController {
 
     private static final Logger logger = LoggerFactory.getLogger(BMAController.class);
@@ -54,6 +55,7 @@ public class BMAController {
     }
 
     @PostMapping("/logistics/request/{unitId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'OFICIAL_LOGISTICA', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA', 'COMANDANTE_PELOTON')")
     public ResponseEntity<Void> requestResupply(@PathVariable String unitId) {
         try {
             bmaService.requestResupply(unitId);

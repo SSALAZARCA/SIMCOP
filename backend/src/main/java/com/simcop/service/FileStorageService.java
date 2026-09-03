@@ -34,18 +34,46 @@ public class FileStorageService {
         }
     }
 
+    private static final java.util.Set<String> ALLOWED_EXTENSIONS = java.util.Set.of(
+            "jpg", "jpeg", "png", "gif", "webp", "pdf", "kml", "kmz", "json", "geojson",
+            "txt", "csv", "doc", "docx", "xls", "xlsx"
+    );
+
     public String storeFile(MultipartFile file) {
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Cannot store empty file.");
+        }
+
+        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "unnamed");
+        
+        // Validate extension against strict allowlist
+        int lastDotIndex = originalFileName.lastIndexOf('.');
+        if (lastDotIndex == -1 || lastDotIndex == originalFileName.length() - 1) {
+            throw new IllegalArgumentException("File must have a valid extension.");
+        }
+
+        String extension = originalFileName.substring(lastDotIndex + 1).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("File extension ." + extension + " is not permitted for upload.");
+        }
+
         // Sanitize filename to remove dangerous characters but keep extension
-        originalFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
-        String fileName = UUID.randomUUID().toString() + "_" + originalFileName;
+        String baseName = originalFileName.substring(0, lastDotIndex).replaceAll("[^a-zA-Z0-9_-]", "_");
+        if (baseName.isEmpty()) {
+            baseName = "file";
+        }
+        String fileName = UUID.randomUUID().toString() + "_" + baseName + "." + extension;
 
         try {
-            if (fileName.contains("..")) {
-                throw new RuntimeException("Sorry! Filename contains invalid path sequence " + fileName);
+            if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+                throw new SecurityException("Filename contains invalid path sequence: " + fileName);
             }
 
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
+            Path targetLocation = this.fileStorageLocation.resolve(fileName).normalize();
+            if (!targetLocation.startsWith(this.fileStorageLocation)) {
+                throw new SecurityException("Target location outside upload directory.");
+            }
+
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
             return fileName;
@@ -55,10 +83,16 @@ public class FileStorageService {
     }
 
     public Resource loadFileAsResource(String fileName) {
+        if (fileName == null || fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+            throw new SecurityException("Acceso denegado: Secuencia de escape o nombre inválido en " + fileName);
+        }
         try {
             Path filePath = this.fileStorageLocation.resolve(fileName).normalize();
+            if (!filePath.startsWith(this.fileStorageLocation.normalize())) {
+                throw new SecurityException("Acceso denegado: Secuencia de escape de directorio detectada en " + fileName);
+            }
             Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists()) {
+            if (resource.exists() && resource.isReadable()) {
                 return resource;
             } else {
                 throw new RuntimeException("File not found " + fileName);

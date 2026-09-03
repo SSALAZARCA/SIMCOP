@@ -69,7 +69,7 @@ interface Map3DDisplayProps {
   osintLayerActive?: boolean;
   piccDrawingConfig?: PICCDrawingConfig;
   activeTemplateContext?: string | null;
-  onPiccDrawingComplete?: (feature: any) => void;
+  onPiccDrawingComplete?: (feature?: any) => void;
   children?: React.ReactNode;
 }
 
@@ -88,28 +88,36 @@ const decimalToDMSValue = (val: number, isLat: boolean): string => {
 };
 
 const getTerrainProvider = async (): Promise<Cesium.TerrainProvider> => {
-  if (typeof (Cesium as any).createWorldTerrainAsync === 'function') {
-    try {
-      return await (Cesium as any).createWorldTerrainAsync({
-        requestWaterMask: true,
-        requestVertexNormals: true
-      });
-    } catch (err) {
-      console.warn("createWorldTerrainAsync failed, falling back to CesiumTerrainProvider:", err);
-    }
-  }
+  const token = localStorage.getItem('simcop_cesium_ion_token') || (import.meta as any).env?.VITE_CESIUM_ION_TOKEN || '';
   
-  if (typeof (Cesium.CesiumTerrainProvider as any).fromUrl === 'function') {
+  // 1. Si el usuario configuró un token de Cesium Ion válido, intentar Cesium World Terrain
+  if (token && token.trim()) {
+    Cesium.Ion.defaultAccessToken = token.trim();
     try {
-      return await (Cesium.CesiumTerrainProvider as any).fromUrl('https://assets.ion.cesium.com/1', {
-        requestWaterMask: true,
-        requestVertexNormals: true
-      });
-    } catch (err) {
-      console.warn("CesiumTerrainProvider.fromUrl failed, falling back to Ellipsoid:", err);
+      if (typeof (Cesium as any).createWorldTerrainAsync === 'function') {
+        return await (Cesium as any).createWorldTerrainAsync({
+          requestWaterMask: true,
+          requestVertexNormals: true
+        });
+      }
+    } catch (ionErr) {
+      console.warn("Cesium World Terrain (Ion) falló con el token provisto:", ionErr);
     }
   }
 
+  // 2. Proveedor principal de relieve 3D geométrico sin fallos 401: ArcGIS World Elevation 3D
+  try {
+    const arcgisProvider = (Cesium as any).ArcGISTiledElevationTerrainProvider;
+    if (arcgisProvider && typeof arcgisProvider.fromUrl === 'function') {
+      return await arcgisProvider.fromUrl(
+        'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer'
+      );
+    }
+  } catch (arcGisErr) {
+    console.warn("ArcGISTiledElevationTerrainProvider falló, utilizando Ellipsoid de contingencia:", arcGisErr);
+  }
+
+  // 3. Fallback de contingencia: Si no hay conexión o fallan los anteriores
   return new Cesium.EllipsoidTerrainProvider();
 };
 
@@ -155,7 +163,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
   // States for UI Toggles
   const [terrainActive, setTerrainActive] = useState<boolean>(true);
-  const [mapLayer, setMapLayer] = useState<'igac-sat' | 'igac-pol' | 'osm' | 'igac-vias'>('osm');
+  const [mapLayer, setMapLayer] = useState<'igac-sat' | 'igac-pol' | 'osm'>('igac-sat');
+  const [terrainExaggeration, setTerrainExaggeration] = useState<number>(1.5);
+  const [showIonModal, setShowIonModal] = useState<boolean>(false);
+  const [ionTokenInput, setIonTokenInput] = useState<string>(localStorage.getItem('simcop_cesium_ion_token') || '');
 
   const [weatherEffect, setWeatherEffect] = useState<'clear' | 'rain' | 'fog' | 'storm'>('clear');
   
@@ -293,59 +304,114 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     lon: string;
     dmsLat: string;
     dmsLon: string;
-    elevation: number;
+    elevation: number | string;
   } | null>(null);
-  const [hoveredTooltipInfo, setHoveredTooltipInfo] = useState<{x: number, y: number, title: string, details: string[]} | null>(null);
+  const [hoveredTooltipInfo, setHoveredTooltipInfo] = useState<{ x: number; y: number; title: string; details: string[] } | null>(null);
 
-  // Imagery layers refs
+  // Imagery layer refs
   const igacSatLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const igacSatLabelsLayerRef = useRef<Cesium.ImageryLayer | null>(null);
-  const igacSatDaneLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const igacPolLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const osmLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const radarLayerRef = useRef<Cesium.ImageryLayer | null>(null);
-  const cloudsLayerRef = useRef<Cesium.ImageryLayer | null>(null);
-
-  // Active weather post process stages
   const weatherStageRef = useRef<Cesium.PostProcessStage | null>(null);
+
+  // Control de Cámara Táctica 3D
+  const reset3DPerspective = () => {
+    if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
+    const camera = viewerRef.current.camera;
+    camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(-74.297333, 2.500000, 550000.0),
+      orientation: {
+        heading: Cesium.Math.toRadians(12),
+        pitch: Cesium.Math.toRadians(-45),
+        roll: 0.0
+      },
+      duration: 1.5
+    });
+  };
 
   // Initialize Cesium Viewer
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Use a standard public OSM tile provider for base map
-    const osmProvider = new Cesium.UrlTemplateImageryProvider({
-      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      subdomains: ['a', 'b', 'c'],
-      credit: '© OpenStreetMap contributors'
+    const token = localStorage.getItem('simcop_cesium_ion_token') || (import.meta as any).env?.VITE_CESIUM_ION_TOKEN || '';
+    if (token && token.trim()) {
+      Cesium.Ion.defaultAccessToken = token.trim();
+    }
+
+    // Capa Satelital de Alta Definición ESRI World Imagery HD
+    const satelliteProvider = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      credit: 'Esri, Maxar, Earthstar Geographics',
+      maximumLevel: 19,
+      enablePickFeatures: false
+    });
+
+    const labelsProvider = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+      subdomains: ['a', 'b', 'c', 'd'],
+      credit: '© CartoDB, © OpenStreetMap',
+      hasAlphaChannel: true,
+      maximumLevel: 20,
+      enablePickFeatures: false
     });
 
     const viewer = new Cesium.Viewer(containerRef.current, {
+      sceneMode: Cesium.SceneMode.SCENE3D,
+      sceneModePicker: false,
       baseLayerPicker: false,
       geocoder: false,
       homeButton: true,
       infoBox: false,
       navigationHelpButton: false,
-      sceneModePicker: true,
       timeline: false,
       animation: false,
       selectionIndicator: false,
-      shadows: true,
+      shadows: false,
       shouldAnimate: true
     });
 
-    viewer.imageryLayers.removeAll();
-    osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider);
+    // Cargar relieve 3D geométrico
+    getTerrainProvider().then(provider => {
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        viewerRef.current.terrainProvider = provider;
+      }
+    });
 
-    // Zoom and center on Colombia (Bogota area coordinate)
+    // Configurar realismo 3D, iluminación solar y relieve de terreno
+    viewer.scene.globe.depthTestAgainstTerrain = true;
+    viewer.scene.globe.enableLighting = true;
+    (viewer.scene.globe as any).terrainExaggeration = 1.5;
+    (viewer.scene.globe as any).terrainExaggerationRelativeHeight = 0.0;
+    viewer.scene.globe.showGroundAtmosphere = true;
+    if (viewer.scene.skyAtmosphere) {
+      viewer.scene.skyAtmosphere.show = true;
+    }
+    viewer.scene.fog.enabled = true;
+    viewer.scene.fog.density = 0.0003;
+
+    viewer.imageryLayers.removeAll();
+    igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(satelliteProvider, 0);
+    igacSatLabelsLayerRef.current = viewer.imageryLayers.addImageryProvider(labelsProvider, 1);
+
+    // Vista inicial en perspectiva táctica 3D inclinada sobre Colombia
     viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(-74.297333, 4.570868, 1200000.0), // 1200km altitude
+      destination: Cesium.Cartesian3.fromDegrees(-74.297333, 2.500000, 550000.0), // 550km altitude con ángulo inclinado
       orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-90),
+        heading: Cesium.Math.toRadians(12),
+        pitch: Cesium.Math.toRadians(-45), // Perspectiva 3D táctica (45 grados de inclinación)
         roll: 0.0
       }
     });
+
+    // Interceptar homeButton de Cesium para ejecutar centrado táctico 3D sobre Colombia
+    if (viewer.homeButton && viewer.homeButton.viewModel) {
+      viewer.homeButton.viewModel.command.beforeExecute.addEventListener((e: any) => {
+        e.cancel = true;
+        reset3DPerspective();
+      });
+    }
 
     viewerRef.current = viewer;
 
@@ -629,6 +695,32 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }
   }, [terrainActive]);
 
+
+  const handleExaggerationChange = (val: number) => {
+    setTerrainExaggeration(val);
+    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      (viewerRef.current.scene.globe as any).terrainExaggeration = val;
+    }
+  };
+
+  const handleSaveIonToken = () => {
+    if (ionTokenInput.trim()) {
+      localStorage.setItem('simcop_cesium_ion_token', ionTokenInput.trim());
+      Cesium.Ion.defaultAccessToken = ionTokenInput.trim();
+    } else {
+      localStorage.removeItem('simcop_cesium_ion_token');
+      Cesium.Ion.defaultAccessToken = '';
+    }
+    setShowIonModal(false);
+    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      getTerrainProvider().then(provider => {
+        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+          viewerRef.current.terrainProvider = provider;
+        }
+      });
+    }
+  };
+
   // Auto-sync weather effect based on camera center
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -653,7 +745,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const lat = Cesium.Math.toDegrees(cameraPos.latitude);
           const lon = Cesium.Math.toDegrees(cameraPos.longitude);
           
-          const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`);
+          const res = await fetch(`${API_BASE_URL}/api/weather/current?lat=${lat}&lon=${lon}`);
           if (!res.ok) return;
           const data = await res.json();
           const code = data.current?.weather_code;
@@ -724,12 +816,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     };
   }, [nativeRadarActive]);
 
-  // Handle map layer updates (IGAC satellite / political or OSM fallback)
+  // Handle map layer updates (ESRI World Imagery HD + CartoDB Labels, Cartografía, or OSM)
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer || viewer.isDestroyed()) return;
 
-    // Clear existing base layers and overlays
+    // Clear existing base layers cleanly
     if (igacSatLayerRef.current) {
       viewer.imageryLayers.remove(igacSatLayerRef.current);
       igacSatLayerRef.current = null;
@@ -737,10 +829,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     if (igacSatLabelsLayerRef.current) {
       viewer.imageryLayers.remove(igacSatLabelsLayerRef.current);
       igacSatLabelsLayerRef.current = null;
-    }
-    if (igacSatDaneLayerRef.current) {
-      viewer.imageryLayers.remove(igacSatDaneLayerRef.current);
-      igacSatDaneLayerRef.current = null;
     }
     if (igacPolLayerRef.current) {
       viewer.imageryLayers.remove(igacPolLayerRef.current);
@@ -755,53 +843,51 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       const osmProvider = new Cesium.UrlTemplateImageryProvider({
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         subdomains: ['a', 'b', 'c'],
-        credit: '© OpenStreetMap contributors'
+        credit: '© OpenStreetMap contributors',
+        maximumLevel: 19,
+        enablePickFeatures: false
       });
       osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider, 0);
     } else if (mapLayer === 'igac-sat') {
-      // Usamos ESRI World Imagery (Satelital de alta resolución, estable y sin bloqueos de CORS)
+      // Capa Satelital Fotorrealista HD ESRI + Etiquetas CartoDB
       const satelliteProvider = new Cesium.UrlTemplateImageryProvider({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        credit: 'Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        credit: 'Esri, Maxar, Earthstar Geographics',
+        maximumLevel: 19,
+        enablePickFeatures: false
       });
       igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(satelliteProvider, 0);
 
-      // Usamos CartoDB Light Only Labels para nombres de lugares
       const labelsProvider = new Cesium.UrlTemplateImageryProvider({
         url: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
         subdomains: ['a', 'b', 'c', 'd'],
-        credit: '© CartoDB, © OpenStreetMap contributors'
+        credit: '© CartoDB, © OpenStreetMap',
+        hasAlphaChannel: true,
+        maximumLevel: 20,
+        enablePickFeatures: false
       });
       igacSatLabelsLayerRef.current = viewer.imageryLayers.addImageryProvider(labelsProvider, 1);
-
-      // Usamos IGAC WMS para límites y nombres oficiales de departamentos y municipios
-      /* IGAC layer temporary disabled due to 400 errors
-      const boundariesProvider = new Cesium.WebMapServiceImageryProvider({
-        url: 'https://mapas.igac.gov.co/server/services/catastro/direccionesterritorialesigac/MapServer/WMSServer',
-        layers: '1,2',
-        parameters: {
-          format: 'image/png',
-          transparent: 'true'
-        },
-        credit: '© IGAC'
-      });
-      // igacSatDaneLayerRef.current = viewer.imageryLayers.addImageryProvider(boundariesProvider, 2);
-      */
     } else if (mapLayer === 'igac-pol') {
-      // Usamos CartoDB Voyager para División Política y Vial (Estilo limpio, rápido e interactivo)
-      const voyagerProvider = new Cesium.UrlTemplateImageryProvider({
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        subdomains: ['a', 'b', 'c', 'd'],
-        credit: '© CartoDB, © OpenStreetMap contributors'
+      // Cartografía Base Oficial (IGAC / CartoDB Voyager)
+      Cesium.ArcGisMapServerImageryProvider.fromUrl(
+        'https://mapas.igac.gov.co/server/rest/services/carto/Colombia_Base/MapServer',
+        { credit: '© Instituto Geográfico Agustín Codazzi (IGAC) - Cartografía Base Oficial', enablePickFeatures: false }
+      ).then(provider => {
+        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+          igacPolLayerRef.current = viewerRef.current.imageryLayers.addImageryProvider(provider, 0);
+        }
+      }).catch(() => {
+        const voyagerProvider = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+          subdomains: ['a', 'b', 'c', 'd'],
+          credit: '© CartoDB, © OpenStreetMap contributors',
+          maximumLevel: 19,
+          enablePickFeatures: false
+        });
+        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+          igacPolLayerRef.current = viewerRef.current.imageryLayers.addImageryProvider(voyagerProvider, 0);
+        }
       });
-      igacPolLayerRef.current = viewer.imageryLayers.addImageryProvider(voyagerProvider, 0);
-    } else if (mapLayer === 'igac-vias') {
-      // ESRI World Street Map (Vías y Carreteras detalladas)
-      const streetProvider = new Cesium.UrlTemplateImageryProvider({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-        credit: 'Esri'
-      });
-      igacPolLayerRef.current = viewer.imageryLayers.addImageryProvider(streetProvider, 0);
     }
   }, [mapLayer]);
 
@@ -1162,7 +1248,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     if (coverageDomeActive && selectedUnitForDome) {
       const matchedUnit = units.find(u => u.id === selectedUnitForDome);
       if (matchedUnit) {
-        const center = Cesium.Cartesian3.fromDegrees(matchedUnit.location.lon, matchedUnit.location.lat, 0);
+        const cartographic = Cesium.Cartographic.fromDegrees(matchedUnit.location.lon, matchedUnit.location.lat);
+        const elevation = viewer.scene.globe.getHeight(cartographic) || 0;
+        const center = Cesium.Cartesian3.fromDegrees(matchedUnit.location.lon, matchedUnit.location.lat, elevation);
         const radius = 15000.0;
         addTacticalEntity({
           id: 'coverage-dome-3d',
@@ -2327,25 +2415,44 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     coverageDomeActive
   ]);
 
+  // Helper to safely clear LOS entities
+  const clearLosEntities = (viewer: Cesium.Viewer) => {
+    const existingLos = viewer.entities.getById('los-line');
+    if (existingLos) viewer.entities.remove(existingLos);
+    const existingLosObstructed = viewer.entities.getById('los-line-obstructed');
+    if (existingLosObstructed) viewer.entities.remove(existingLosObstructed);
+    const existingLosMarker = viewer.entities.getById('los-obstacle-marker');
+    if (existingLosMarker) viewer.entities.remove(existingLosMarker);
+  };
+
   // Compute Line of Sight between two coordinates
   const calculateLineOfSight = (startCartesian: Cesium.Cartesian3, endCartesian: Cesium.Cartesian3) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    // Elevate observer and target by +2.0m vertical elevation offset to prevent terrain mesh self-intersection false positives
+    const startCartographic = Cesium.Cartographic.fromCartesian(startCartesian);
+    startCartographic.height += 2.0;
+    const adjustedStart = Cesium.Cartographic.toCartesian(startCartographic);
+
+    const endCartographic = Cesium.Cartographic.fromCartesian(endCartesian);
+    endCartographic.height += 2.0;
+    const adjustedEnd = Cesium.Cartographic.toCartesian(endCartographic);
+
     // Check visibility using 3D Ray picking against the Globe terrain
     const direction = Cesium.Cartesian3.normalize(
-      Cesium.Cartesian3.subtract(endCartesian, startCartesian, new Cesium.Cartesian3()),
+      Cesium.Cartesian3.subtract(adjustedEnd, adjustedStart, new Cesium.Cartesian3()),
       new Cesium.Cartesian3()
     );
-    const ray = new Cesium.Ray(startCartesian, direction);
+    const ray = new Cesium.Ray(adjustedStart, direction);
     const intersection = viewer.scene.globe.pick(ray, viewer.scene);
 
-    const distanceFull = Cesium.Cartesian3.distance(startCartesian, endCartesian);
+    const distanceFull = Cesium.Cartesian3.distance(adjustedStart, adjustedEnd);
     let obstructed = false;
-    let obstaclePoint = endCartesian;
+    let obstaclePoint = adjustedEnd;
 
     if (Cesium.defined(intersection)) {
-      const distanceObstacle = Cesium.Cartesian3.distance(startCartesian, intersection);
+      const distanceObstacle = Cesium.Cartesian3.distance(adjustedStart, intersection);
       if (distanceObstacle < distanceFull - 10.0) { // Offset of 10m to avoid precision glitches
         obstructed = true;
         obstaclePoint = intersection;
@@ -2353,12 +2460,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }
 
     // Clean previous LOS lines
-    const existingLos = viewer.entities.getById('los-line');
-    if (existingLos) viewer.entities.remove(existingLos);
-    const existingLosObstructed = viewer.entities.getById('los-line-obstructed');
-    if (existingLosObstructed) viewer.entities.remove(existingLosObstructed);
-    const existingLosMarker = viewer.entities.getById('los-obstacle-marker');
-    if (existingLosMarker) viewer.entities.remove(existingLosMarker);
+    clearLosEntities(viewer);
 
     if (!obstructed) {
       // Clear path - Render green line
@@ -2366,7 +2468,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         id: 'los-line',
         name: 'Línea de Vista: Despejada',
         polyline: {
-          positions: [startCartesian, endCartesian],
+          positions: [adjustedStart, adjustedEnd],
           width: 5,
           material: Cesium.Color.GREEN,
           clampToGround: false
@@ -2378,7 +2480,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         id: 'los-line',
         name: 'Línea de Vista: Segmento Visible',
         polyline: {
-          positions: [startCartesian, obstaclePoint],
+          positions: [adjustedStart, obstaclePoint],
           width: 5,
           material: Cesium.Color.GREEN,
           clampToGround: false
@@ -2389,7 +2491,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         id: 'los-line-obstructed',
         name: 'Línea de Vista: Obstruida por Terreno',
         polyline: {
-          positions: [obstaclePoint, endCartesian],
+          positions: [obstaclePoint, adjustedEnd],
           width: 4,
           material: Cesium.Color.RED,
           clampToGround: false
@@ -2662,15 +2764,24 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     const handleComplete = () => handleCompleteAoiDrawing();
     const handleFinalize = (_msg: string, geoJson: any) => handleFinalizeAoiLayer(geoJson);
     const handleClear = () => handleClearAoiLayer();
+    const handleClearLos = () => {
+      const viewer = viewerRef.current;
+      if (viewer && !viewer.isDestroyed()) {
+        clearLosEntities(viewer);
+      }
+      setLosPoints([]);
+    };
 
     const completeToken = eventBus.subscribe('completeAoiDrawing', handleComplete);
     const finalizeToken = eventBus.subscribe('finalizeAoiLayer', handleFinalize);
     const clearToken = eventBus.subscribe('clearAoiLayer', handleClear);
+    const clearLosToken = eventBus.subscribe('clearLosLayer', handleClearLos);
 
     return () => {
       eventBus.unsubscribe(completeToken);
       eventBus.unsubscribe(finalizeToken);
       eventBus.unsubscribe(clearToken);
+      eventBus.unsubscribe(clearLosToken);
     };
   }, [eventBus]);
 
@@ -2951,6 +3062,34 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             </svg>
           )}
         </button>
+        <button
+          onClick={() => {
+            if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+              const height = viewerRef.current.camera.positionCartographic.height;
+              viewerRef.current.camera.zoomIn(height * 0.35);
+            }
+          }}
+          className="p-2 rounded-lg border backdrop-blur-md transition-all shadow-lg flex items-center justify-center bg-slate-900/80 border-slate-700 text-slate-300 hover:bg-slate-800"
+          title="Acercar Cámara (Zoom In)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+              const height = viewerRef.current.camera.positionCartographic.height;
+              viewerRef.current.camera.zoomOut(height * 0.35);
+            }
+          }}
+          className="p-2 rounded-lg border backdrop-blur-md transition-all shadow-lg flex items-center justify-center bg-slate-900/80 border-slate-700 text-slate-300 hover:bg-slate-800"
+          title="Alejar Cámara (Zoom Out)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+          </svg>
+        </button>
       </div>
 
       {/* Modern Floating Control Panel (Aesthetic Glassmorphism) */}
@@ -2960,38 +3099,46 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           <h3 className="font-bold text-slate-100 text-sm tracking-wide uppercase">Control Táctico 3D</h3>
         </div>
 
-        {/* Map Layers Selector */}
+        {/* 3D Camera Controls */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capa base (IGAC/OSM)</label>
-          <div className="grid grid-cols-4 gap-1">
-            <button
-              onClick={() => setMapLayer('osm')}
-              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'osm' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-            >
-              OSM Base
-            </button>
+          <button
+            onClick={reset3DPerspective}
+            className="text-xs py-2 px-3 rounded-lg font-bold bg-gradient-to-r from-sky-600 to-blue-700 text-white shadow-md hover:from-sky-500 hover:to-blue-600 transition flex items-center justify-center gap-1.5"
+            title="Centra la cámara en vista táctica 3D inclinada sobre las cordilleras de Colombia"
+          >
+            🎯 Centrar Globo 3D
+          </button>
+        </div>
+
+        {/* Map Layers Selector */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-900">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capa Base Cartográfica</label>
+          <div className="grid grid-cols-3 gap-1">
             <button
               onClick={() => setMapLayer('igac-sat')}
               className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'igac-sat' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              title="Satelital de Alta Definición ESRI World Imagery + Etiquetas CartoDB"
             >
-              IGAC Sat.
+              Satélite HD
             </button>
             <button
               onClick={() => setMapLayer('igac-pol')}
               className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'igac-pol' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              title="Cartografía Base Táctica (IGAC / CartoDB Voyager)"
             >
-              IGAC Pol.
+              Cartografía
             </button>
             <button
-              onClick={() => setMapLayer('igac-vias')}
-              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'igac-vias' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              onClick={() => setMapLayer('osm')}
+              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'osm' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              title="OpenStreetMap Standard"
             >
-              Vías/Carr.
+              OSM
             </button>
           </div>
         </div>
 
-        {/* Terrain and Radar toggles */}
+        {/* Terrain and Relief Exaggeration */}
         <div className="flex flex-col gap-2 pt-1 border-t border-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-300">Relieve 3D Cordillera</span>
@@ -3002,6 +3149,30 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
             />
           </div>
+
+          {terrainActive && (
+            <div className="flex items-center justify-between bg-slate-900/60 p-1.5 rounded-lg border border-slate-800 text-[10px]">
+              <span className="text-slate-400 font-semibold">Exageración:</span>
+              <div className="flex gap-1">
+                {[1.0, 1.5, 2.0].map((factor) => (
+                  <button
+                    key={factor}
+                    onClick={() => handleExaggerationChange(factor)}
+                    className={`px-2 py-0.5 rounded font-bold transition ${terrainExaggeration === factor ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  >
+                    {factor}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowIonModal(true)}
+            className="text-[10px] py-1 px-2 rounded font-semibold text-sky-400 bg-sky-950/40 border border-sky-800/50 hover:bg-sky-900/40 transition flex items-center justify-center gap-1"
+          >
+            🔑 Configurar Token Cesium Ion (HD)
+          </button>
         </div>
 
         {/* Visual Weather FX Selector */}
@@ -3057,6 +3228,41 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Cesium Ion Token Modal */}
+      {showIonModal && (
+        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-sky-500/40 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <span>⛰️</span> Token Cesium Ion (Terreno HD)
+            </h3>
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              Ingresa tu clave de acceso de <strong>Cesium Ion</strong> (gratuita en cesium.com) para activar el relieve topográfico 3D de alta definición en todo el planeta (Cesium World Terrain).
+            </p>
+            <input
+              type="text"
+              value={ionTokenInput}
+              onChange={(e) => setIonTokenInput(e.target.value)}
+              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowIonModal(false)}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveIonToken}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-lg shadow-sky-600/30 transition"
+              >
+                Guardar y Recargar Terreno
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Windy Weather Iframe Overlay */}
       {showWindyPanel && (

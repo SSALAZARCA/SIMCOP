@@ -31,8 +31,17 @@ public class TelegramController {
             return ResponseEntity.badRequest().body("Chat ID is required");
         }
 
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = (auth != null) ? auth.getName() : null;
+
         return userRepository.findById(userId)
                 .map(user -> {
+                    boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                            .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRATOR") || a.getAuthority().equals("ROLE_SUPERADMIN") || a.getAuthority().equals("ADMINISTRATOR"));
+                    if (!isAdmin && (currentUsername == null || !currentUsername.equals(user.getUsername()))) {
+                        logger.warn("❌ Intento no autorizado de modificar configuración de Telegram para usuario: {} por {}", userId, currentUsername);
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body("Acceso denegado");
+                    }
                     user.setTelegramChatId(chatId);
                     userRepository.save(user);
                     logger.info("✅ Configuración de Telegram actualizada para usuario: {}", userId);

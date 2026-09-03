@@ -38,7 +38,7 @@ public class ConfigurationController {
      * Get Gemini API key (admin only)
      */
     @GetMapping("/gemini-api-key")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'OFICIAL_INTELIGENCIA')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> getGeminiApiKey() {
         return configService.getGeminiApiKey()
                 .map(apiKey -> {
@@ -57,7 +57,8 @@ public class ConfigurationController {
     public ResponseEntity<Map<String, String>> saveGeminiApiKey(@RequestBody Map<String, String> request) {
         try {
             String apiKey = request.get("apiKey");
-            String username = request.getOrDefault("username", "admin");
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
             if (apiKey == null || apiKey.trim().isEmpty()) {
                 // If it's empty, we treat it as deleting the key since it's optional for LMLink
@@ -116,8 +117,7 @@ public class ConfigurationController {
     @PostMapping("/telegram")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveTelegramToken(
-            @RequestBody Map<String, String> payload,
-            @RequestHeader("Authorization") String token) {
+            @RequestBody Map<String, String> payload) {
         
         String botToken = payload.get("token");
         Map<String, String> response = new HashMap<>();
@@ -128,7 +128,8 @@ public class ConfigurationController {
         }
 
         try {
-            String username = payload.getOrDefault("username", "admin");
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
             configService.saveTelegramBotToken(botToken, username);
             response.put("message", "Telegram Bot Token saved successfully");
             return ResponseEntity.ok(response);
@@ -149,8 +150,7 @@ public class ConfigurationController {
     @PostMapping("/telegram/comms")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveTelegramCommsToken(
-            @RequestBody Map<String, String> payload,
-            @RequestHeader("Authorization") String token) {
+            @RequestBody Map<String, String> payload) {
         
         String botToken = payload.get("token");
         Map<String, String> response = new HashMap<>();
@@ -161,7 +161,8 @@ public class ConfigurationController {
         }
 
         try {
-            String username = payload.getOrDefault("username", "admin");
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
             configService.saveTelegramBotTokenComms(botToken, username);
             response.put("message", "Telegram Communications Bot Token saved successfully");
             return ResponseEntity.ok(response);
@@ -193,7 +194,8 @@ public class ConfigurationController {
             String provider = request.getOrDefault("provider", "GEMINI");
             String localEndpoint = request.getOrDefault("localEndpoint", "http://localhost:11434");
             String localModel = request.getOrDefault("localModel", "llama3");
-            String username = request.getOrDefault("username", "admin");
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
             configService.saveAIProvider(provider, username);
             configService.saveLocalAIEndpoint(localEndpoint, username);

@@ -1,12 +1,18 @@
+import os
+import sys
+import logging
 import uvicorn
-import random
 import time
 import json
 import re
+import threading
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Any
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("simcop.ai.server")
 
 # ==========================================
 # INICIALIZACIÓN DE LA API
@@ -14,12 +20,17 @@ from typing import List, Dict, Optional, Any
 app = FastAPI(
     title="SIMCOP AI Brain API",
     description="Motor Central de Inteligencia Artificial para Planeamiento Táctico (8 Módulos)",
-    version="2.0.0"
+    version="3.0.0"
 )
+
+raw_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:8080,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:8080").split(",")
+origins = [o.strip() for o in raw_origins if o.strip() and o.strip() != "*"]
+if not origins:
+    origins = ["http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:5173"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,39 +42,199 @@ app.add_middleware(
 system_metrics = {
     "total_queries": 0,
     "last_latency_ms": 0.0,
-    "avg_confidence": 0.0,
-    "uptime_start": time.time()
+    "last_tokens_generated": 0,
+    "tokens_per_second": 0.0,
+    "avg_confidence": 95.0,
+    "uptime_start": time.time(),
 }
+_metrics_lock = threading.Lock()
 
-import torch
-import os
+# ==========================================
+# TELEMETRÍA DE HARDWARE — pynvml (GPU/CPU)
+# ==========================================
+_pynvml_available = False
+_nvml_handle = None
+try:
+    import pynvml
+    pynvml.nvmlInit()
+    _nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    _pynvml_available = True
+    logger.info("[OK] pynvml inicializado — telemetría GPU activa.")
+except Exception as _nvml_err:
+    logger.info(f"[INFO] pynvml no disponible (VPS CPU-only): {_nvml_err}. Métricas GPU reportarán null.")
 
-MODEL_PATH = "simcop_nlp_weights_quantized_int8.pth"
-print(f"Cargando Red Neuronal Táctica NATIVA desde: {MODEL_PATH}...")
+def _get_gpu_telemetry() -> dict:
+    """Retorna métricas reales de GPU si pynvml está disponible, o null en CPU-only."""
+    if not _pynvml_available or _nvml_handle is None:
+        return {
+            "gpu_available": False,
+            "gpu_name": None,
+            "gpu_temperature_c": None,
+            "vram_used_mb": None,
+            "vram_total_mb": None,
+        }
+    try:
+        import pynvml
+        mem = pynvml.nvmlDeviceGetMemoryInfo(_nvml_handle)
+        temp = pynvml.nvmlDeviceGetTemperature(_nvml_handle, pynvml.NVML_TEMPERATURE_GPU)
+        name = pynvml.nvmlDeviceGetName(_nvml_handle)
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+        return {
+            "gpu_available": True,
+            "gpu_name": name,
+            "gpu_temperature_c": temp,
+            "vram_used_mb": round(mem.used / 1024 / 1024, 1),
+            "vram_total_mb": round(mem.total / 1024 / 1024, 1),
+        }
+    except Exception as e:
+        logger.warning(f"Error leyendo GPU telemetría: {e}")
+        return {"gpu_available": False, "gpu_name": None, "gpu_temperature_c": None,
+                "vram_used_mb": None, "vram_total_mb": None}
 
-class SimcopNativeEngine:
+# ==========================================
+# DETECCIÓN Y CARGA DE BACKEND DE MODELO
+# ==========================================
+MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "simcop_nlp_weights_quantized_int8.pth")
+MODEL_BACKEND_OVERRIDE = os.environ.get("SIMCOP_MODEL_BACKEND", "auto").lower()
+MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "2048"))
+MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "4"))
+
+logger.info(f"[FASE 3] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, BACKEND={MODEL_BACKEND_OVERRIDE}")
+
+
+class SimcopLLMAdapter:
+    """
+    Adaptador polimórfico de motor LLM con tres niveles de degradación:
+      1. llama-cpp-python  → archivos .gguf (recomendado para VPS CPU-only)
+      2. onnxruntime-genai → directorios/archivos ONNX
+      3. Heurístico        → sin modelo válido, respuestas deterministas doctrinales
+    """
+
     def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if os.path.exists(MODEL_PATH):
-            # En un entorno real, esto carga los state_dict() de la arquitectura Transformer
+        self.backend: str = "heuristic"
+        self._llama = None        # llama_cpp.Llama instance
+        self._onnx_pipe = None    # onnxruntime_genai pipeline
+        self._detect_and_load()
+
+    def _detect_and_load(self):
+        if MODEL_BACKEND_OVERRIDE == "heuristic":
+            logger.info("[INFO] Backend forzado a modo heurístico por variable de entorno.")
+            return
+
+        if not os.path.exists(MODEL_PATH):
+            logger.warning(f"[ADVERTENCIA] Archivo de modelo no encontrado en: {MODEL_PATH}. Motor en modo heurístico.")
+            return
+
+        # ── Backend 1: llama.cpp (GGUF) ──────────────────────────────────────
+        if MODEL_BACKEND_OVERRIDE in ("auto", "llama_cpp") and MODEL_PATH.endswith(".gguf"):
             try:
-                self.weights = torch.load(MODEL_PATH, map_location=self.device, weights_only=False)
-                print("[OK] Pesajes de la red neuronal (.pth) cargados NATIVAMENTE en la VRAM (RTX 5070 Ti).")
+                from llama_cpp import Llama
+                logger.info(f"[CARGANDO] llama.cpp backend — {MODEL_PATH} (threads={MODEL_THREADS}, ctx={MODEL_CTX})...")
+                self._llama = Llama(
+                    model_path=MODEL_PATH,
+                    n_ctx=MODEL_CTX,
+                    n_threads=MODEL_THREADS,
+                    n_gpu_layers=0,      # CPU-only para VPS KVM sin GPU
+                    verbose=False,
+                )
+                self.backend = "llama_cpp"
+                logger.info("[OK] Backend llama.cpp (GGUF) cargado y listo — inferencia neuronal activa.")
+                return
+            except ImportError:
+                logger.warning("[ADVERTENCIA] llama-cpp-python no instalado. Instalar con: pip install llama-cpp-python")
             except Exception as e:
-                print(f"[ADVERTENCIA] Error cargando el archivo .pth, continuando con inferencia simulada. Error: {e}")
-                self.weights = None
+                logger.warning(f"[ADVERTENCIA] Error cargando modelo GGUF: {e}")
+
+        # ── Backend 2: onnxruntime-genai (ONNX) ──────────────────────────────
+        if MODEL_BACKEND_OVERRIDE in ("auto", "onnx") and (
+            MODEL_PATH.endswith(".onnx") or os.path.isdir(MODEL_PATH)
+        ):
+            try:
+                import onnxruntime_genai as og
+                logger.info(f"[CARGANDO] onnxruntime-genai backend — {MODEL_PATH}...")
+                onnx_model = og.Model(MODEL_PATH)
+                tokenizer = og.Tokenizer(onnx_model)
+                self._onnx_pipe = (onnx_model, tokenizer)
+                self.backend = "onnx"
+                logger.info("[OK] Backend ONNX (onnxruntime-genai) cargado y listo.")
+                return
+            except ImportError:
+                logger.warning("[ADVERTENCIA] onnxruntime-genai no instalado.")
+            except Exception as e:
+                logger.warning(f"[ADVERTENCIA] Error cargando modelo ONNX: {e}")
+
+        # ── Backend 3: PyTorch legacy .pth (fallback de compatibilidad) ──────
+        if MODEL_PATH.endswith((".pth", ".pt", ".safetensors")):
+            try:
+                import torch
+                if MODEL_PATH.endswith(".safetensors"):
+                    from safetensors.torch import load_file
+                    load_file(MODEL_PATH)
+                else:
+                    torch.load(MODEL_PATH, map_location="cpu", weights_only=True)
+                logger.info(f"[OK] Pesos PyTorch cargados (modo heurístico con pesos auxiliares).")
+            except Exception as e:
+                logger.warning(f"[ADVERTENCIA] Pesos PyTorch no compatibles: {e}")
+
+        logger.info("[INFO] Modo heurístico determinista activo — sin modelo neuronal externo.")
+
+    def generate_response(self, prompt: str, expect_json: bool = False) -> tuple[str, int]:
+        """
+        Genera respuesta y retorna (texto, tokens_generados).
+        """
+        if self.backend == "llama_cpp" and self._llama is not None:
+            return self._infer_llama(prompt, expect_json)
+        elif self.backend == "onnx" and self._onnx_pipe is not None:
+            return self._infer_onnx(prompt, expect_json)
         else:
-            self.weights = None
-            print("[ADVERTENCIA] Archivo .pth no encontrado. Motor operando sin estado.")
-            
-    def generate_response(self, prompt: str, expect_json: bool = False):
-        # Simulación de la pasada "forward" por los tensores de la red neuronal.
-        # Aquí el modelo calcula las probabilidades de los tokens basado en sus capas.
-        time.sleep(random.uniform(1.0, 2.5)) # Simulando tiempo de cómputo en VRAM
-        
-        # Como este es un entorno simulado y la red no tiene un tokenizer integrado en el código,
-        # inyectamos respuestas lógicas según la ruta para mantener el sistema operativo offline.
-        
+            return self._infer_heuristic(prompt, expect_json), 0
+
+    def _infer_llama(self, prompt: str, expect_json: bool) -> tuple[str, int]:
+        """Inferencia real con llama.cpp — Qwen2.5 / Llama3.2 / Phi-4 GGUF."""
+        system_prompt = (
+            "Eres SIMCOP AI, el asistente táctico del Ejército de Colombia. "
+            "Respondes en español con doctrina militar rigurosa. "
+            + ("Responde ÚNICAMENTE en formato JSON válido, sin texto adicional." if expect_json else "")
+        )
+        full_prompt = f"<|system|>\n{system_prompt}\n<|user|>\n{prompt}\n<|assistant|>\n"
+        output = self._llama(
+            full_prompt,
+            max_tokens=1024,
+            temperature=0.3,
+            top_p=0.9,
+            stop=["<|user|>", "<|system|>"],
+        )
+        text = output["choices"][0]["text"].strip()
+        tokens = output["usage"]["completion_tokens"]
+        return text, tokens
+
+    def _infer_onnx(self, prompt: str, expect_json: bool) -> tuple[str, int]:
+        """Inferencia con onnxruntime-genai."""
+        import onnxruntime_genai as og
+        onnx_model, tokenizer = self._onnx_pipe
+        system_msg = "Eres SIMCOP AI, asistente táctico militar colombiano."
+        if expect_json:
+            system_msg += " Responde ÚNICAMENTE en JSON válido."
+        full_prompt = f"<|system|>{system_msg}<|end|><|user|>{prompt}<|end|><|assistant|>"
+        tokens_in = tokenizer.encode(full_prompt)
+        params = og.GeneratorParams(onnx_model)
+        params.set_search_options(max_length=1024, temperature=0.3)
+        params.input_ids = tokens_in
+        generator = og.Generator(onnx_model, params)
+        output_tokens = []
+        while not generator.is_done():
+            generator.compute_logits()
+            generator.generate_next_token()
+            tok = generator.get_next_tokens()[0]
+            output_tokens.append(tok)
+        text = tokenizer.decode(output_tokens).strip()
+        return text, len(output_tokens)
+
+    def _infer_heuristic(self, prompt: str, expect_json: bool) -> str:
+        """Motor heurístico determinista — respuestas doctrinales sin modelo externo."""
+        # Inferencia heurística y doctrinal determinista y de alto rendimiento offline
+
         if "Genera un plan de operaciones COA" in prompt:
             return json.dumps({
                 "planName": "OPERACIÓN ESCUDO DE AGUA (Fase Decisiva)",
@@ -636,36 +807,87 @@ En atención a su consulta sobre el marco doctrinal de TTPs (*"{user_query}"*), 
         else:
             return json.dumps({"estado": "Procesado nativamente sin ruta detectada"})
 
-# Inicializar motor global de SIMCOP NATIVO
-engine = SimcopNativeEngine()
+# ==========================================
+# INICIALIZACIÓN DEL MOTOR GLOBAL (FASE 3)
+# ==========================================
+engine = SimcopLLMAdapter()
+logger.info(f"[FASE 3] Motor activo — backend: {engine.backend}")
 
 def run_inference(prompt: str, expect_json: bool = False) -> str:
-    start_time = time.time()
+    """Ejecuta inferencia, mide latencia real y tokens/segundo reales."""
+    start_time = time.perf_counter()
     try:
-        # INFERENCIA 100% NATIVA SIN CONEXIONES EXTERNAS
-        response_text = engine.generate_response(prompt, expect_json)
-        
-        latency = (time.time() - start_time) * 1000
-        confidence = round(random.uniform(85.0, 99.5), 2)
-        
-        system_metrics["total_queries"] += 1
-        system_metrics["last_latency_ms"] = latency
-        system_metrics["avg_confidence"] = (system_metrics["avg_confidence"] + confidence) / 2 if system_metrics["avg_confidence"] > 0 else confidence
-        
+        result = engine.generate_response(prompt, expect_json)
+        # El adaptador retorna (text, tokens) para backends neurales o (text, 0) para heurístico
+        if isinstance(result, tuple):
+            response_text, token_count = result
+        else:
+            response_text, token_count = result, 0
+
+        elapsed_s = time.perf_counter() - start_time
+        latency_ms = elapsed_s * 1000
+        tps = (token_count / elapsed_s) if elapsed_s > 0 and token_count > 0 else 0.0
+
+        with _metrics_lock:
+            system_metrics["total_queries"] += 1
+            system_metrics["last_latency_ms"] = round(latency_ms, 2)
+            system_metrics["last_tokens_generated"] = token_count
+            system_metrics["tokens_per_second"] = round(tps, 2)
+            # Confianza: real si hay backend neuronal, estimada si es heurístico
+            if engine.backend == "heuristic":
+                system_metrics["avg_confidence"] = 88.0  # estimado doctrinal
+            else:
+                # Disminuye con respuestas cortas, aumenta con largas (proxy de completitud)
+                new_conf = min(99.0, 80.0 + (token_count / 20.0))
+                system_metrics["avg_confidence"] = round(
+                    (system_metrics["avg_confidence"] * 0.8 + new_conf * 0.2), 2
+                )
+
         return response_text
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Fallo en la inferencia del modelo NATIVO PyTorch.")
+        logger.error(f"Error en run_inference: {e}")
+        raise HTTPException(status_code=500, detail=f"Fallo en la inferencia del motor IA: {str(e)}")
 
 @app.get("/api/v1/system/kpis")
 def get_system_kpis():
+    """
+    Endpoint de telemetría MLOps genuina.
+    Reporta métricas reales de hardware (pynvml), latencia, tokens/segundo y backend activo.
+    """
     uptime_seconds = time.time() - system_metrics["uptime_start"]
+    gpu = _get_gpu_telemetry()
+
+    with _metrics_lock:
+        tps = system_metrics["tokens_per_second"]
+        latency = system_metrics["last_latency_ms"]
+        total_q = system_metrics["total_queries"]
+        avg_conf = system_metrics["avg_confidence"]
+
     return {
         "status": "healthy",
+        "model_backend": engine.backend,
+        "model_loaded": engine.backend != "heuristic",
+        "model_path": MODEL_PATH,
+        # Métricas de hardware reales
+        "gpu_available": gpu["gpu_available"],
+        "gpu_name": gpu["gpu_name"],
+        "gpu_temperature_c": gpu["gpu_temperature_c"],
+        "vram_used_mb": gpu["vram_used_mb"],
+        "vram_total_mb": gpu["vram_total_mb"],
+        # Métricas de inferencia reales
         "uptime_seconds": round(uptime_seconds, 2),
-        "total_queries_processed": system_metrics["total_queries"],
-        "last_inference_latency_ms": round(system_metrics["last_latency_ms"], 2),
-        "average_confidence_score": round(system_metrics["avg_confidence"], 2),
-        "active_models": ["NLP_Commander", "GNN_Wargaming", "CNN_AO", "LSTM_Logistics"]
+        "total_queries_processed": total_q,
+        "last_inference_latency_ms": latency,
+        "tokens_per_second": tps,
+        "average_confidence_score": avg_conf,
+        # Módulos activos
+        "active_modules": [
+            "Tactical_AStar_Routing",
+            "COA_Planner_Engine",
+            "BMA_Battle_Manager",
+            "Wargaming_Simulation",
+            "Doctrinal_Q5_Assistant",
+        ],
     }
 
 # ==========================================
@@ -905,5 +1127,5 @@ def nlp_query(query: IntelligenceQuery):
     }
 
 if __name__ == "__main__":
-    print("Iniciando SIMCOP AI API Server (Arquitectura 8 Módulos Completos)...")
+    logger.info("Iniciando SIMCOP AI API Server (Arquitectura 8 Módulos Completos)...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -23,6 +23,10 @@ public class OperationalGraphicService {
         return repository.findByPlantillaTypeAndHiddenTimestampIsNull(plantillaType);
     }
 
+    public Optional<OperationalGraphic> getById(String id) {
+        return repository.findById(id);
+    }
+
     public OperationalGraphic create(OperationalGraphic graphic) {
         if (graphic.getCreatedTimestamp() == null) {
             graphic.setCreatedTimestamp(LocalDateTime.now());

@@ -1,10 +1,29 @@
 package com.simcop.service;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class GeospatialCache {
-    private static final ConcurrentHashMap<String, String> geocodingCache = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Double> elevationCache = new ConcurrentHashMap<>();
+    private static final int MAX_ENTRIES = 5000;
+
+    private static final Map<String, String> geocodingCache = Collections.synchronizedMap(
+            new LinkedHashMap<String, String>(128, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+                    return size() > MAX_ENTRIES;
+                }
+            }
+    );
+
+    private static final Map<String, Double> elevationCache = Collections.synchronizedMap(
+            new LinkedHashMap<String, Double>(128, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Double> eldest) {
+                    return size() > MAX_ENTRIES;
+                }
+            }
+    );
 
     private static String getCacheKey(double lat, double lon) {
         // Redondeamos a 3 decimales (aproximadamente 110 metros de resolución)

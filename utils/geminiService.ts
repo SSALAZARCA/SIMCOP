@@ -150,6 +150,28 @@ export const shouldTriggerAutoAI = (key: string): boolean => {
   return true;
 };
 
+/**
+ * Thoroughly strips reasoning and deep thinking tags (<think>...</think>, <thought>...</thought>,
+ * <thinking>...</thinking>, <reasoning>...</reasoning>) from model outputs, including nested,
+ * unclosed, and multiline tokens, preventing downstream JSON parse crashes.
+ */
+export const stripReasoningTags = (rawResponse: string | null | undefined): string => {
+  if (!rawResponse || typeof rawResponse !== 'string') return '';
+  let result = rawResponse;
+
+  // Iteratively strip think/thought/thinking/reasoning tags to handle nested or consecutive blocks
+  while (/<(think|thought|thinking|reasoning)>[\s\S]*?<\/\1>/i.test(result)) {
+    result = result.replace(/<(think|thought|thinking|reasoning)>[\s\S]*?<\/\1>/gi, '');
+  }
+
+  // Handle unclosed tags at beginning or mid-text, and orphaned closing tags
+  result = result.replace(/<(think|thought|thinking|reasoning)>[\s\S]*$/gi, '');
+  result = result.replace(/^[\s\S]*?<\/(?:think|thought|thinking|reasoning)>/gi, '');
+  result = result.replace(/<\/(?:think|thought|thinking|reasoning)>/gi, '');
+
+  return result.trim();
+};
+
 // Initialize API key and provider from backend
 export const initializeApiKey = async (): Promise<void> => {
   try {
@@ -159,8 +181,19 @@ export const initializeApiKey = async (): Promise<void> => {
       if (providerResp.ok) {
         const providerData = await providerResp.json();
         aiProvider = providerData.provider || 'GEMINI';
-        localEndpoint = providerData.localEndpoint || 'http://localhost:1234';
-        localModel = providerData.localModel || 'llama3';
+        if (aiProvider === 'OMNIROUTE') {
+          localEndpoint = providerData.localEndpoint || 'https://api.omniroute.ai/v1';
+          localModel = providerData.localModel || 'omni-default';
+        } else if (aiProvider === 'LOCAL_LMLink') {
+          localEndpoint = providerData.localEndpoint || 'http://localhost:1234';
+          localModel = providerData.localModel || 'gemma4-damasco';
+        } else if (aiProvider === 'NATIVE_SIMCOP') {
+          localEndpoint = providerData.localEndpoint || '/ai_api';
+          localModel = providerData.localModel || 'simcop_nlp_weights_quantized_int8.pth';
+        } else {
+          localEndpoint = providerData.localEndpoint || 'http://localhost:11434';
+          localModel = providerData.localModel || 'llama3';
+        }
         console.log(`[AI] Provider loaded: ${aiProvider}`);
       }
     } catch (e) {
@@ -178,19 +211,19 @@ export const initializeApiKey = async (): Promise<void> => {
       const data = await response.json();
       API_KEY = data.apiKey;
       if (API_KEY) {
-        console.log('[Gemini] ✅ API key cargada (para voz)');
+        console.log('[AI] ✅ API key / Token cargado');
         ai = new GoogleGenAI({ apiKey: API_KEY });
       } else {
-        console.warn('[Gemini] ⚠️ No se encontró API key');
+        console.warn('[AI] ⚠️ No se encontró API key');
         ai = null;
       }
     } else {
       ai = null;
-      console.error('[Gemini] Error al cargar API Key:', response.status);
+      console.error('[AI] Error al cargar API Key:', response.status);
     }
   } catch (error) {
     ai = null;
-    console.error('[Gemini] Excepción al inicializar API Key:', error);
+    console.error('[AI] Excepción al inicializar API Key:', error);
   }
 };
 
@@ -222,18 +255,17 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
     updateTaskState(key, { status: 'RUNNING', error: null, result: null });
   }
 
-  // If using a local provider, bypass the backend and hit the local endpoint directly from the browser!
-  // This satisfies the requirement to use the client PC's own LMLink/Ollama connection.
-  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink') {
+  // If using a local or router provider (Ollama, LMLink, OmniRoute), bypass the backend and hit the endpoint directly!
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
     try {
-      console.log(`[AI] Interceptando llamada para IA Local: ${aiProvider} -> ${localEndpoint}`);
+      console.log(`[AI] Interceptando llamada para IA: ${aiProvider} -> ${localEndpoint}`);
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
       
-      if (aiProvider === 'LOCAL_LMLink' && API_KEY) {
-        headers['Authorization'] = `Bearer ${API_KEY}`;
+      if ((aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') && API_KEY) {
+        headers['Authorization'] = API_KEY.startsWith('Bearer ') ? API_KEY : `Bearer ${API_KEY}`;
       }
 
       let messages = [];
@@ -242,7 +274,10 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
       }
       messages.push({ role: 'user', content: prompt });
 
-      const response = await fetch(`${localEndpoint.replace(/\/$/, '')}/v1/chat/completions`, {
+      const baseUrl = localEndpoint.replace(/\/+$/, '');
+      const completionsUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+
+      const response = await fetch(completionsUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -253,11 +288,14 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
       });
 
       if (!response.ok) {
-        throw new Error(`Error en IA Local: ${response.status} ${response.statusText}`);
+        throw new Error(`Error en ${aiProvider}: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0].message.content;
+      const rawContent = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
+      
+      // Strip reasoning tokens (<think>...</think>, <thought>...</thought>) for deep reasoning models (e.g. DeepSeek-R1 / OmniRoute)
+      const content = stripReasoningTags(rawContent);
 
       if (key) {
         updateTaskState(key, { status: 'COMPLETED', result: content, queuePosition: 0 });
@@ -265,7 +303,7 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
 
       return content;
     } catch (error: any) {
-      console.error('[AI] Error ejecutando modelo local:', error);
+      console.error(`[AI] Error ejecutando modelo ${aiProvider}:`, error);
       if (key) {
         updateTaskState(key, { status: 'FAILED', error: error.message });
       }
@@ -323,10 +361,8 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
 
         if (currentTask.status === 'COMPLETED') {
           clearInterval(pollInterval);
-          // Eliminar etiquetas de razonamiento que emiten modelos tipo gemma4/DeepSeek
-          // antes de retornar la respuesta a cualquier función consumidora
-          let resultText: string = currentTask.result || '';
-          resultText = resultText.replace(/<(thought|think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, '').trim();
+          // Strip reasoning tokens before resolving
+          const resultText = stripReasoningTags(currentTask.result || '');
           resolve(resultText);
         } else if (currentTask.status === 'FAILED') {
           clearInterval(pollInterval);
@@ -350,8 +386,8 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
  * Ensures the AI client is initialized, attempting to reinitialize if needed
  */
 const ensureInitialized = async (): Promise<boolean> => {
-  if (aiProvider === 'LOCAL_OLLAMA') {
-    return true; // No need to initialize client-side Gemini SDK for Local AI
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'NATIVE_SIMCOP' || aiProvider === 'OMNIROUTE') {
+    return true; // No need to initialize client-side Gemini SDK for Local/Router/Native AI
   }
   if (ai) {
     return true;
@@ -360,7 +396,7 @@ const ensureInitialized = async (): Promise<boolean> => {
   console.log('[Gemini] ⚠️ Cliente no inicializado, intentando reinicializar...');
   await initializeApiKey();
 
-  if (aiProvider === 'LOCAL_OLLAMA' || ai) {
+  if (aiProvider !== 'GEMINI' || ai) {
     console.log('[Gemini] ✅ Inicialización exitosa');
     return true;
   }
@@ -569,7 +605,7 @@ export const getCommandFromGemini = async (command: string, unitNames: string[])
     }
   }
 
-  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || !ai) {
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE' || !ai) {
     try {
       const systemInstruction = `Eres un asistente de comando y control. Tu única función es interpretar los comandos del usuario y traducirlos a un objeto JSON. Si el usuario pide enfocar en una unidad, responde con: {"name": "focusOnUnit", "args": {"unitName": "nombre_unidad"}}. Si no coincide con ninguna unidad, responde null. Unidades disponibles: ${unitNames.join(', ')}. Responde ÚNICAMENTE con el JSON, sin bloques de código ni texto adicional.`;
       const responseText = await generateContentViaBackend(`${systemInstruction}\n\nComando: ${command}`);
@@ -818,6 +854,7 @@ export const getGeminiAnalysis = async (
           }
         }
       }
+      const avgSlope = countSlope > 0 ? totalSlope / countSlope : 0;
       // Análisis de Micro-Relieve Quebrado Colombiano (Cañadas, Cuchillas, Farallones)
       let microReliefHazards: string[] = [];
       for (let i = 0; i < grid.length; i++) {
@@ -847,13 +884,6 @@ GEOMETRÍA GENERAL DEL TERRENO (MARCO ESPACIAL Y BOUNDING BOX):
 - Perfil Topográfico General: ${maxSlope > 35 ? 'Terreno de alta escarpadura y barreras naturales infranqueables para vehículos' : maxSlope > 15 ? 'Terreno accidentado con laderas de pendiente moderada' : 'Terreno relativamente llano con ondulaciones suaves'}.${microReliefStr}`;
     }
 
-    geoPrompt = `
-ÁREA DE OPERACIONES (AOI) ACTIVA:
-- Centroide: ${geoContext.centroid.lat.toFixed(4)}, ${geoContext.centroid.lon.toFixed(4)} (DMS: ${geoContext.centroid.dms})
-- Área: ${geoContext.areaKm2.toFixed(2)} km²
-- Municipios/Regiones cubiertas: ${municipalitiesStr}
-- Condición meteorológica: ${weatherStr}
-${weatherHazards}
     // Cálculo de la Distribución Altimétrica por Cuadrantes Tácticos
     let quadrantPrompt = '';
     if (geoContext.elevationGrid && geoContext.elevationGrid.length > 0) {
@@ -1043,7 +1073,7 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
     }
   }
 
-  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || !ai) {
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE' || !ai) {
     try {
       // Prompt simplificado: no se envía el schema serializado (reduce tokens y evita confusión del modelo)
       const localPrompt = `${systemInstruction}\n\n${prompt}\n\nIMPORTANTE: DEBES RESPONDER ÚNICAMENTE CON UN OBJETO JSON VÁLIDO. NO ESCRIBAS TEXTO CONVERSACIONAL NI SALUDOS. Si no usas formato JSON, el sistema fallará.\n\nEstructura exacta requerida:\n{
@@ -1262,11 +1292,16 @@ Responde SOLAMENTE con el objeto JSON. No incluyas explicaciones adicionales.
 
   try {
     const jsonStr = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`, 'q5Generation');
-    let cleanedJson = jsonStr.trim();
+    let cleanedJson = stripReasoningTags(jsonStr);
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
     const match = cleanedJson.match(fenceRegex);
     if (match && match[2]) {
       cleanedJson = match[2].trim();
+    }
+    const startIdx = cleanedJson.indexOf('{');
+    const endIdx = cleanedJson.lastIndexOf('}');
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      cleanedJson = cleanedJson.substring(startIdx, endIdx + 1);
     }
 
     const parsedData = JSON.parse(cleanedJson) as Q5ContentPayload;

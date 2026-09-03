@@ -16,6 +16,8 @@ interface HeaderProps {
   onToggleVoiceCommand?: () => void;
   isVoiceCommandActive?: boolean;
   isConnectingVoice?: boolean;
+  /** Etiqueta del modo STT activo: '☁️ Gemini Live', '🌐 Navegador', '🔇 Sin STT' */
+  speechModeLabel?: string;
 }
 
 export const HeaderComponent: React.FC<HeaderProps> = ({
@@ -26,7 +28,8 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
   onAiCommand,
   onToggleVoiceCommand,
   isVoiceCommandActive = false,
-  isConnectingVoice = false
+  isConnectingVoice = false,
+  speechModeLabel,
 }) => {
   const [aiCommand, setAiCommand] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -110,6 +113,21 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <MicrophoneIcon className="w-5 h-5" />
           </button>
+          {/* Indicador de modo STT activo */}
+          {isVoiceCommandActive && speechModeLabel && (
+            <span style={{
+              fontSize: '0.65rem',
+              padding: '2px 6px',
+              borderRadius: '999px',
+              backgroundColor: 'rgba(16,185,129,0.15)',
+              border: '1px solid rgba(52,211,153,0.4)',
+              color: '#34d399',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}>
+              {speechModeLabel}
+            </span>
+          )}
         </div>
       ) : (
         <div className="flex-1"></div>

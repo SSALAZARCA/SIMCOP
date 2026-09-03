@@ -3,7 +3,10 @@ package com.simcop.service;
 import com.simcop.model.OsintEvent;
 import com.simcop.model.embeddable.GeoLocation;
 import com.simcop.repository.OsintEventRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +16,8 @@ import java.util.*;
 
 @Service
 public class OsintService {
+
+    private static final Logger logger = LoggerFactory.getLogger(OsintService.class);
 
     @Autowired
     private OsintEventRepository osintEventRepository;
@@ -34,7 +39,14 @@ public class OsintService {
         return osintEventRepository.save(event);
     }
 
-    public int fetchAndProcessNews() {
+    @Async("taskExecutor")
+    public void fetchAndProcessNewsAsync() {
+        fetchAndProcessNews();
+    }
+
+    @Async("taskExecutor")
+    public void fetchAndProcessNews() {
+        logger.info("📡 Iniciando refresco asíncrono de fuentes OSINT...");
         // Eliminar noticias simuladas de ejecuciones anteriores (evitando locks de BD)
         List<OsintEvent> mockEvents = osintEventRepository.findAll().stream()
             .filter(e -> e.getSourceUrl() != null && e.getSourceUrl().contains("ejemplo.com"))
@@ -55,14 +67,12 @@ public class OsintService {
                     osintEventRepository.save(event);
                     processedCount++;
                 }
-                // Sleep for 4 seconds to avoid hitting Gemini Free Tier rate limit (15 RPM)
-                Thread.sleep(4000);
             } catch (Exception e) {
-                System.err.println("Error processing news with AI (possibly API key missing): " + e.getMessage());
+                logger.error("Error procesando noticia OSINT con IA: {}", e.getMessage());
             }
         }
 
-        return processedCount;
+        logger.info("✅ Refresco asíncrono OSINT completado: {} eventos procesados.", processedCount);
     }
 
     private List<Map<String, String>> fetchRawNews() {
@@ -106,7 +116,7 @@ public class OsintService {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Error fetching RSS feed " + feed[1] + ": " + e.getMessage());
+                logger.warn("Error leyendo fuente RSS {}: {}", feed[1], e.getMessage());
             }
         }
 
@@ -133,8 +143,7 @@ public class OsintService {
             return null;
 
         try {
-            // Remove markdown code blocks and extract JSON using substring between first {
-            // and last }
+            // Remove markdown code blocks and extract JSON using substring between first { and last }
             String cleanedAiResponse = aiResponse.trim();
             if (cleanedAiResponse.contains("{") && cleanedAiResponse.contains("}")) {
                 cleanedAiResponse = cleanedAiResponse.substring(cleanedAiResponse.indexOf("{"),
@@ -143,7 +152,7 @@ public class OsintService {
             JsonNode result = objectMapper.readTree(cleanedAiResponse);
 
             if (!result.has("relevant") || !result.get("relevant").asBoolean()) {
-                System.out.println("News marked as not relevant by AI: " + news.get("title"));
+                logger.debug("Noticia descartada como no relevante por IA: {}", news.get("title"));
                 return null;
             }
 
@@ -175,11 +184,10 @@ public class OsintService {
             event.setProcessedTimestamp(LocalDateTime.now());
             event.setVerified(false);
 
-            System.out.println("Successfully processed OSINT event: " + event.getTitle());
+            logger.info("Evento OSINT procesado exitosamente: {}", event.getTitle());
             return event;
         } catch (Exception e) {
-            System.err.println("Error parsing AI response for OSINT. Response was: " + aiResponse);
-            System.err.println("Exception: " + e.getMessage());
+            logger.warn("Error parseando respuesta IA para OSINT: {}", e.getMessage());
             return null;
         }
     }
@@ -240,7 +248,7 @@ public class OsintService {
 
             return osintEventRepository.save(event);
         } catch (Exception e) {
-            System.err.println("Error procesando Webhook Regex: " + e.getMessage());
+            logger.error("Error procesando Webhook Regex: {}", e.getMessage());
             return null;
         }
     }

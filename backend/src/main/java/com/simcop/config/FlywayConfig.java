@@ -1,6 +1,8 @@
 package com.simcop.config;
 
 import org.flywaydb.core.Flyway;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,23 +15,22 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class FlywayConfig {
 
+    private static final Logger logger = LoggerFactory.getLogger(FlywayConfig.class);
+
     @Bean
     public FlywayMigrationStrategy cleanMigrationStrategy() {
         return flyway -> {
-            System.out.println(">>> Flyway: Ejecutando reparación forzada del historial...");
+            logger.info(">>> Flyway: Ejecutando reparación forzada del historial...");
             try {
                 // Primero reparamos por si acaso la tabla flyway_schema_history está corrupta
                 flyway.repair();
-                System.out.println(">>> Flyway: Reparación completada. Procediendo a migrar...");
+                logger.info(">>> Flyway: Reparación completada. Procediendo a migrar...");
                 
                 // Luego ejecutamos la migración
                 flyway.migrate();
-                System.out.println(">>> Flyway: Migración completada exitosamente.");
+                logger.info(">>> Flyway: Migración completada exitosamente.");
             } catch (Exception e) {
-                System.err.println(">>> Flyway error durante la estrategia personalizada: " + e.getMessage());
-                // Si falla de nuevo, intentamos limpiar (clean) si está permitido
-                // flyway.clean(); 
-                // flyway.migrate();
+                logger.error(">>> Flyway error durante la estrategia personalizada: {}", e.getMessage());
                 throw e;
             }
         };

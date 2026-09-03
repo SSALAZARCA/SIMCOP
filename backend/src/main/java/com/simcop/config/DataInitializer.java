@@ -43,43 +43,49 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         ensureDataDirectoryExists();
-        System.out.println("Checking and initializing security data...");
+        logger.info("Verificando e inicializando datos de seguridad táctica...");
         healDatabaseSchema();
 
-        // Ensure default admin exists
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            User admin = new User();
-            admin.setUsername("admin");
-            admin.setDisplayName("System Administrator");
-            admin.setHashedPassword(passwordEncoder.encode("password"));
-            admin.setRole(UserRole.ADMINISTRATOR);
-            admin.setPermissions(new ArrayList<>());
-            userRepository.save(admin);
-            System.out.println("Default admin user created.");
+        // Resolver contraseña administrativa inicial desde entorno o generar valor seguro
+        String envSuperAdminPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
+        if (envSuperAdminPass == null || envSuperAdminPass.trim().isEmpty()) {
+            envSuperAdminPass = System.getenv("SIMCOP_ADMIN_PASSWORD");
+        }
+        String initialSecurePassword;
+        if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()) {
+            initialSecurePassword = envSuperAdminPass.trim();
+        } else if (defaultAdminPassword != null && !defaultAdminPassword.trim().isEmpty() && !"change-me-immediately".equals(defaultAdminPassword.trim())) {
+            initialSecurePassword = defaultAdminPassword.trim();
+        } else {
+            // Generar contraseña segura aleatoria si no fue configurada en variables de entorno
+            initialSecurePassword = java.util.UUID.randomUUID().toString();
+            logger.info("ℹ️ Generada contraseña administrativa aleatoria segura para el arranque inicial.");
         }
 
-        // Ensure superadmin exists
-        if (userRepository.findByUsername("superadmin").isEmpty()) {
-            User sa = new User();
-            sa.setUsername("superadmin");
-            sa.setDisplayName("Super Administrator");
-            sa.setHashedPassword(passwordEncoder.encode("password"));
-            sa.setRole(UserRole.ADMINISTRATOR);
-            sa.setPermissions(new java.util.ArrayList<>());
-            userRepository.save(sa);
-            System.out.println("Default superadmin user created.");
-        }
-
-        // Ensure santiago.salazar (SuperAdmin) exists with custom credentials
+        // Asegurar cuenta SuperAdmin santiago.salazar sin sobreescribir si ya existe
         if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
             User ss = new User();
             ss.setUsername("santiago.salazar");
             ss.setDisplayName("Santiago Salazar (SuperAdmin)");
-            ss.setHashedPassword(passwordEncoder.encode(defaultAdminPassword));
+            ss.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
             ss.setRole(UserRole.ADMINISTRATOR);
+            ss.setTwoFactorEnabled(false);
             ss.setPermissions(new java.util.ArrayList<>());
             userRepository.save(ss);
-            System.out.println("SuperAdmin santiago.salazar created with tactical access credentials.");
+            logger.info("Cuenta SuperAdmin santiago.salazar inicializada con credenciales seguras.");
+        }
+
+        // Asegurar cuenta administrativa de respaldo 'admin' si no existe
+        if (userRepository.findByUsername("admin").isEmpty()) {
+            User admin = new User();
+            admin.setUsername("admin");
+            admin.setDisplayName("System Administrator");
+            admin.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
+            admin.setRole(UserRole.ADMINISTRATOR);
+            admin.setTwoFactorEnabled(false);
+            admin.setPermissions(new ArrayList<>());
+            userRepository.save(admin);
+            logger.info("Cuenta administrativa de respaldo inicializada.");
         }
     }
 

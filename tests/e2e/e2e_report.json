@@ -1,0 +1,1877 @@
+{
+  "timestamp": "2026-09-03T01:57:23.577Z",
+  "totalTests": 257,
+  "passed": 257,
+  "failed": 0,
+  "skipped": 0,
+  "durationMs": 599,
+  "tiers": [
+    {
+      "name": "Tier 1: Feature Nominal Coverage (F01-F21)",
+      "total": 105,
+      "passed": 105,
+      "failed": 0,
+      "files": [
+        {
+          "file": "tier1_features/f01_superadmin_shielding.test.js",
+          "suites": [
+            {
+              "name": "F01: R1 Superadmin Shielding & Immutability",
+              "tests": [
+                {
+                  "name": "F01-T1: Superadmin identity definition and protection rules",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-T2: Verification that DataInitializer and configs do not hardcode superadmin password",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-T3: Superadmin deletion guard simulation returns 403 Forbidden",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-T4: Superadmin role demotion guard simulation returns 403 Forbidden",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F01-T5: Setup scripts and SQL definitions audit for credentials leakage",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f02_pytorch_safe_loading.test.js",
+          "suites": [
+            {
+              "name": "F02: SEC-01 PyTorch Safe Loading & RCE Mitigation",
+              "tests": [
+                {
+                  "name": "F02-T1: Verify api_server.py specifies weights_only=True or safe loading construct",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F02-T2: Safe loading fallback simulation on invalid/null-byte model file",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-T3: A* tactical route navigation calculation executes without neural weights",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-T4: System KPIs contract validation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-T5: Offline tactical response generation preserves SMEPC 5-paragraph structure",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f03_secrets_webhook.test.js",
+          "suites": [
+            {
+              "name": "F03: SEC-03 Secrets & Webhook Protection",
+              "tests": [
+                {
+                  "name": "F03-T1: Webhook authorization with correct secret succeeds",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-T2: Constant-time comparison prevents timing discrepancies on secret evaluation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-T3: Missing or invalid secret header returns 401 Unauthorized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-T4: WeatherService configuration checks for environment variable without hardcoded fallback",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F03-T5: OSINT payload normalization structure validation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f04_jwt_aes_encryption.test.js",
+          "suites": [
+            {
+              "name": "F04: SEC-04 JWT Secret & AES-256-GCM Storage Encryption",
+              "tests": [
+                {
+                  "name": "F04-T1: AES-256-GCM encryption and decryption roundtrip preserves exact plaintext",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F04-T2: AES-256-GCM generates distinct ciphertexts for identical plaintext due to random IVs",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-T3: JWT Secret entropy enforcement (minimum 256-bit / 32 bytes)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-T4: JWT token creation and claim integrity verification",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-T5: Base64 pseudo-encryption rejection in favor of authenticated encryption",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f05_auth_bypass_elimination.test.js",
+          "suites": [
+            {
+              "name": "F05: SEC-06 Auth Bypass & Open Relay Elimination",
+              "tests": [
+                {
+                  "name": "F05-T1: Unauthenticated request to /api/units without Authorization header returns 401 Unauthorized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-T2: Request with empty Bearer header returns 401 Unauthorized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-T3: Request with valid Bearer token returns 200 and sets authenticated security context",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-T4: Elimination of unauthenticated SIGEP bypass in unit catalog service",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-T5: Role-based authorization matrix enforcement on protected routes",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f06_path_traversal_files.test.js",
+          "suites": [
+            {
+              "name": "F06: SEC-07 Path Traversal & File Upload Security",
+              "tests": [
+                {
+                  "name": "F06-T1: Allowed tactical overlay and report file extensions succeed",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-T2: Dangerous executable file extensions are strictly rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-T3: Path containment verification blocks directory escape sequences",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-T4: File download response headers include Content-Disposition: attachment",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-T5: Unique sanitized storage name generation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f07_bola_idor_protection.test.js",
+          "suites": [
+            {
+              "name": "F07: SEC-08 BOLA / IDOR Protection",
+              "tests": [
+                {
+                  "name": "F07-T1: User cannot modify another user Telegram config (BOLA prevention)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-T2: COAPlan modification restricted to creator or higher command",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-T3: Logistics request approval restricted to S4/G4 logistics officer or admin",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-T4: Operational graphics modification restricted to creator or administrator",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-T5: Forward observer fire call authorization check",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f08_admin_masking_allowlist.test.js",
+          "suites": [
+            {
+              "name": "F08: SEC-09 Admin Panel Data Masking & Table Allowlist",
+              "tests": [
+                {
+                  "name": "F08-T1: Querying whitelisted application tables succeeds",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-T2: Querying non-whitelisted system or foreign tables is rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-T3: Sensitive fields are masked in admin query results",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-T4: Truncation of critical tables is blocked with HTTP 403 Forbidden",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-T5: Admin actions generate structured audit log entries",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f09_secure_user_context.test.js",
+          "suites": [
+            {
+              "name": "F09: SEC-10 Secure Authenticated User Context",
+              "tests": [
+                {
+                  "name": "F09-T1: User identity extracted exclusively from authenticated security context",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-T2: Client payload attempting to spoof username is ignored in favor of security context",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-T3: Unauthenticated call without security context is rejected with 401",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-T4: Audit logging uses security context principal for actor identity",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-T5: Async execution task retains calling principal metadata",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f10_secure_apikey_transmission.test.js",
+          "suites": [
+            {
+              "name": "F10: SEC-11 Secure API Key Transmission",
+              "tests": [
+                {
+                  "name": "F10-T1: OmniRoute AI requests transmit API key via Bearer Authorization header",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-T2: Gemini AI requests transmit API key via x-goog-api-key header and NOT in query string",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-T3: Log sanitizer completely redacts sensitive API key headers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-T4: Rejection of requests attempting to pass API keys in query parameters",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-T5: OpenWeather and external third-party requests use secure headers or secure backend proxy",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f11_omniroute_frontend.test.js",
+          "suites": [
+            {
+              "name": "F11: R2 OmniRoute AI Provider Integration (Frontend)",
+              "tests": [
+                {
+                  "name": "F11-T1: Provider configuration options include OMNIROUTE alongside existing providers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-T2: Default OmniRoute Base URL auto-populates as https://api.omniroute.ai/v1",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-T3: Target model catalog supports standard OmniRoute models",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-T4: Secure API Key input state handles obfuscation and updates",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-T5: Reasoning <think> and <thought> tag stripping before JSON parsing",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f12_omniroute_backend.test.js",
+          "suites": [
+            {
+              "name": "F12: R2 OmniRoute AI Provider Integration (Backend)",
+              "tests": [
+                {
+                  "name": "F12-T1: Request body formatted matching OpenAI chat completions JSON schema",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F12-T2: HTTP request dispatches to /v1/chat/completions with Authorization Bearer header",
+                  "status": "PASSED",
+                  "durationMs": 32
+                },
+                {
+                  "name": "F12-T3: Backend parser extracts choices[0].message.content correctly",
+                  "status": "PASSED",
+                  "durationMs": 5
+                },
+                {
+                  "name": "F12-T4: AI Queue service task enqueuing and status lifecycle for OmniRoute",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F12-T5: Unauthorized API key to OmniRoute returns 401 and handles error gracefully",
+                  "status": "PASSED",
+                  "durationMs": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f13_threadpool_memory.test.js",
+          "suites": [
+            {
+              "name": "F13: PERF-01 / ARQ-03 Thread Pool & Memory Optimization",
+              "tests": [
+                {
+                  "name": "F13-T1: ThreadPool configuration uses bounded core and max pools",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-T2: Bounded TTL cache automatically evicts expired AI task records",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-T3: GeospatialCache enforces maximum capacity and LRU eviction",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-T4: AI task execution timeout is bounded to reasonable operational threshold (<= 60s)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-T5: High volume task submission maintains strict memory bounds",
+                  "status": "PASSED",
+                  "durationMs": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f14_async_osint.test.js",
+          "suites": [
+            {
+              "name": "F14: ARQ-01 Non-blocking Async Architecture",
+              "tests": [
+                {
+                  "name": "F14-T1: POST /api/osint/refresh returns HTTP 202 Accepted immediately",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F14-T2: Synchronous 4-second Thread.sleep is eliminated from request path",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F14-T3: Initial state returns PROCESSING without blocking HTTP client",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F14-T4: Background task completes asynchronously and updates event collection",
+                  "status": "PASSED",
+                  "durationMs": 54
+                },
+                {
+                  "name": "F14-T5: Parallel multi-source ingestion handles RSS and open web streams concurrently",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f15_cors_security_headers.test.js",
+          "suites": [
+            {
+              "name": "F15: SEC-12 CORS Origin Restriction & Security Headers",
+              "tests": [
+                {
+                  "name": "F15-T1: Authorized origin receives valid CORS headers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-T2: Unauthorized external origin is rejected and receives no CORS headers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-T3: Python api_server.py does not combine allow_origins=[\"*\"] with allow_credentials=True",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F15-T4: X-Frame-Options and X-Content-Type-Options are enforced",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-T5: HSTS header is configured for transport security",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f16_user_uniqueness.test.js",
+          "suites": [
+            {
+              "name": "F16: DATA-01 User Uniqueness & Integrity Handling",
+              "tests": [
+                {
+                  "name": "F16-T1: Attempting to create duplicate username returns HTTP 409 Conflict",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-T2: Pre-validation existsByUsername executes before hashing and saving",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-T3: Null safety handling on password during user updates",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-T4: User.java contains unique column annotation for username",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F16-T5: User creation with new unique username returns 201 Created",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f17_route_history_limit.test.js",
+          "suites": [
+            {
+              "name": "F17: DATA-02 Route History Limit & Pruning",
+              "tests": [
+                {
+                  "name": "F17-T1: Route history initialized with 500 points retains all 500 points",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-T2: Setting 750 points prunes oldest 250 points, keeping latest 500 (FIFO)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-T3: Adding 501st point dynamically shifts oldest point out",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-T4: SPOT satellite telemetry ping integration updates route and respects cap",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-T5: GeoJSON LineString serialization maintains point geometry within limit",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f18_structured_logging.test.js",
+          "suites": [
+            {
+              "name": "F18: QUAL-04 Structured Logging & Leak Prevention",
+              "tests": [
+                {
+                  "name": "F18-T1: Structured log entry contains level, context, timestamp, and message",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-T2: Exception logging captures error details cleanly without raw stack dump in stdout",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-T3: Passwords and 2FA secrets are automatically redacted in log metadata",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-T4: API keys and JWT tokens are redacted from logging outputs",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-T5: Nested metadata sanitization protects deeply embedded credentials",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f19_typescript_compilation.test.js",
+          "suites": [
+            {
+              "name": "F19: R4 TypeScript Type Safety & Clean Compilation",
+              "tests": [
+                {
+                  "name": "F19-T1: tsconfig.json exists and is valid JSON",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F19-T2: types/index.ts exports all 18 tactical user roles and essential interfaces",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-T3: TelegramConfigComponent contains valid props and handlers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-T4: geminiService.ts handles OmniRoute response types without as any casting on core return values",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F19-T5: Ballistics mathematical calculation utility is strictly typed",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f20_zero_residue.test.js",
+          "suites": [
+            {
+              "name": "F20: R4 Zero Residue & Artifact Cleanup",
+              "tests": [
+                {
+                  "name": "F20-T1: Audit for Microsoft Word lock/temporary files (~$*.doc) in repository",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F20-T2: Audit for orphan archive files (*.zip) in project root",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F20-T3: Audit for loose ad-hoc debug JSON/JS scripts in project root",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F20-T4: .gitignore exists and specifies ignore patterns for build, uploads, and data",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F20-T5: .dockerignore exists and prevents leaking node_modules and .env files",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier1_features/f21_e2e_verification_hardening.test.js",
+          "suites": [
+            {
+              "name": "F21: E2E Verification & Adversarial Coverage Hardening",
+              "tests": [
+                {
+                  "name": "F21-T1: Test framework assertion engine evaluates truth, equality, and ranges correctly",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-T2: Exception assertion toThrow catches and matches errors accurately",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-T3: Mock HTTP server handles requests, records history, and tears down cleanly",
+                  "status": "PASSED",
+                  "durationMs": 6
+                },
+                {
+                  "name": "F21-T4: Opaque-box testing integrity: verifying assertions fail on invalid actual output",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-T5: Structured E2E report model format validation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tier 2: Boundary & Corner Cases (F01-F21)",
+      "total": 105,
+      "passed": 105,
+      "failed": 0,
+      "files": [
+        {
+          "file": "tier2_boundaries/f01_bnd_superadmin.test.js",
+          "suites": [
+            {
+              "name": "F01-BND: Superadmin Shielding Boundary & Attack Vectors",
+              "tests": [
+                {
+                  "name": "F01-BND-T1: Case variation attacks (SANTIAGO.SALAZAR, Admin, sAnTiAgO.sAlAzAr) are intercepted",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-BND-T2: SQL injection payload in username is treated literally and does not bypass guard",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-BND-T3: Empty or null target username handled safely without unhandled exception",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-BND-T4: Concurrent deletion flood against superadmin all receive 403 Forbidden",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F01-BND-T5: Privilege escalation from subordinate role attempting superadmin modification is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f02_bnd_pytorch_rce.test.js",
+          "suites": [
+            {
+              "name": "F02-BND: PyTorch RCE & Malicious Serialization Boundary",
+              "tests": [
+                {
+                  "name": "F02-BND-T1: Malicious pickle payload with system command execution is blocked by weights_only=True",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-BND-T2: 0-byte empty file throws clean validation error and activates fallback",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-BND-T3: Truncated binary header buffer handled without memory corruption",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F02-BND-T4: High-frequency model loading requests do not exhaust system file descriptors",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F02-BND-T5: Non-standard CPU architecture device mapping is handled safely",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f03_bnd_secrets_timing.test.js",
+          "suites": [
+            {
+              "name": "F03-BND: Webhook Secrets Timing & Header Boundary",
+              "tests": [
+                {
+                  "name": "F03-BND-T1: Prefix collision attack does not pass timing-safe equality check",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-BND-T2: Oversized secret header (10 KB buffer) handled without memory crash",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-BND-T3: Multibyte UTF-8 characters in secret are safely compared",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-BND-T4: Null byte injection in secret header is neutralized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F03-BND-T5: Rapid repeated brute force attempts fail consistently without leaking secret state",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f04_bnd_jwt_aes_tamper.test.js",
+          "suites": [
+            {
+              "name": "F04-BND: AES-GCM Tampering & JWT Cryptographic Boundary",
+              "tests": [
+                {
+                  "name": "F04-BND-T1: Corrupted authentication tag in AES-GCM payload throws error and blocks decryption",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-BND-T2: Modified ciphertext byte fails GCM integrity validation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-BND-T3: Invalid key length (e.g. 16-byte DES/AES-128 key) is rejected by AES-256 validator",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F04-BND-T4: Tampered JWT claim payload fails signature verification",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F04-BND-T5: Algorithm \"none\" exploit token is rejected explicitly",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f05_bnd_auth_tokens.test.js",
+          "suites": [
+            {
+              "name": "F05-BND: Authentication Token Boundaries & Attack Scenarios",
+              "tests": [
+                {
+                  "name": "F05-BND-T1: Expired JWT token is rejected with expiration error",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-BND-T2: Token with future Not-Before (nbf) claim is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-BND-T3: Token signed with different key fails signature verification",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-BND-T4: Malformed JWT strings with invalid segment counts throw format errors",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F05-BND-T5: Empty authorization header values are cleanly rejected with 401",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f06_bnd_traversal_fuzzing.test.js",
+          "suites": [
+            {
+              "name": "F06-BND: Path Traversal Fuzzing & Upload Boundaries",
+              "tests": [
+                {
+                  "name": "F06-BND-T1: URL-encoded traversal payloads (%2e%2e%2f) are decoded and rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-BND-T2: Windows backslash traversal (..\\..\\windows) is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-BND-T3: Null byte extension spoofing (malicious.kml\\0.exe) is detected and blocked",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-BND-T4: File exceeding 10MB limit (11MB) returns HTTP 413 Payload Too Large",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F06-BND-T5: Double extension disguise (overlay.kml.exe) inspects terminal extension and rejects",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f07_bnd_bola_cross_tenant.test.js",
+          "suites": [
+            {
+              "name": "F07-BND: BOLA / IDOR Cross-Tenant Boundaries & Fuzzing",
+              "tests": [
+                {
+                  "name": "F07-BND-T1: Cross-tenant resource lookup returns 403 Forbidden without leaking resource details",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-BND-T2: Non-existent resource ID returns 404 Not Found without system errors",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-BND-T3: Malformed or non-numeric ID parameter returns 400 Bad Request",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-BND-T4: Administrator role can access across tenants for command auditing",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F07-BND-T5: Rapid sequential ID enumeration attempts all receive strict authorization enforcement",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f08_bnd_admin_sql_truncation.test.js",
+          "suites": [
+            {
+              "name": "F08-BND: Admin SQL Injection & Truncation Boundaries",
+              "tests": [
+                {
+                  "name": "F08-BND-T1: SQL injection payloads in table parameter are blocked by strict regex whitelist",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-BND-T2: Wildcard * and special characters are rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-BND-T3: Truncating users table is blocked even with valid 2FA TOTP code",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F08-BND-T4: Non-critical table truncate requires valid 2FA and rejects bad TOTP",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F08-BND-T5: Pagination limit is clamped to safe boundary (max 500)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f09_bnd_spoofed_context.test.js",
+          "suites": [
+            {
+              "name": "F09-BND: Security Context Spoofing & Principal Boundaries",
+              "tests": [
+                {
+                  "name": "F09-BND-T1: Malicious JSON body with spoofed superadmin username is completely ignored",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F09-BND-T2: Null or undefined body does not trigger null pointer exceptions in context extraction",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-BND-T3: Complex military email as username in JWT subject is parsed accurately",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-BND-T4: Empty principal object returns 401 Unauthorized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F09-BND-T5: Rapid context switching across concurrent requests maintains strict isolation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f10_bnd_apikey_leakage_crlf.test.js",
+          "suites": [
+            {
+              "name": "F10-BND: API Key Transmission CRLF Injection & Leakage Boundaries",
+              "tests": [
+                {
+                  "name": "F10-BND-T1: CRLF injection in API key is neutralized before header injection",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-BND-T2: Leading and trailing whitespace/newlines are trimmed",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-BND-T3: Masking for display shows only prefix and suffix of sensitive keys",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-BND-T4: Empty or null API key results in clean empty header value",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F10-BND-T5: Oversized 4KB API key payload sanitized without crash",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f11_bnd_omniroute_tags.test.js",
+          "suites": [
+            {
+              "name": "F11-BND: OmniRoute Frontend Reasoning Tags & Markdown Sanitization",
+              "tests": [
+                {
+                  "name": "F11-BND-T1: Nested reasoning tags are cleanly stripped",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-BND-T2: Incomplete unclosed reasoning tag at EOF is handled without truncating valid prefix JSON if any",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F11-BND-T3: Multiple consecutive reasoning blocks are all removed",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-BND-T4: Empty reasoning tag `<think></think>` followed by JSON parses correctly",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F11-BND-T5: JSON enclosed inside markdown codeblock with leading prose is extracted cleanly",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f12_bnd_omniroute_upstream.test.js",
+          "suites": [
+            {
+              "name": "F12-BND: OmniRoute Backend Upstream Resilience & Error Boundaries",
+              "tests": [
+                {
+                  "name": "F12-BND-T1: HTTP 429 Rate Limit from OmniRoute is handled with queue retry status",
+                  "status": "PASSED",
+                  "durationMs": 4
+                },
+                {
+                  "name": "F12-BND-T2: HTTP 500 Server Error from OmniRoute is caught without crashing backend",
+                  "status": "PASSED",
+                  "durationMs": 4
+                },
+                {
+                  "name": "F12-BND-T3: HTML 504 Gateway error is gracefully handled without JSON parse crash",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F12-BND-T4: Large 100KB response payload is buffered and parsed safely",
+                  "status": "PASSED",
+                  "durationMs": 2
+                },
+                {
+                  "name": "F12-BND-T5: Missing network endpoint fails with clean connection error",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f13_bnd_concurrency_oom.test.js",
+          "suites": [
+            {
+              "name": "F13-BND: High Concurrency, OOM Prevention & Deadlock Boundaries",
+              "tests": [
+                {
+                  "name": "F13-BND-T1: 50 concurrent tasks are handled gracefully through pool queue",
+                  "status": "PASSED",
+                  "durationMs": 193
+                },
+                {
+                  "name": "F13-BND-T2: Task submission exceeding queue capacity throws TaskRejectedException",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-BND-T3: Zero or negative TTL defaults safely to 30-minute operational TTL",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-BND-T4: Cancelled task terminates and does not block executor slot",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F13-BND-T5: Rapid allocation and deallocation of 10,000 objects stays within memory ceiling",
+                  "status": "PASSED",
+                  "durationMs": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f14_bnd_osint_flooding.test.js",
+          "suites": [
+            {
+              "name": "F14-BND: OSINT Ingestion Flooding, Timeouts & Malformed Feeds",
+              "tests": [
+                {
+                  "name": "F14-BND-T1: Feed returning 5,000 items is safely capped to maximum 100 items",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F14-BND-T2: Malformed or non-array feed input returns empty array without throwing",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F14-BND-T3: Rapid consecutive refresh requests are debounced or return current active job status",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F14-BND-T4: Remote feed timeout boundary cancels request after 5 seconds",
+                  "status": "PASSED",
+                  "durationMs": 26
+                },
+                {
+                  "name": "F14-BND-T5: Item fields with extreme character lengths (10,000 chars) are truncated",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f15_bnd_cors_spoofing.test.js",
+          "suites": [
+            {
+              "name": "F15-BND: CORS Spoofing, Null Origins & Preflight Boundaries",
+              "tests": [
+                {
+                  "name": "F15-BND-T1: Subdomain spoofing (http://localhost.attacker.com) is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-BND-T2: Null origin (Origin: null) is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-BND-T3: Port spoofing (http://localhost:9999) is rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-BND-T4: Case sensitivity is normalized safely without letting foreign domains in",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F15-BND-T5: Content Security Policy (CSP) defines strict default-src and script-src",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f16_bnd_case_duplicate_users.test.js",
+          "suites": [
+            {
+              "name": "F16-BND: User Uniqueness Case Collisions & Validation Boundaries",
+              "tests": [
+                {
+                  "name": "F16-BND-T1: Case-insensitive duplicates (Santiago.Salazar, SANTIAGO.SALAZAR) trigger HTTP 409 Conflict",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-BND-T2: Weak passwords (< 8 chars) are rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-BND-T3: Oversized 100-character username is rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-BND-T4: Usernames with malicious formatting (spaces, quotes, scripts) are rejected",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F16-BND-T5: Concurrent duplicate registration attempts resolve with exactly 1 success and 1 conflict",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f17_bnd_route_overflow_coords.test.js",
+          "suites": [
+            {
+              "name": "F17-BND: Route History Telemetry Overflow & Coordinate Boundaries",
+              "tests": [
+                {
+                  "name": "F17-BND-T1: Out of bounds latitude (> 90 or < -90) is rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-BND-T2: Out of bounds longitude (> 180 or < -180) is rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-BND-T3: NaN or null coordinates are rejected with HTTP 400",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-BND-T4: High-frequency telemetry stream of 1,000 pings never exceeds 500 points",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F17-BND-T5: Consecutive duplicate pings are deduplicated without consuming history slots",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f18_bnd_log_crlf_masking.test.js",
+          "suites": [
+            {
+              "name": "F18-BND: Log Injection (CRLF) & Deep Redaction Boundaries",
+              "tests": [
+                {
+                  "name": "F18-BND-T1: CRLF characters in log messages are neutralized to prevent log forging",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-BND-T2: Masking function correctly obfuscates 1-char, 4-char, 8-char, and long secrets",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-BND-T3: Null, undefined or non-string inputs to maskSecretString return empty string",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-BND-T4: High volume log batching (1,000 logs) sanitizes without memory leakage",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F18-BND-T5: Deeply nested objects with null values are sanitized cleanly",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f19_bnd_type_mismatches.test.js",
+          "suites": [
+            {
+              "name": "F19-BND: Type Safety, Schema Discrepancies & SIDC Boundaries",
+              "tests": [
+                {
+                  "name": "F19-BND-T1: Valid 15-character NATO MIL-STD-2525 SIDC code is parsed accurately",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-BND-T2: Invalid SIDC length or format returns structured validation error",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-BND-T3: DTO normalizer accepts both lat/lon and latitude/longitude schemas",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-BND-T4: Extra unexpected fields in JSON response do not corrupt normalized entity",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F19-BND-T5: Missing logistics percentages default safely to 100%",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f20_bnd_repo_hygiene.test.js",
+          "suites": [
+            {
+              "name": "F20-BND: Repository Hygiene, Secret Scanning & Artifact Integrity",
+              "tests": [
+                {
+                  "name": "F20-BND-T1: Audit for unencrypted private key files (*.key, *.pem, *.p12, *.pfx)",
+                  "status": "PASSED",
+                  "durationMs": 44
+                },
+                {
+                  "name": "F20-BND-T2: Audit for local developer environment overrides (.env.local, .env.production.local)",
+                  "status": "PASSED",
+                  "durationMs": 35
+                },
+                {
+                  "name": "F20-BND-T3: Dockerfile uses reproducible build strategies",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F20-BND-T4: package-lock.json exists and matches package.json dependencies",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F20-BND-T5: Backend source contains no ad-hoc hardcoded test main() runners in production code",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier2_boundaries/f21_bnd_adversarial_stress.test.js",
+          "suites": [
+            {
+              "name": "F21-BND: Adversarial Stress, Concurrency & Role Matrix Hardening",
+              "tests": [
+                {
+                  "name": "F21-BND-T1: Role privilege matrix evaluates correctly for all 18 tactical roles against admin routes",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "F21-BND-T2: Fire mission target assignment race condition is prevented by mutex/transaction locking",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-BND-T3: Simultaneous 1,000 SPOT telemetry ping bursts are handled deterministically",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-BND-T4: Cross-role fire direction authorization allows only designated artillery directors",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "F21-BND-T5: Zero flaky assertions: repeated test executions produce deterministic results",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tier 3: Cross-Feature Pairwise Combinations",
+      "total": 31,
+      "passed": 31,
+      "failed": 0,
+      "files": [
+        {
+          "file": "tier3_pairwise/pairwise_aar_to_q5_nlp_pipeline.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 7: AAR Combat Ingestion + OmniRoute NLP Extraction + Standard Q5 Generation",
+              "tests": [
+                {
+                  "name": "Pairwise-7.1: Decimal coordinates convert accurately to military DMS notation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-7.2: Unstructured combat AAR text extracts into standard 6-field Q5 report",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-7.3: Casualties and ammunition figures map seamlessly from AAR to logistics impact",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_admin_table_masking_2fa_guard.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 8: Admin Table Allowlist + Field Masking + 2FA Guard + Superadmin Shield",
+              "tests": [
+                {
+                  "name": "Pairwise-8.1: Querying users table returns masked passwords and 2FA secrets",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-8.2: Truncation of users table is permanently blocked even with valid 2FA TOTP",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-8.3: Truncating non-critical table requires valid 2FA TOTP authentication",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_artillery_balistics_telegram_cdt.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 5: Artillery Ballistics FCS + Atmospheric Correction + Telegram CDT Dispatch",
+              "tests": [
+                {
+                  "name": "Pairwise-5.1: Ballistics FCS computes high and low angle solutions for 155mm piece with weather correction",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-5.2: Targets beyond maximum aerodynamic range return clean error",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-5.3: CDT generates structured Telegram tactical firing message with MRSI parameters",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_auth_context_bola_prevention.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 3: Auth Bypass Elimination + BOLA Protection + Security Context",
+              "tests": [
+                {
+                  "name": "Pairwise-3.1: Unauthenticated request is rejected immediately with 401 (no SIGEP bypass)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-3.2: Commander of BAT_01 can access own unit data",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-3.3: Commander of BAT_01 is blocked with 403 when attempting to access BAT_02 (BOLA prevention)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-3.4: Division Commander and Administrator can access all units in theater",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_cors_security_headers_api_server.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 9: CORS Policy + Security Headers + Python Inference API",
+              "tests": [
+                {
+                  "name": "Pairwise-9.1: Frontend origin receives preflight CORS clearance and security headers",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-9.2: Unauthorized origin is rejected by Python API server CORS middleware",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-9.3: KPIs endpoint returns valid system metrics under authorized origin",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_file_upload_kml_cesium_map.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 4: File Upload Security + KML / GeoJSON Parsing + Cesium SIDC Mapping",
+              "tests": [
+                {
+                  "name": "Pairwise-4.1: Uploading valid KML file parses tactical placemarks and geographic coordinates",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-4.2: Parsed placemarks convert to Cesium 3D entities with military SIDC metadata",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-4.3: Path traversal attempt in overlay upload is neutralized",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_omniroute_queue_async_osint.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 2: OmniRoute Provider + AI Queue + Non-blocking OSINT Refresh",
+              "tests": [
+                {
+                  "name": "Pairwise-2.1: Triggering OSINT refresh and OmniRoute analysis concurrently runs without blocking",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-2.2: Both background OSINT worker and OmniRoute queue resolve independently",
+                  "status": "PASSED",
+                  "durationMs": 47
+                },
+                {
+                  "name": "Pairwise-2.3: Interleaved requests from multiple operators handle concurrency safely",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_spot_telemetry_route_history_pruning.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 6: SPOT Satellite Webhook + Route History Pruning + GeoJSON LineString",
+              "tests": [
+                {
+                  "name": "Pairwise-6.1: Valid SPOT satellite ping updates unit position and records route history",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-6.2: 600 consecutive satellite telemetry pings maintain strict 500 point cap",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-6.3: Exported GeoJSON LineString accurately reflects the capped 500 track vertices",
+                  "status": "PASSED",
+                  "durationMs": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_superadmin_aes_config.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 1: Superadmin + AES-256-GCM Config + Auth Context",
+              "tests": [
+                {
+                  "name": "Pairwise-1.1: Superadmin configures OmniRoute API key, stored encrypted with AES-256-GCM",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "Pairwise-1.2: Superadmin retrieves and decrypts stored configuration securely",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-1.3: Non-administrator user attempting to save or read configuration is blocked with 403",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier3_pairwise/pairwise_user_uniqueness_jwt_auth_flow.test.js",
+          "suites": [
+            {
+              "name": "Pairwise 10: User Uniqueness Pre-validation + Password Hashing + JWT Token Issuance",
+              "tests": [
+                {
+                  "name": "Pairwise-10.1: Full registration, login, and authenticated request lifecycle succeeds",
+                  "status": "PASSED",
+                  "durationMs": 1
+                },
+                {
+                  "name": "Pairwise-10.2: Attempt to register identical username is blocked by pre-validation",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Pairwise-10.3: Bad password during login returns 401 Bad Credentials without leaking hash",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tier 4: Real-World Tactical Scenarios",
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "files": [
+        {
+          "file": "tier4_scenarios/scenario_artillery_cff_mrsi_fire_mission.test.js",
+          "suites": [
+            {
+              "name": "Tier 4 Scenario 2: Call for Fire (CFF) -> Ballistics MRSI -> CDT Dispatch -> Ammo Depletion",
+              "tests": [
+                {
+                  "name": "Phase 1: Forward Observer (FO) Target Identification & Call for Fire (CFF)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 2: CDT Computes Ballistics Elevation Angles & Flight Times for MRSI",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 3: Dispatch Tactical Firing Order to Telegram CDT Channel",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 4: Battery Executes Mission (confirmShotFired) & Depletes Class V Inventory",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier4_scenarios/scenario_combat_aar_q5_telegram_blackbox.test.js",
+          "suites": [
+            {
+              "name": "Tier 4 Scenario 3: Panic Combat Alert -> AAR Log -> OmniRoute Q5 -> Telegram -> Black Box",
+              "tests": [
+                {
+                  "name": "Phase 1: Platoon Commander Activates \"En Combate\" Panic Button",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 2: Combat Concludes & Commander Submits After Action Report (AAR)",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 3: OmniRoute NLP Extracts Structured Q5 Report with DMS Coordinates",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 4: Automatic Broadcast of Flash Q5 to Higher Command Telegram Channel",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 5: Immutable Black Box Log Registration for Legal and Historical Integrity",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "tier4_scenarios/scenario_tactical_c2_full_lifecycle.test.js",
+          "suites": [
+            {
+              "name": "Tier 4 Scenario 1: End-to-End Tactical C2 Full Lifecycle Workflow",
+              "tests": [
+                {
+                  "name": "Phase 1: Superadmin Authentication & Shielding Verification",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 2: Configure OmniRoute AI Provider with AES-256-GCM Storage",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 3: Trigger Non-blocking Asynchronous OSINT Refresh",
+                  "status": "PASSED",
+                  "durationMs": 36
+                },
+                {
+                  "name": "Phase 4: Plan Tactical Course of Action (COA) with OmniRoute NLP & SMEPC OPORD",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 5: Upload KML Tactical Overlay with Secure Path Containment",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 6: Ingest High-Frequency SPOT Telemetry with 500-Point Route Pruning",
+                  "status": "PASSED",
+                  "durationMs": 0
+                },
+                {
+                  "name": "Phase 7: Export Mission Report & Verify Zero Credential Leakage in Audit Logs",
+                  "status": "PASSED",
+                  "durationMs": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

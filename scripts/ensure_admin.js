@@ -4,6 +4,12 @@ const API_URL = 'http://localhost:8080/api/users';
 
 const createOrUpdateAdmin = async () => {
     try {
+        const adminPassword = process.env.SIMCOP_SUPERADMIN_PASSWORD || process.env.SIMCOP_ADMIN_PASSWORD;
+        if (!adminPassword) {
+            console.error('❌ Error: SIMCOP_SUPERADMIN_PASSWORD or SIMCOP_ADMIN_PASSWORD environment variable must be set.');
+            process.exit(1);
+        }
+
         // 1. Fetch all users to find existing one
         const response = await fetch(API_URL);
         const users = await response.json();
@@ -13,7 +19,7 @@ const createOrUpdateAdmin = async () => {
         const userData = {
             username: 'santiago.salazar',
             displayName: 'Santiago Salazar',
-            hashedPassword: 'password123', // This will be encoded by the backend
+            hashedPassword: adminPassword, // This will be encoded by the backend
             role: 'ADMINISTRATOR',
             permissions: [
                 'Panel Principal', 'Unidades', 'Inteligencia', 'Alertas', 'Análisis',

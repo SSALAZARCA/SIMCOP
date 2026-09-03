@@ -7,6 +7,8 @@ import com.simcop.repository.AdminAuditLogRepository;
 import com.simcop.service.TwoFactorService;
 import com.simcop.model.User;
 import com.simcop.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 @PreAuthorize("hasRole('ADMINISTRATOR')")
 public class AdminController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -51,35 +55,66 @@ public class AdminController {
             stats.setTotalOsintEvents(osint != null ? osint : 0);
             stats.setTotalFireMissions(fire != null ? fire : 0);
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error fetching database stats: {}", e.getMessage());
         }
 
         return ResponseEntity.ok(stats);
     }
 
+    private static final java.util.Set<String> ALLOWED_TABLES = java.util.Set.of(
+            "military_units", "alerts", "osint_events", "fire_missions", "coa_plans",
+            "operations_orders", "artillery_pieces", "forward_observers", "operational_graphics",
+            "after_action_reports", "q5_reports", "logistics_requests", "soldiers",
+            "specialty_catalog", "uavs", "unit_history_events", "admin_audit_logs",
+            "users", "app_configuration"
+    );
+
     @GetMapping("/table/{tableName}")
     public ResponseEntity<?> getTableData(@PathVariable String tableName) {
-        // Validate table name to prevent SQL injection
-        if (!tableName.matches("^[a-zA-Z0-9_]+$")) {
-            return ResponseEntity.badRequest().body("Invalid table name");
+        String normalizedTable = tableName.toLowerCase().trim();
+        // Validate table name to prevent SQL injection and enforce allowlist
+        if (!normalizedTable.matches("^[a-zA-Z0-9_]+$") || !ALLOWED_TABLES.contains(normalizedTable)) {
+            return ResponseEntity.badRequest().body("Table not found or not permitted for inspection.");
         }
         
         try {
-            List<Map<String, Object>> data = jdbcTemplate.queryForList("SELECT * FROM " + tableName + " LIMIT 1000");
+            List<Map<String, Object>> data = jdbcTemplate.queryForList("SELECT * FROM " + normalizedTable + " LIMIT 1000");
             
-            // Convert everything to string to prevent Jackson serialization errors (e.g., with binary or date types)
+            // Convert everything to string and redact sensitive fields
             List<Map<String, String>> safeData = new java.util.ArrayList<>();
+            java.util.Set<String> sensitiveColumns = java.util.Set.of(
+                "password", "hashed_password", "hashedpassword", "two_factor_secret", 
+                "twofactorsecret", "token", "secret", "jwt_secret", "api_key", "apikey",
+                "private_key", "key"
+            );
+
             for (Map<String, Object> row : data) {
                 Map<String, String> stringRow = new java.util.HashMap<>();
+                boolean isSensitiveConfigKey = false;
+                Object configKeyVal = row.get("config_key");
+                if (configKeyVal == null) configKeyVal = row.get("configKey");
+                if (configKeyVal != null) {
+                    String ck = configKeyVal.toString().toUpperCase();
+                    if (ck.contains("KEY") || ck.contains("TOKEN") || ck.contains("SECRET") || ck.contains("PASS") || ck.contains("CREDENTIAL")) {
+                        isSensitiveConfigKey = true;
+                    }
+                }
+
                 for (Map.Entry<String, Object> entry : row.entrySet()) {
-                    stringRow.put(entry.getKey(), entry.getValue() == null ? "NULL" : entry.getValue().toString());
+                    String colKey = entry.getKey().toLowerCase();
+                    if (sensitiveColumns.contains(colKey)) {
+                        stringRow.put(entry.getKey(), "***REDACTED***");
+                    } else if (isSensitiveConfigKey && (colKey.equals("config_value") || colKey.equals("configvalue"))) {
+                        stringRow.put(entry.getKey(), "***REDACTED***");
+                    } else {
+                        stringRow.put(entry.getKey(), entry.getValue() == null ? "NULL" : entry.getValue().toString());
+                    }
                 }
                 safeData.add(stringRow);
             }
             
             return ResponseEntity.ok(safeData);
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body("Error fetching data: " + e.getMessage());
         }
     }
@@ -95,8 +130,18 @@ public class AdminController {
             @RequestBody AdminTableActionRequest request,
             Authentication authentication) {
 
-        if (!tableName.matches("^[a-zA-Z0-9_]+$")) {
+        String normalizedTable = tableName.toLowerCase().trim();
+        if (!normalizedTable.matches("^[a-zA-Z0-9_]+$")) {
             return ResponseEntity.badRequest().body("Invalid table name");
+        }
+
+        // F01 / F08: Strictly block truncation of the users table
+        if ("users".equals(normalizedTable)) {
+            return ResponseEntity.status(403).body("Truncation of the users table is strictly forbidden.");
+        }
+
+        if (!ALLOWED_TABLES.contains(normalizedTable)) {
+            return ResponseEntity.badRequest().body("Table not permitted for truncation.");
         }
 
         User admin = userRepository.findByUsername(authentication.getName())
@@ -117,21 +162,21 @@ public class AdminController {
 
         try {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0;");
-            jdbcTemplate.execute("TRUNCATE TABLE " + tableName + ";");
+            jdbcTemplate.execute("TRUNCATE TABLE " + normalizedTable + ";");
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1;");
 
             AdminAuditLog log = new AdminAuditLog(
                     System.currentTimeMillis(),
                     admin.getUsername(),
                     "TRUNCATE_TABLE",
-                    tableName,
+                    normalizedTable,
                     "Table truncated via Admin Panel by " + admin.getUsername()
             );
             auditLogRepository.save(log);
 
-            return ResponseEntity.ok("Table " + tableName + " has been truncated successfully.");
+            return ResponseEntity.ok("Table " + normalizedTable + " has been truncated successfully.");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Failed to truncate table {}: {}", normalizedTable, e.getMessage());
             return ResponseEntity.internalServerError().body("Failed to truncate table: " + e.getMessage());
         }
     }

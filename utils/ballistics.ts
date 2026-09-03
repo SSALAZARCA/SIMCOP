@@ -248,6 +248,8 @@ const createGenericSolution = (
     return { solution, trajectory };
 };
 
+export const calculateBallisticSolution = createGenericSolution;
+
 export const calculateM101A1Solution = (gun_loc: GeoLocation, target_loc: GeoLocation, gun_alt: number, target_alt: number, projectile: ProjectileType, charge: number) => {
     return createGenericSolution(gun_loc, target_loc, gun_alt, target_alt, projectile, charge, BALISTICA_105);
 };

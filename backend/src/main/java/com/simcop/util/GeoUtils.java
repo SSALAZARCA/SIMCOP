@@ -3,9 +3,13 @@ package com.simcop.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.simcop.model.embeddable.GeoLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 
 public class GeoUtils {
+
+    private static final Logger logger = LoggerFactory.getLogger(GeoUtils.class);
 
     private static final double EARTH_RADIUS_KM = 6371.0;
     private static final double EARTH_RADIUS_METERS = 6371000.0;
@@ -61,7 +65,7 @@ public class GeoUtils {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error parsing AO GeoJSON: " + e.getMessage());
+            logger.warn("Error parsing AO GeoJSON: {}", e.getMessage());
         }
         return true; // Fallback to visible if parsing fails
     }

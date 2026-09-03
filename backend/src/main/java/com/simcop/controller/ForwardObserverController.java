@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/observers")
 @Transactional
+@org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_OBSERVADOR_ADELANTADO', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA', 'COMANDANTE_PELOTON')")
 public class ForwardObserverController {
 
     private static final Logger logger = LoggerFactory.getLogger(ForwardObserverController.class);

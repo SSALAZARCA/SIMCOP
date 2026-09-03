@@ -42,6 +42,7 @@ import { BMAPanel } from './components/BMAPanel';
 
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/geminiService';
 import { eventBus } from './utils/eventEmitter';
 import { ViewType, MapEntityType, UnitStatus, PlantillaType, UserRole, UnitType as UnitTypeEnum, AlertType, AlertSeverity } from './types';
@@ -335,6 +336,17 @@ const App: React.FC = () => {
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioPlaybackSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const nextStartTimeRef = useRef<number>(0);
+
+  // FASE 3 — Hook STT con failover automático (Gemini Live → Web Speech API → unavailable)
+  const speechRecognition = useSpeechRecognition({
+    onResult: (text, mode) => {
+      // Cuando Web Speech API captura un resultado, lo enviamos como comando de texto al AI
+      if (mode === 'web_speech' && text) {
+        getCommandFromGemini(text, []).catch(console.error);
+      }
+    },
+    lang: 'es-CO',
+  });
 
 
   const MIN_PANEL_WIDTH = 280;
@@ -1012,31 +1024,7 @@ const App: React.FC = () => {
     return <LoginViewComponent onLogin={handleLoginSuccess} />;
   }
 
-  // Force 2FA Setup if not enabled
-  if (!currentUser.twoFactorEnabled) {
-    return (
-      <div className="flex flex-col h-screen bg-[#0d1117] text-gray-100 antialiased font-sans">
-        <HeaderComponent
-          isMobile={isMobile}
-          onToggleMobileNav={() => {}}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <TwoFactorSetupModal 
-            currentUser={currentUser}
-            onClose={handleLogout} // They can't close it, but if they could, it would log them out
-            forceSetup={true}
-            onSuccess={() => {
-              // Once 2FA is set up, update the currentUser state to unlock the app
-              setCurrentUser({ ...currentUser, twoFactorEnabled: true });
-            }}
-          />
-        </main>
-      </div>
-    );
-  }
-
+  // Direct access to operational platform (2FA can be managed from Settings)
   // Role-based rendering logic
   if (currentUser.role === UserRole.COMANDANTE_PELOTON) {
     return (
@@ -1105,6 +1093,7 @@ const App: React.FC = () => {
         onToggleVoiceCommand={handleToggleVoiceCommand}
         isVoiceCommandActive={isVoiceCommandActive}
         isConnectingVoice={isConnectingVoice}
+        speechModeLabel={speechRecognition.modeLabel}
       />
 
       {/* AO Drawing Global Banner */}

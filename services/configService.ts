@@ -71,17 +71,16 @@ export const configService = {
     /**
      * Save Gemini API key to backend
      */
-    async saveGeminiApiKey(apiKey: string, username: string = 'admin'): Promise<void> {
+    async saveGeminiApiKey(apiKey: string): Promise<void> {
         try {
             console.log('📡 Enviando solicitud POST a:', `${API_CONFIG_URL}/gemini-api-key`);
-            console.log('📦 Payload:', { apiKey: apiKey.substring(0, 10) + '...', username });
 
             const response = await apiClient.fetch(`${API_CONFIG_URL}/gemini-api-key`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ apiKey, username }),
+                body: JSON.stringify({ apiKey }),
             });
 
             console.log('📨 Respuesta recibida - Status:', response.status, response.statusText);
@@ -169,14 +168,14 @@ export const configService = {
     /**
      * Save AI provider configuration to backend
      */
-    async saveAIProviderConfig(provider: string, localEndpoint: string, localModel: string, username: string = 'admin'): Promise<void> {
+    async saveAIProviderConfig(provider: string, localEndpoint: string, localModel: string): Promise<void> {
         try {
             const response = await apiClient.fetch(`${API_CONFIG_URL}/ai-provider`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ provider, localEndpoint, localModel, username }),
+                body: JSON.stringify({ provider, localEndpoint, localModel }),
             });
 
             if (!response.ok) {
@@ -210,14 +209,14 @@ export const configService = {
         }
     },
 
-    async saveTelegramBotToken(token: string, username: string = 'admin'): Promise<void> {
+    async saveTelegramBotToken(token: string): Promise<void> {
         try {
             const response = await apiClient.fetch(`${API_CONFIG_URL}/telegram`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ token, username }),
+                body: JSON.stringify({ token }),
             });
 
             if (!response.ok) {
@@ -248,14 +247,14 @@ export const configService = {
         }
     },
 
-    async saveTelegramBotTokenComms(token: string, username: string = 'admin'): Promise<void> {
+    async saveTelegramBotTokenComms(token: string): Promise<void> {
         try {
             const response = await apiClient.fetch(`${API_CONFIG_URL}/telegram/comms`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ token, username }),
+                body: JSON.stringify({ token }),
             });
 
             if (!response.ok) {

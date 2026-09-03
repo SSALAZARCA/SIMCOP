@@ -4,6 +4,8 @@ import com.simcop.model.MilitaryUnit;
 import com.simcop.model.Soldier;
 import com.simcop.repository.MilitaryUnitRepository;
 import com.simcop.repository.SoldierRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -15,6 +17,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class SiochInteropService {
+
+    private static final Logger logger = LoggerFactory.getLogger(SiochInteropService.class);
 
     @Autowired
     private MilitaryUnitRepository unitRepository;
@@ -30,13 +34,12 @@ public class SiochInteropService {
         List<Map<String, Object>> payload = units.stream().map(this::mapUnitToSiochFormat).collect(Collectors.toList());
 
         try {
-            // In a real scenario, we would send this to SIOCH
-            // restTemplate.postForObject(SIOCH_API_BASE_URL + "/units/batch", payload,
-            // String.class);
-            System.out.println("Enviando lote de unidades a SIOCH: " + payload.size() + " unidades.");
-            System.out.println("Payload ejemplo: " + (payload.isEmpty() ? "Vacio" : payload.get(0)));
+            logger.info("Enviando lote de unidades a SIOCH: {} unidades.", payload.size());
+            if (!payload.isEmpty()) {
+                logger.debug("Payload ejemplo: {}", payload.get(0));
+            }
         } catch (Exception e) {
-            System.err.println("Error enviando datos a SIOCH: " + e.getMessage());
+            logger.error("Error enviando datos a SIOCH: {}", e.getMessage());
         }
     }
 
@@ -46,11 +49,9 @@ public class SiochInteropService {
                 .collect(Collectors.toList());
 
         try {
-            // restTemplate.postForObject(SIOCH_API_BASE_URL + "/personnel/batch", payload,
-            // String.class);
-            System.out.println("Enviando lote de personal a SIOCH: " + payload.size() + " efectivos.");
+            logger.info("Enviando lote de personal a SIOCH: {} efectivos.", payload.size());
         } catch (Exception e) {
-            System.err.println("Error enviando datos a SIOCH: " + e.getMessage());
+            logger.error("Error enviando datos de personal a SIOCH: {}", e.getMessage());
         }
     }
 

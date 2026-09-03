@@ -41,15 +41,6 @@ public class AuthController {
                 response.put("unitId", unitId);
 
                 return ResponseEntity.ok(response);
-            } else if ("santiago.salazar".equals(username) && "ssc841209".equals(password)) {
-                // Fallback sólo para emergencias (SuperAdmin Local)
-                String jwt = jwtUtils.generateJwtToken(username, "ROLE_ADMINISTRATOR", "NATIONAL");
-                Map<String, Object> response = new HashMap<>();
-                response.put("token", jwt);
-                response.put("username", username);
-                response.put("role", "ROLE_ADMINISTRATOR");
-                response.put("unitId", "NATIONAL");
-                return ResponseEntity.ok(response);
             } else {
                 Map<String, String> error = new HashMap<>();
                 error.put("message", "Error: Credenciales inválidas.");

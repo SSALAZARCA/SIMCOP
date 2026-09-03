@@ -14,6 +14,7 @@ public class WeatherInfo {
     private double visibility;   // in meters
     private double cloudCover;   // in %
     private double cloudCeiling; // in meters (cloud base height)
+    private int weatherCode;     // WMO weather code for frontend effect mapping
 
     public WeatherInfo() {
     }
@@ -135,5 +136,13 @@ public class WeatherInfo {
 
     public void setvComponent(double vComponent) {
         this.vComponent = vComponent;
+    }
+
+    public int getWeatherCode() {
+        return weatherCode;
+    }
+
+    public void setWeatherCode(int weatherCode) {
+        this.weatherCode = weatherCode;
     }
 }

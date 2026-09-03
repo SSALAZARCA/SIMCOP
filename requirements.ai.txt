@@ -1,5 +1,18 @@
-fastapi
-uvicorn
-pydantic
-torch
-psutil
+fastapi==0.111.0
+uvicorn==0.30.1
+pydantic==2.7.4
+psutil==5.9.8
+pynvml==11.5.0
+
+# ── Backends neurales opcionales ────────────────────────────────────────────
+# Instalar el que corresponda según el formato del modelo disponible.
+# Sin ninguno instalado, el servidor opera en modo heurístico determinista.
+
+# Backend GGUF (llama.cpp) — recomendado para VPS CPU-only con Qwen2.5/Llama3.2
+# pip install llama-cpp-python==0.3.4
+#
+# Backend ONNX — alternativa para modelos Phi-3.5 / Phi-4-mini
+# pip install onnxruntime-genai==0.3.0
+
+# ── PyTorch (solo si se mantienen pesos .pth legacy) ────────────────────────
+# torch==2.3.1  # Descomentar si se usan pesos .pth o .safetensors

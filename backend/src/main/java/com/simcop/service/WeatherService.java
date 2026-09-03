@@ -1,6 +1,8 @@
 package com.simcop.service;
 
 import com.simcop.model.WeatherInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -9,6 +11,11 @@ import java.util.List;
 
 @Service
 public class WeatherService {
+
+    private static final Logger logger = LoggerFactory.getLogger(WeatherService.class);
+
+    @org.springframework.beans.factory.annotation.Value("${app.weather.windy-api-key:${WINDY_API_KEY:}}")
+    private String configuredWindyApiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -34,6 +41,14 @@ public class WeatherService {
 
     public WeatherInfo getCurrentWeather(double lat, double lon) {
         try {
+            String envKey = System.getenv("WINDY_API_KEY");
+            String apiKey = (envKey != null && !envKey.trim().isEmpty()) 
+                    ? envKey.trim() 
+                    : (configuredWindyApiKey != null ? configuredWindyApiKey.trim() : "");
+            if (apiKey.isEmpty()) {
+                return getDefaultWeather();
+            }
+
             String url = "https://api.windy.com/api/point-forecast/v2";
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
@@ -45,7 +60,7 @@ public class WeatherService {
             body.put("model", "gfs");
             body.put("parameters", java.util.Arrays.asList("temp", "wind", "rh", "clouds", "precip"));
             body.put("levels", java.util.Arrays.asList("surface"));
-            body.put("key", "yyPzfp5tCyd3PkkJgykYf7tffTSYVUCy");
+            body.put("key", apiKey);
 
             org.springframework.http.HttpEntity<java.util.Map<String, Object>> requestEntity = 
                 new org.springframework.http.HttpEntity<>(body, headers);
@@ -129,12 +144,27 @@ public class WeatherService {
 
             boolean impact = calculateImpact(temperature, humidity, windSpeed, isThunderstorm, visibility, cloudCeiling);
 
-            return new WeatherInfo(temperature, humidity, windSpeed, condition,
+            WeatherInfo info = new WeatherInfo(temperature, humidity, windSpeed, condition,
                     impact, isThunderstorm, windDirection, uComp, vComp, visibility, cloudCover, cloudCeiling);
+            info.setWeatherCode(conditionToWmoCode(condition, isThunderstorm));
+            return info;
         } catch (Exception e) {
-            System.err.println("Error calling Windy Point Forecast: " + e.getMessage());
+            logger.warn("Error calling Windy Point Forecast: {}", e.getMessage());
             return getDefaultWeather();
         }
+    }
+
+    /** Maps a condition string to a representative WMO weather code for the frontend. */
+    private int conditionToWmoCode(String condition, boolean isThunderstorm) {
+        if (isThunderstorm || (condition != null && condition.contains("Tormenta"))) return 95;
+        if (condition == null) return 0;
+        if (condition.contains("Nieve")) return 71;
+        if (condition.contains("Lluvia")) return 61;
+        if (condition.contains("Llovizna") || condition.contains("Chubasco")) return 51;
+        if (condition.contains("Niebla")) return 45;
+        if (condition.contains("Nublado")) return 3;
+        if (condition.contains("Parcialmente")) return 2;
+        return 0; // Clear
     }
 
     private String decodeWeatherCode(int code) {
@@ -250,7 +280,7 @@ public class WeatherService {
                 lastPathFetchTime = now;
             }
         } catch (Exception e) {
-            System.err.println("Error fetching RainViewer paths: " + e.getMessage());
+            logger.warn("Error fetching RainViewer paths: {}", e.getMessage());
         }
     }
 
@@ -291,7 +321,7 @@ public class WeatherService {
                 return result;
             }
         } catch (Exception e) {
-            System.err.println("Geocoding failed: " + e.getMessage());
+            logger.warn("Geocoding failed: {}", e.getMessage());
         }
         return "Sector de Colombia (No Identificado)";
     }

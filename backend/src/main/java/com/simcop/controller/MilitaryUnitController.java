@@ -29,25 +29,30 @@ public class MilitaryUnitController {
     @Autowired
     private com.simcop.service.VisibilityService visibilityService;
 
-    @GetMapping
-    public List<MilitaryUnit> getAllUnits(@RequestHeader(value = "Authorization", required = false) String token) {
-        if (token == null || token.isEmpty()) {
-            logger.info("📡 Sincronización Server-to-Server detectada (Sin token JWT). Retornando catálogo completo para SIGEP.");
-            return repository.findAll();
-        }
+    @Autowired
+    private com.simcop.repository.UserRepository userRepository;
 
-        com.simcop.model.User user = visibilityService.getUserFromToken(token);
-        if (user == null) {
-            logger.error("❌ Usuario no encontrado para el token proporcionado");
+    @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public List<MilitaryUnit> getAllUnits() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
+            logger.warn("⛔ Intento de acceso a catálogo de unidades sin contexto de autenticación válido.");
             return new ArrayList<>();
         }
 
-        logger.info("🔍 Filtrando unidades para usuario: {} (Rol: {})", user.getUsername(), user.getRole());
+        com.simcop.model.User user = userRepository.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            logger.error("❌ Acceso denegado: Usuario no encontrado para el principal autenticado {}", auth.getName());
+            return new ArrayList<>();
+        }
+
+        logger.info("🔍 Filtrando unidades para usuario autenticado: {} (Rol: {})", user.getUsername(), user.getRole());
         
-        // Superadmin always sees everything
+        // Superadmin and Comandante Ejercito always see everything
         if (user.getRole() == com.simcop.model.UserRole.ADMINISTRATOR || 
             user.getRole() == com.simcop.model.UserRole.COMANDANTE_EJERCITO) {
-            logger.info("✅ Acceso total concedido por rol administrativo");
+            logger.info("✅ Acceso total concedido por rol administrativo/estratégico");
             return repository.findAll();
         }
 
@@ -58,6 +63,7 @@ public class MilitaryUnitController {
     private com.simcop.service.SigepIntegrationService sigepIntegrationService;
 
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<java.util.Map<String, Object>> getUnitById(@PathVariable String id) {
         return repository.findById(id)
                 .map(unit -> {
@@ -76,6 +82,7 @@ public class MilitaryUnitController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON')")
     public MilitaryUnit createUnit(@RequestBody MilitaryUnit unit) {
         logger.info("📦 Iniciando creación de unidad: {} (Tipo: {})", unit.getName(), unit.getType());
         
@@ -139,8 +146,7 @@ public class MilitaryUnitController {
 
                         // Fields for Route
                         if (unitDetails.getRouteHistory() != null) {
-                            unit.getRouteHistory().clear();
-                            unit.getRouteHistory().addAll(unitDetails.getRouteHistory());
+                            unit.setRouteHistory(new java.util.ArrayList<>(unitDetails.getRouteHistory()));
                         }
 
                         MilitaryUnit updated = repository.save(unit);
@@ -168,6 +174,7 @@ public class MilitaryUnitController {
     }
 
     @PostMapping("/{id}/spot")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<MilitaryUnit> handleSpotReport(@PathVariable String id, @RequestBody SpotReportDTO report) {
         return repository.findById(id)
                 .map(unit -> {
@@ -177,12 +184,15 @@ public class MilitaryUnitController {
                     unit.setLastCommunicationTimestamp(System.currentTimeMillis());
                     unit.setStatus(UnitStatus.MOVING);
 
-                    // Add to route history
+                    // Add to route history (cap to 500 points to prevent database bloat)
                     RoutePoint point = new RoutePoint();
                     point.setLat(report.getLat());
                     point.setLon(report.getLon());
                     point.setTimestamp(unit.getLastMovementTimestamp());
                     unit.getRouteHistory().add(point);
+                    if (unit.getRouteHistory().size() > 500) {
+                        unit.setRouteHistory(new java.util.ArrayList<>(unit.getRouteHistory().subList(unit.getRouteHistory().size() - 500, unit.getRouteHistory().size())));
+                    }
 
                     return ResponseEntity.ok(repository.save(unit));
                 })

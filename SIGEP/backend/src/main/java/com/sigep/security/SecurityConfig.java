@@ -30,10 +30,9 @@ public class SecurityConfig {
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(new AntPathRequestMatcher("/api/auth/**")).permitAll()
-                .requestMatchers(new AntPathRequestMatcher("/h2-console/**")).permitAll()
-                .requestMatchers(new AntPathRequestMatcher("/api/simcop/**")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/api/transfers/**")).hasAnyAuthority("ROLE_EJERCITO", "ROLE_DIVISION", "ROLE_BRIGADA", "ROLE_BATALLON")
                 .requestMatchers(new AntPathRequestMatcher("/api/personnel/**")).authenticated()
+                .requestMatchers(new AntPathRequestMatcher("/api/simcop/**")).authenticated()
                 .anyRequest().authenticated()
             );
 

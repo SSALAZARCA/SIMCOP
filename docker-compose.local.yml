@@ -1,0 +1,88 @@
+# ============================================================
+# docker-compose.local.yml - Entorno LOCAL de verificacion
+# NO usar en produccion. Para produccion usar docker-compose.yml
+# ============================================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: simcop_mysql_local
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=simcop
+      - MYSQL_ROOT_PASSWORD=simcop_local_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data_local:/var/lib/mysql
+    networks:
+      - simcop_local
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-psimcop_local_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: simcop_backend_local
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=simcop_local_pass
+      - SPRING_DATASOURCE_DRIVER=com.mysql.cj.jdbc.Driver
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_DIALECT=org.hibernate.dialect.MySQL8Dialect
+      - SPRING_FLYWAY_ENABLED=false
+      - JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      - SIMCOP_SUPERADMIN_PASSWORD=ssc841209
+      - OSINT_WEBHOOK_SECRET=local_webhook_secret_dev
+      - OPENWEATHER_API_KEY=local_no_key
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - simcop_local
+
+  ai_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: simcop_ai_local
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SIMCOP_MODEL_BACKEND=heuristic
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:8080,http://localhost:8085,http://localhost:80,http://localhost
+    networks:
+      - simcop_local
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8085
+    container_name: simcop_frontend_local
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+      - ai_engine
+    networks:
+      - simcop_local
+
+networks:
+  simcop_local:
+    driver: bridge
+
+volumes:
+  mysql_data_local:

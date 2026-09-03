@@ -239,7 +239,11 @@ public class MilitaryUnit {
     }
 
     public void setRouteHistory(List<RoutePoint> routeHistory) {
-        this.routeHistory = routeHistory;
+        if (routeHistory != null && routeHistory.size() > 500) {
+            this.routeHistory = new ArrayList<>(routeHistory.subList(routeHistory.size() - 500, routeHistory.size()));
+        } else {
+            this.routeHistory = routeHistory != null ? routeHistory : new ArrayList<>();
+        }
     }
 
     public GeoLocation getDestination() {

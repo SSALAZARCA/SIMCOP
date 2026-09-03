@@ -24,13 +24,20 @@ public class OsintController {
     @Autowired
     private com.simcop.service.VisibilityService visibilityService;
 
+    @Autowired
+    private com.simcop.repository.UserRepository userRepository;
+
     @GetMapping("/events")
-    public List<OsintEvent> getAllEvents(@RequestHeader(value = "Authorization", required = false) String token) {
-        if (token == null)
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public List<OsintEvent> getAllEvents() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
             return List.of();
-        com.simcop.model.User user = visibilityService.getUserFromToken(token);
-        if (user == null)
+        }
+        com.simcop.model.User user = userRepository.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
             return List.of();
+        }
 
         String preloadedAo = visibilityService.getPreloadedAoForUser(user);
 
@@ -43,14 +50,13 @@ public class OsintController {
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'GESTOR_REPORTES')")
     public ResponseEntity<Map<String, Object>> refreshEvents() {
         try {
-            int count = osintService.fetchAndProcessNews();
-            logger.info("✅ Refresco OSINT completado: {} eventos procesados.", count);
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "processed", count,
-                    "message", "OSINT events refreshed successfully"));
+            osintService.fetchAndProcessNewsAsync();
+            logger.info("📡 Refresco OSINT iniciado de forma asíncrona.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED).body(Map.of(
+                    "status", "PROCESSING",
+                    "message", "OSINT refresh initiated asynchronously"));
         } catch (Exception e) {
-            logger.error("❌ Error refrescando eventos OSINT: {}", e.getMessage());
+            logger.error("❌ Error iniciando refresco OSINT: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
@@ -70,14 +76,29 @@ public class OsintController {
         }
     }
 
+    @org.springframework.beans.factory.annotation.Value("${app.osint.webhook-secret:${OSINT_WEBHOOK_SECRET:}}")
+    private String configuredWebhookSecret;
+
     @PostMapping("/webhook")
     public ResponseEntity<Map<String, Object>> receiveExternalWebhook(
             @RequestHeader(value = "X-Webhook-Token", required = false) String token,
             @RequestBody Map<String, String> payload) {
         
-        String expectedToken = "simcop-osint-secret-2026";
-        if (token == null || !token.equals(expectedToken)) {
+        String envSecret = System.getenv("OSINT_WEBHOOK_SECRET");
+        String expectedToken = (envSecret != null && !envSecret.trim().isEmpty()) 
+                ? envSecret.trim() 
+                : (configuredWebhookSecret != null ? configuredWebhookSecret.trim() : "");
+        
+        if (expectedToken.isEmpty() || token == null) {
             logger.warn("❌ Intento de acceso no autorizado al webhook OSINT");
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized webhook access"));
+        }
+
+        byte[] tokenBytes = token.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] expectedBytes = expectedToken.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        if (!java.security.MessageDigest.isEqual(tokenBytes, expectedBytes)) {
+            logger.warn("❌ Intento de acceso no autorizado al webhook OSINT (token inválido)");
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized webhook access"));
         }
 

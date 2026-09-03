@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.boot.CommandLineRunner;
 import com.sigep.repository.UserRepository;
 import com.sigep.model.User;
+import java.util.UUID;
 
 @SpringBootApplication
 public class SigepApplication {
@@ -40,7 +41,7 @@ public class SigepApplication {
             if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
                 User admin = new User();
                 admin.setUsername("santiago.salazar");
-                admin.setPassword("ssc841209");
+                admin.setPassword(System.getenv("SIMCOP_SUPERADMIN_PASSWORD") != null ? System.getenv("SIMCOP_SUPERADMIN_PASSWORD") : (System.getenv("SIGEP_ADMIN_PASSWORD") != null ? System.getenv("SIGEP_ADMIN_PASSWORD") : UUID.randomUUID().toString()));
                 admin.setRole("ROLE_ADMINISTRATOR");
                 admin.setDisplayName("Santiago Salazar (Admin)");
                 admin.setAssignedUnitId("NATIONAL");

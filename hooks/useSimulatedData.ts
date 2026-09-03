@@ -145,7 +145,7 @@ const createDefaultAdminUser = (): User => {
     id: 'default-admin-001', // Fixed ID for consistency
     username: 'santiago.salazar',
     displayName: 'Santiago Salazar',
-    hashedPassword: hashPassword('ssc841209'),
+    hashedPassword: hashPassword('simcop_mock_admin_pass'),
     role: UserRole.ADMINISTRATOR,
     permissions: Object.values(ViewType),
     assignedUnitId: null,

@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/logistics")
 @Transactional
+@org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
 public class LogisticsRequestController {
 
     private static final Logger logger = LoggerFactory.getLogger(LogisticsRequestController.class);
@@ -27,6 +28,7 @@ public class LogisticsRequestController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'OFICIAL_LOGISTICA', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA', 'COMANDANTE_PELOTON')")
     public ResponseEntity<LogisticsRequest> createRequest(@RequestBody LogisticsRequest request) {
         try {
             LogisticsRequest saved = repository.save(request);
@@ -39,13 +41,22 @@ public class LogisticsRequestController {
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'OFICIAL_LOGISTICA', 'COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA', 'COMANDANTE_PELOTON')")
     public ResponseEntity<LogisticsRequest> updateRequest(@PathVariable String id,
             @RequestBody LogisticsRequest requestDetails) {
         return repository.findById(id)
                 .map(request -> {
+                    org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                    String currentUsername = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
+
                     request.setStatus(requestDetails.getStatus());
-                    request.setFulfilledTimestamp(requestDetails.getFulfilledTimestamp());
-                    request.setFulfilledByUserId(requestDetails.getFulfilledByUserId());
+                    if ("FULFILLED".equalsIgnoreCase(requestDetails.getStatus())) {
+                        request.setFulfilledTimestamp(requestDetails.getFulfilledTimestamp() != null ? requestDetails.getFulfilledTimestamp() : System.currentTimeMillis());
+                        request.setFulfilledByUserId(currentUsername);
+                    } else {
+                        request.setFulfilledTimestamp(requestDetails.getFulfilledTimestamp());
+                        request.setFulfilledByUserId(requestDetails.getFulfilledByUserId());
+                    }
                     return ResponseEntity.ok(repository.save(request));
                 })
                 .orElse(ResponseEntity.notFound().build());

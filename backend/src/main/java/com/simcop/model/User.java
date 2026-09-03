@@ -19,12 +19,13 @@ public class User {
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_WRITE)
     private String token;
 
-    // @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String username;
 
     private String displayName;
 
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @com.fasterxml.jackson.annotation.JsonAlias({"password", "hashedPassword"})
     private String hashedPassword;
 
     @Enumerated(EnumType.STRING)

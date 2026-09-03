@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/history")
 @Transactional
+@org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
 public class UnitHistoryEventController {
 
     private static final Logger logger = LoggerFactory.getLogger(UnitHistoryEventController.class);
@@ -29,6 +30,16 @@ public class UnitHistoryEventController {
     @PostMapping
     public ResponseEntity<UnitHistoryEvent> createEvent(@RequestBody UnitHistoryEvent event) {
         try {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+                event.setUsername(auth.getName());
+            }
+            if (event.getId() == null || event.getId().trim().isEmpty()) {
+                event.setId(java.util.UUID.randomUUID().toString());
+            }
+            if (event.getTimestamp() == 0) {
+                event.setTimestamp(System.currentTimeMillis());
+            }
             UnitHistoryEvent saved = repository.save(event);
             logger.info("✅ Evento de historial creado para unidad: {}", saved.getUnitId());
             return ResponseEntity.ok(saved);

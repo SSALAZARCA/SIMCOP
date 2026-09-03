@@ -5,6 +5,8 @@ import com.simcop.dto.TwoFactorVerifyRequest;
 import com.simcop.model.User;
 import com.simcop.repository.UserRepository;
 import com.simcop.service.TwoFactorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/2fa")
 public class TwoFactorController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TwoFactorController.class);
 
     @Autowired
     private TwoFactorService twoFactorService;
@@ -33,8 +37,8 @@ public class TwoFactorController {
             String qrUri = twoFactorService.getQrCodeImageUri(secret, user.getUsername());
             return ResponseEntity.ok(new TwoFactorSetupResponse(qrUri, secret));
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("SERVER ERROR: " + e.getMessage() + " | CAUSE: " + (e.getCause() != null ? e.getCause().getMessage() : "null"));
+            logger.error("Error generating 2FA secret for {}: {}", authentication.getName(), e.getMessage());
+            return ResponseEntity.internalServerError().body("{\"error\": \"Failed to generate 2FA secret\"}");
         }
     }
 

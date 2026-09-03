@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -58,17 +59,31 @@ public class UserController {
 
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('EJERCITO') or hasAnyRole('COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA')")
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        logger.info("👤 Iniciando creación de usuario: {}", user.getUsername());
+    public ResponseEntity<?> createUser(@RequestBody User user) {
+        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Username cannot be empty"));
+        }
+        String cleanUsername = user.getUsername().trim();
+        if (repository.existsByUsername(cleanUsername)) {
+            logger.warn("⚠️ Intento de creación de usuario duplicado: {}", cleanUsername);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(Map.of("error", "Username already exists"));
+        }
+        logger.info("👤 Iniciando creación de usuario: {}", cleanUsername);
         try {
-            // Encode the password before saving
-            user.setHashedPassword(passwordEncoder.encode(user.getHashedPassword()));
+            user.setUsername(cleanUsername);
+            // Null safety for password encoding
+            if (user.getHashedPassword() != null && !user.getHashedPassword().isEmpty()) {
+                user.setHashedPassword(passwordEncoder.encode(user.getHashedPassword()));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Password cannot be empty"));
+            }
             User savedUser = repository.save(user);
             logger.info("✅ Usuario {} guardado exitosamente.", savedUser.getUsername());
             return ResponseEntity.ok(savedUser);
         } catch (Exception e) {
             logger.error("❌ Error al crear usuario {}: {}", user.getUsername(), e.getMessage());
-            return ResponseEntity.status(500).build();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -81,7 +96,7 @@ public class UserController {
             if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
                 
                 // 2FA Verification
-                if (u.getTwoFactorEnabled()) {
+                if (Boolean.TRUE.equals(u.getTwoFactorEnabled())) {
                     if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
                         logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
                         return ResponseEntity.status(403).body("{\"error\": \"2FA_REQUIRED\"}");
@@ -111,27 +126,55 @@ public class UserController {
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> updateUser(@PathVariable String id, @RequestBody User userDetails) {
         try {
-            return repository.findById(id)
-                    .map(user -> {
-                        user.setDisplayName(userDetails.getDisplayName());
-                        user.setRole(userDetails.getRole());
-                        user.setPermissions(userDetails.getPermissions());
-                        user.setAssignedUnitId(userDetails.getAssignedUnitId());
-                        // Password update logic could go here if needed
-                        User updatedUser = repository.save(user);
-                        return ResponseEntity.ok(updatedUser);
-                    })
-                    .orElse(ResponseEntity.notFound().build());
+            var userOpt = repository.findById(id);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            User user = userOpt.get();
+            String currentUsername = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+
+            boolean isSuperAdmin = "santiago.salazar".equalsIgnoreCase(user.getUsername()) || "admin".equalsIgnoreCase(user.getUsername());
+            if (isSuperAdmin) {
+                // Bloquear modificación si no es el propio usuario o si se intenta degradar el rol
+                if (userDetails.getRole() != null && userDetails.getRole() != com.simcop.model.UserRole.ADMINISTRATOR) {
+                    logger.warn("⛔ Intento bloqueado de degradar rol de cuenta superadministrador: {}", user.getUsername());
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                            .body(java.util.Map.of("error", "Superadmin accounts cannot be demoted"));
+                }
+                if (!currentUsername.equalsIgnoreCase(user.getUsername()) && !"santiago.salazar".equalsIgnoreCase(currentUsername)) {
+                    logger.warn("⛔ Intento bloqueado de modificar cuenta superadministrador {} por {}", user.getUsername(), currentUsername);
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                            .body(java.util.Map.of("error", "Superadmin accounts cannot be modified by other users"));
+                }
+            }
+
+            user.setDisplayName(userDetails.getDisplayName());
+            if (!isSuperAdmin) {
+                user.setRole(userDetails.getRole());
+            } else {
+                user.setRole(com.simcop.model.UserRole.ADMINISTRATOR);
+            }
+            user.setPermissions(userDetails.getPermissions());
+            user.setAssignedUnitId(userDetails.getAssignedUnitId());
+            User updatedUser = repository.save(user);
+            return ResponseEntity.ok(updatedUser);
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Error updating user: " + e.getMessage());
+            logger.error("Error updating user {}: {}", id, e.getMessage());
+            return ResponseEntity.internalServerError().body(java.util.Map.of("error", "Error updating user: " + e.getMessage()));
         }
     }
 
     @DeleteMapping("/{id}")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
-    public ResponseEntity<Void> deleteUser(@PathVariable String id) {
-        if (repository.existsById(id)) {
+    public ResponseEntity<?> deleteUser(@PathVariable String id) {
+        var userOpt = repository.findById(id);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if ("santiago.salazar".equalsIgnoreCase(user.getUsername()) || "admin".equalsIgnoreCase(user.getUsername())) {
+                logger.warn("⛔ Intento bloqueado de eliminar cuenta superadministrador protegida: {}", user.getUsername());
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                        .body(java.util.Map.of("error", "Superadmin accounts are immutable and cannot be deleted"));
+            }
             repository.deleteById(id);
             return ResponseEntity.ok().build();
         }
