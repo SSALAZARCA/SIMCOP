@@ -4,11 +4,7 @@ import com.sigep.service.AIRecommendationService;
 import com.sigep.service.GenAITacticalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -34,5 +30,10 @@ public class AIRecommendationController {
         Map<String, Object> targetUnit = (Map<String, Object>) payload.getOrDefault("targetUnit", Map.of());
         String assessment = genAITacticalService.generateTacticalAssessment(soldier, sourceUnit, targetUnit);
         return ResponseEntity.ok(Map.of("assessment", assessment));
+    }
+
+    @PostMapping("/test-connection")
+    public ResponseEntity<?> testConnection(@RequestBody(required = false) Map<String, String> testConfig) {
+        return ResponseEntity.ok(genAITacticalService.testProviderConnection(testConfig));
     }
 }

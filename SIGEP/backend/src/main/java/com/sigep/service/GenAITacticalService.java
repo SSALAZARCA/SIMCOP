@@ -1,5 +1,7 @@
 package com.sigep.service;
 
+import com.sigep.model.SystemParameter;
+import com.sigep.repository.SystemParameterRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,9 @@ public class GenAITacticalService {
     @Autowired
     private RestTemplate restTemplate;
 
+    @Autowired(required = false)
+    private SystemParameterRepository systemParameterRepository;
+
     @Value("${sigep.ai.provider:OMNIROUTE}")
     private String configuredProvider;
 
@@ -33,6 +38,10 @@ public class GenAITacticalService {
     private String configuredModel;
 
     public String getEffectiveApiKey() {
+        if (systemParameterRepository != null) {
+            String dbKey = systemParameterRepository.findById("AI_API_KEY").map(SystemParameter::getParameterValue).orElse("");
+            if (dbKey != null && !dbKey.trim().isEmpty()) return dbKey.trim();
+        }
         String key = System.getenv("AI_API_KEY");
         if (key == null || key.trim().isEmpty()) key = System.getenv("OMNIROUTE_API_KEY");
         if (key == null || key.trim().isEmpty()) key = System.getenv("GEMINI_API_KEY");
@@ -41,6 +50,13 @@ public class GenAITacticalService {
     }
 
     public String getEffectiveBaseUrl() {
+        if (systemParameterRepository != null) {
+            String dbUrl = systemParameterRepository.findById("AI_API_URL").map(SystemParameter::getParameterValue).orElse("");
+            if (dbUrl != null && !dbUrl.trim().isEmpty()) {
+                String u = dbUrl.trim();
+                return u.endsWith("/") ? u.substring(0, u.length() - 1) : u;
+            }
+        }
         String url = System.getenv("AI_API_URL");
         if (url == null || url.trim().isEmpty()) url = System.getenv("OMNIROUTE_BASE_URL");
         if (url == null || url.trim().isEmpty()) url = configuredBaseUrl;
@@ -50,10 +66,101 @@ public class GenAITacticalService {
     }
 
     public String getEffectiveModel() {
+        if (systemParameterRepository != null) {
+            String dbModel = systemParameterRepository.findById("AI_MODEL").map(SystemParameter::getParameterValue).orElse("");
+            if (dbModel != null && !dbModel.trim().isEmpty()) return dbModel.trim();
+        }
         String model = System.getenv("AI_MODEL");
         if (model == null || model.trim().isEmpty()) model = System.getenv("OMNIROUTE_MODEL");
         if (model == null || model.trim().isEmpty()) model = configuredModel;
         return (model != null && !model.trim().isEmpty()) ? model.trim() : "omni-default";
+    }
+
+    public String getEffectiveProvider() {
+        if (systemParameterRepository != null) {
+            String dbProv = systemParameterRepository.findById("AI_PROVIDER").map(SystemParameter::getParameterValue).orElse("");
+            if (dbProv != null && !dbProv.trim().isEmpty()) return dbProv.trim();
+        }
+        String prov = System.getenv("AI_PROVIDER");
+        if (prov == null || prov.trim().isEmpty()) prov = System.getenv("OMNIROUTE_PROVIDER");
+        if (prov == null || prov.trim().isEmpty()) prov = configuredProvider;
+        return (prov != null && !prov.trim().isEmpty()) ? prov.trim() : "OMNIROUTE";
+    }
+
+    /**
+     * Prueba de conexion en vivo con el proveedor de IA.
+     */
+    public Map<String, Object> testProviderConnection(Map<String, String> testConfig) {
+        Map<String, Object> response = new HashMap<>();
+
+        String provider = (testConfig != null && testConfig.containsKey("AI_PROVIDER")) ? testConfig.get("AI_PROVIDER") : getEffectiveProvider();
+        String baseUrl = (testConfig != null && testConfig.containsKey("AI_API_URL")) ? testConfig.get("AI_API_URL") : getEffectiveBaseUrl();
+        String apiKey = (testConfig != null && testConfig.containsKey("AI_API_KEY")) ? testConfig.get("AI_API_KEY") : getEffectiveApiKey();
+        String model = (testConfig != null && testConfig.containsKey("AI_MODEL")) ? testConfig.get("AI_MODEL") : getEffectiveModel();
+
+        if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+
+        if ("LOCAL_AIRGAP".equalsIgnoreCase(provider)) {
+            response.put("success", true);
+            response.put("provider", "LOCAL_AIRGAP");
+            response.put("message", "Modo Doctrinal Local Air-Gap activo y operacional. Inferencia militar garantizada 100% offline.");
+            return response;
+        }
+
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            response.put("success", false);
+            response.put("provider", provider);
+            response.put("message", "Falta la Clave de API (API Key) para autenticar con " + provider + ".");
+            return response;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey.trim());
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+
+            List<Map<String, String>> messages = new ArrayList<>();
+            messages.add(Map.of("role", "system", "content", "Eres el asesor tactico de SIMCOP/SIGEP. Responde brevemente."));
+            messages.add(Map.of("role", "user", "content", "Verificacion de enlace tactico SIGEP. Confirma conexion."));
+
+            requestBody.put("messages", messages);
+            requestBody.put("max_tokens", 30);
+            requestBody.put("temperature", 0.1);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            String endpoint = baseUrl + "/chat/completions";
+
+            ResponseEntity<Map> resp = restTemplate.postForEntity(endpoint, entity, Map.class);
+            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                Map<String, Object> body = resp.getBody();
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) body.get("choices");
+                String sampleText = "Conexion exitosa";
+                if (choices != null && !choices.isEmpty()) {
+                    Map<String, Object> msg = (Map<String, Object>) choices.get(0).get("message");
+                    if (msg != null && msg.get("content") != null) {
+                        sampleText = msg.get("content").toString().trim();
+                    }
+                }
+                response.put("success", true);
+                response.put("provider", provider);
+                response.put("model", model);
+                response.put("message", "Enlace verificado exitosamente con " + provider + " (" + model + "): " + sampleText);
+                return response;
+            } else {
+                response.put("success", false);
+                response.put("provider", provider);
+                response.put("message", "El servidor respondio con codigo: " + resp.getStatusCode());
+                return response;
+            }
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("provider", provider);
+            response.put("message", "Error conectando con " + baseUrl + ": " + e.getMessage());
+            return response;
+        }
     }
 
     /**
@@ -61,7 +168,13 @@ public class GenAITacticalService {
      * o mediante plantilla militar doctrinal local en modo Air-Gap.
      */
     public String generateTacticalAssessment(Map<String, Object> soldierData, Map<String, Object> sourceUnit, Map<String, Object> targetUnit) {
+        String provider = getEffectiveProvider();
         String apiKey = getEffectiveApiKey();
+
+        // Si esta configurado como Air-Gap local explícito, no ir a internet
+        if ("LOCAL_AIRGAP".equalsIgnoreCase(provider)) {
+            return generateLocalMilitaryAssessment(soldierData, sourceUnit, targetUnit);
+        }
 
         // 1. Si hay API Key disponible, consultar el motor LLM (OmniRoute / OpenAI / Gemini)
         if (!apiKey.isEmpty()) {
