@@ -17,18 +17,18 @@ export const getApiBaseUrl = () => {
             return `https://api.simcop.site`;
         }
 
-        // Si estamos en localhost y no hay URL definida, intentar usar el puerto 8080 (dev estándar) 
-        // o 5005 (Docker default) si el puerto actual es el del frontend docker (5006)
+        // Si estamos en localhost bajo Nginx (puerto 80 o standard) o en Docker
         if (host === 'localhost' || host === '127.0.0.1') {
             if (port === '5006') return `${protocol}//${host}:5005`;
-            if (port === '3000' || port === '5173') return `${protocol}//${host}:8080`;
+            if (port === '3000' || port === '5173') return `${protocol}//${host}:8085`;
+            if (port === '80' || port === '') return `${protocol}//${host}`;
         }
 
-        // Default fallback: usar el host actual con el puerto 8080
-        return `${protocol}//${host}:8080`;
+        // Default fallback: usar el host actual con su origen
+        return `${protocol}//${host}${port ? `:${port}` : ''}`;
     }
 
-    return 'http://localhost:8080';
+    return 'http://localhost';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

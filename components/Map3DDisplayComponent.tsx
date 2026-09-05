@@ -163,7 +163,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
   // States for UI Toggles
   const [terrainActive, setTerrainActive] = useState<boolean>(true);
-  const [mapLayer, setMapLayer] = useState<'igac-sat' | 'igac-pol' | 'osm'>('igac-sat');
+  const [mapLayer, setMapLayer] = useState<'igac-sat' | 'topo' | 'vias' | 'igac-pol' | 'osm'>('igac-sat');
   const [terrainExaggeration, setTerrainExaggeration] = useState<number>(1.5);
   const [showIonModal, setShowIonModal] = useState<boolean>(false);
   const [ionTokenInput, setIonTokenInput] = useState<string>(localStorage.getItem('simcop_cesium_ion_token') || '');
@@ -867,6 +867,24 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         enablePickFeatures: false
       });
       igacSatLabelsLayerRef.current = viewer.imageryLayers.addImageryProvider(labelsProvider, 1);
+    } else if (mapLayer === 'topo') {
+      // Mapa Topográfico Mundial ESRI (World Topo Map) con curvas de nivel e hidrografía
+      const topoProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        credit: 'Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community',
+        maximumLevel: 19,
+        enablePickFeatures: false
+      });
+      igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(topoProvider, 0);
+    } else if (mapLayer === 'vias') {
+      // Mapa de Vías y Carreteras detalladas ESRI (World Street Map)
+      const streetProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        credit: 'Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community',
+        maximumLevel: 19,
+        enablePickFeatures: false
+      });
+      igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(streetProvider, 0);
     } else if (mapLayer === 'igac-pol') {
       // Cartografía Base Oficial (IGAC / CartoDB Voyager)
       Cesium.ArcGisMapServerImageryProvider.fromUrl(
@@ -3116,21 +3134,35 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           <div className="grid grid-cols-3 gap-1">
             <button
               onClick={() => setMapLayer('igac-sat')}
-              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'igac-sat' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              className={`text-[10px] py-1.5 px-1 rounded font-medium transition text-center ${mapLayer === 'igac-sat' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
               title="Satelital de Alta Definición ESRI World Imagery + Etiquetas CartoDB"
             >
               Satélite HD
             </button>
             <button
+              onClick={() => setMapLayer('topo')}
+              className={`text-[10px] py-1.5 px-1 rounded font-medium transition text-center ${mapLayer === 'topo' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              title="Mapa Topográfico Oficial con curvas de nivel e hidrografía"
+            >
+              Topográfico
+            </button>
+            <button
+              onClick={() => setMapLayer('vias')}
+              className={`text-[10px] py-1.5 px-1 rounded font-medium transition text-center ${mapLayer === 'vias' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              title="Mapa de Vías, Carreteras y Red Vial detallada"
+            >
+              Vías / Red
+            </button>
+            <button
               onClick={() => setMapLayer('igac-pol')}
-              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'igac-pol' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              className={`text-[10px] py-1.5 px-1 rounded font-medium transition text-center ${mapLayer === 'igac-pol' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
               title="Cartografía Base Táctica (IGAC / CartoDB Voyager)"
             >
               Cartografía
             </button>
             <button
               onClick={() => setMapLayer('osm')}
-              className={`text-[10px] py-1.5 rounded font-medium transition ${mapLayer === 'osm' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+              className={`text-[10px] py-1.5 px-1 rounded font-medium transition text-center ${mapLayer === 'osm' ? 'bg-sky-600 text-white shadow' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
               title="OpenStreetMap Standard"
             >
               OSM
