@@ -66,7 +66,7 @@ services:
     expose:
       - 8000
     environment:
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site,https://sigep.site}
     networks:
       - simcop_internal
 

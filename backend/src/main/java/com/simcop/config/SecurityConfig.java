@@ -73,6 +73,8 @@ public class SecurityConfig {
         config.setAllowedOrigins(Arrays.asList(
                 "https://simcop.site",
                 "https://api.simcop.site",
+                "https://sigep.site",
+                "http://sigep.site",
                 "http://localhost",
                 "http://localhost:80",
                 "http://localhost:8080",
