@@ -219,7 +219,7 @@ public class AnalysisService {
             }
         }
         
-        // 2. Validar Estado Operacional en SIMCOP
+        // 2. Estado Operacional en SIMCOP (Informativo - No veta el movimiento administrativo)
         try {
             String statusUrl = getSimcopBaseUrl() + "/units/" + sourceUnitId + "/tactical-status";
             HttpEntity<Void> requestEntity = new HttpEntity<>(createM2MHeaders());
@@ -228,14 +228,33 @@ public class AnalysisService {
             if (status != null) {
                 String upperStatus = status.trim().toUpperCase();
                 if (upperStatus.contains("COMBATE") || upperStatus.contains("ENGAGED")) {
-                    result.setViable(false);
-                    result.setBlockedByOperationalStatus(true);
-                    result.setMessage("ALERTA OPERACIONAL: La unidad de origen " + sourceUnitId + " se encuentra actualmente en estado de COMBATE (ENGAGED). Se sugiere congelar el traslado. Pasa a revisión del G1.");
+                    result.setOperationalNote("AVISO TÁCTICO: La unidad " + sourceUnitId + " se encuentra actualmente en contacto armado (COMBATE / ENGAGED). El movimiento administrativo queda avalado y se perfeccionará al término de la misión bajo coordinación del oficial de personal (S1/G1).");
                 }
             }
         } catch (Exception e) {
-            // Si falla la conexión, omitimos por ahora o logueamos
             System.err.println("No se pudo consultar estado táctico de SIMCOP para unidad " + sourceUnitId + ": " + e.getMessage());
+        }
+
+        // 3. Validar Sanidad Militar / Condición Psicofísica
+        String health = s.getHealthStatus();
+        if (health != null && !health.equalsIgnoreCase("APTO")) {
+            result.setViable(false);
+            result.setBlockedByHealth(true);
+            result.setMessage("BLOQUEO DE SANIDAD: El efectivo se encuentra en condición '" + health + "'. Todo movimiento de personal queda suspendido hasta alta médica oficial o dictamen de la Dirección de Sanidad Militar.");
+            return result;
+        }
+
+        // 4. Validar Especialidad Primordial Crítica no Reemplazable
+        if (mos != null) {
+            String upperMos = mos.toUpperCase();
+            boolean isCriticalMos = upperMos.contains("TIRADOR") || upperMos.contains("ENFERMERO") || 
+                                   upperMos.contains("COMUNICACIONES") || upperMos.contains("ARMERO") || 
+                                   upperMos.contains("INTELIGENCIA") || upperMos.contains("EXPLOSIVOS");
+            if (mosToe != null && isCriticalMos && mosToe.getActual() <= 1 && mosToe.getRequired() >= 1) {
+                result.setViable(false);
+                result.setBlockedByCriticalSpecialty(true);
+                result.setMessage("BLOQUEO POR ESPECIALIDAD PRIMORDIAL: El efectivo desempeña el único puesto activo de la especialidad orgánica crítica '" + mos + "' en la unidad " + sourceUnitId + ". No puede ser trasladado sin relevo previo o autorización formal del oficial de personal (S1/G1).");
+            }
         }
         
         // 3. Si hay bloqueo de TOE, sugerir reemplazos

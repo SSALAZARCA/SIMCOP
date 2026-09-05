@@ -22,6 +22,9 @@ public class AIRecommendationService {
     @Autowired
     private RestTemplate restTemplate;
 
+    @Autowired
+    private GenAITacticalService genAITacticalService;
+
     @Value("${simcop.api.url:http://localhost:8080/api}")
     private String configuredSimcopUrl;
 
@@ -134,6 +137,8 @@ public class AIRecommendationService {
                         rec.put("soldier", soldierData);
                         rec.put("reason", String.format("La unidad %s está en nivel Óptimo. %s tiene un déficit crítico (POI alto). El candidato %s tiene sanidad APTA, %s meses en la unidad y cumple perfil táctico.", 
                             sourceUnitId, targetUnitId, soldierData.get("name"), soldierData.get("timeInPosition")));
+                        String tacticalAssessment = genAITacticalService.generateTacticalAssessment(soldierData, sourceUnit, targetUnit);
+                        rec.put("tacticalAssessment", tacticalAssessment);
                         recommendations.add(rec);
                         break; // Pasamos a la siguiente unidad en déficit
                     }

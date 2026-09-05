@@ -9,6 +9,9 @@ public class TransferViabilityResult {
     private boolean viable;
     private boolean blockedByToe;
     private boolean blockedByOperationalStatus;
+    private boolean blockedByHealth;
+    private boolean blockedByCriticalSpecialty;
+    private String operationalNote;
     private String message;
     private List<Soldier> suggestedReplacements;
 }
