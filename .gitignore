@@ -116,3 +116,5 @@ backend_*.log
 startup_*.log
 compile_*.log
 backend/data/
+.agents/
+ORIGINAL_REQUEST.md

@@ -30,6 +30,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String username = null;
         String jwt = null;
 
+        // 1. Verificación de Autenticación Máquina a Máquina (M2M) para interoperabilidad con SIGEP
+        final String serviceTokenHeader = request.getHeader("X-Service-Token");
+        final String envServiceToken = System.getenv("SIMCOP_SERVICE_TOKEN");
+        final String expectedServiceToken = (envServiceToken != null && !envServiceToken.trim().isEmpty())
+                ? envServiceToken.trim()
+                : "simcop-tactical-m2m-secure-token-2026";
+
+        boolean isM2MAuthorized = (serviceTokenHeader != null && serviceTokenHeader.equals(expectedServiceToken))
+                || (authHeader != null && authHeader.equals("Bearer " + expectedServiceToken));
+
+        if (isM2MAuthorized && SecurityContextHolder.getContext().getAuthentication() == null) {
+            var authorities = java.util.Collections.singletonList(
+                    new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMINISTRATOR"));
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    "sigep-service-m2m", null, authorities);
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+            logger.debug("Servicio M2M autenticado exitosamente para {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 2. Verificación de Token JWT de Usuario estándar
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwt = authHeader.substring(7);
             try {

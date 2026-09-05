@@ -6,6 +6,10 @@ import com.sigep.dto.TransferViabilityResult;
 import com.sigep.model.Soldier;
 import com.sigep.repository.SoldierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -24,7 +28,27 @@ public class AnalysisService {
     @Autowired
     private RestTemplate restTemplate;
     
-    private final String SIMCOP_URL = "http://localhost:8080/api/units/";
+    @Value("${simcop.api.url:http://localhost:8080/api}")
+    private String configuredSimcopUrl;
+
+    @Value("${simcop.service.token:simcop-tactical-m2m-secure-token-2026}")
+    private String configuredServiceToken;
+
+    private String getSimcopBaseUrl() {
+        String envUrl = System.getenv("SIMCOP_API_URL");
+        String url = (envUrl != null && !envUrl.trim().isEmpty()) ? envUrl.trim() : configuredSimcopUrl.trim();
+        if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+        return url.endsWith("/api") ? url : url + "/api";
+    }
+
+    private HttpHeaders createM2MHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String envToken = System.getenv("SIMCOP_SERVICE_TOKEN");
+        String token = (envToken != null && !envToken.trim().isEmpty()) ? envToken.trim() : configuredServiceToken.trim();
+        headers.set("X-Service-Token", token);
+        headers.set("Authorization", "Bearer " + token);
+        return headers;
+    }
 
     public List<ToeBalanceDTO> getToeBalance(String unitId) {
         List<ToeBalanceDTO> result = new ArrayList<>();
@@ -43,7 +67,9 @@ public class AnalysisService {
         
         // CONEXIÓN REAL A SIMCOP PARA EXTRAER TOE
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity("http://localhost:8080/api/units/" + unitId, Map.class);
+            String url = getSimcopBaseUrl() + "/units/" + unitId;
+            HttpEntity<Void> requestEntity = new HttpEntity<>(createM2MHeaders());
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, Map.class);
             Map<String, Object> body = response.getBody();
             if (body != null && body.containsKey("unit")) {
                 Map<String, Object> unitMap = (Map<String, Object>) body.get("unit");
@@ -195,17 +221,21 @@ public class AnalysisService {
         
         // 2. Validar Estado Operacional en SIMCOP
         try {
-            // Llama a un endpoint nuevo que crearemos en SIMCOP
-            ResponseEntity<String> response = restTemplate.getForEntity(SIMCOP_URL + sourceUnitId + "/tactical-status", String.class);
+            String statusUrl = getSimcopBaseUrl() + "/units/" + sourceUnitId + "/tactical-status";
+            HttpEntity<Void> requestEntity = new HttpEntity<>(createM2MHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, requestEntity, String.class);
             String status = response.getBody();
-            if (status != null && status.contains("COMBATE")) {
-                result.setViable(false);
-                result.setBlockedByOperationalStatus(true);
-                result.setMessage("ALERTA OPERACIONAL: La unidad de origen " + sourceUnitId + " se encuentra actualmente en estado de COMBATE. Se sugiere congelar el traslado. Pasa a revisión del G1.");
+            if (status != null) {
+                String upperStatus = status.trim().toUpperCase();
+                if (upperStatus.contains("COMBATE") || upperStatus.contains("ENGAGED")) {
+                    result.setViable(false);
+                    result.setBlockedByOperationalStatus(true);
+                    result.setMessage("ALERTA OPERACIONAL: La unidad de origen " + sourceUnitId + " se encuentra actualmente en estado de COMBATE (ENGAGED). Se sugiere congelar el traslado. Pasa a revisión del G1.");
+                }
             }
         } catch (Exception e) {
             // Si falla la conexión, omitimos por ahora o logueamos
-            System.err.println("No se pudo consultar estado táctico de SIMCOP para unidad " + sourceUnitId);
+            System.err.println("No se pudo consultar estado táctico de SIMCOP para unidad " + sourceUnitId + ": " + e.getMessage());
         }
         
         // 3. Si hay bloqueo de TOE, sugerir reemplazos

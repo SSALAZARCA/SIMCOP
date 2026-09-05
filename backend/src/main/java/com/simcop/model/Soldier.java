@@ -2,7 +2,10 @@ package com.simcop.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.Map;
+import java.util.HashMap;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "soldiers")
@@ -34,6 +37,21 @@ public class Soldier {
     @JoinColumn(name = "unit_id", columnDefinition = "VARCHAR(255)")
     @JsonIgnore
     private MilitaryUnit unit;
+
+    @JsonProperty("unitId")
+    public String getUnitId() {
+        return unit != null ? unit.getId() : null;
+    }
+
+    @JsonProperty("unit")
+    public Map<String, Object> getUnitSummary() {
+        if (unit == null) return null;
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", unit.getId());
+        map.put("name", unit.getName() != null ? unit.getName() : "");
+        map.put("status", unit.getStatus() != null ? unit.getStatus().name() : null);
+        return map;
+    }
 
     public Soldier() {
     }
@@ -118,6 +136,7 @@ public class Soldier {
         this.estimatedRetirementDate = estimatedRetirementDate;
     }
 
+    @JsonIgnore
     public MilitaryUnit getUnit() {
         return unit;
     }

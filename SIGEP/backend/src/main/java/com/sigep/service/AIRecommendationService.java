@@ -1,12 +1,17 @@
 package com.sigep.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.core.ParameterizedTypeReference;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,18 +19,42 @@ import java.util.stream.Collectors;
 @Service
 public class AIRecommendationService {
 
-    private final String SIMCOP_URL = "http://localhost:8080/api";
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${simcop.api.url:http://localhost:8080/api}")
+    private String configuredSimcopUrl;
+
+    @Value("${simcop.service.token:simcop-tactical-m2m-secure-token-2026}")
+    private String configuredServiceToken;
+
+    private String getSimcopBaseUrl() {
+        String envUrl = System.getenv("SIMCOP_API_URL");
+        String url = (envUrl != null && !envUrl.trim().isEmpty()) ? envUrl.trim() : configuredSimcopUrl.trim();
+        if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+        return url.endsWith("/api") ? url : url + "/api";
+    }
+
+    private HttpHeaders createM2MHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String envToken = System.getenv("SIMCOP_SERVICE_TOKEN");
+        String token = (envToken != null && !envToken.trim().isEmpty()) ? envToken.trim() : configuredServiceToken.trim();
+        headers.set("X-Service-Token", token);
+        headers.set("Authorization", "Bearer " + token);
+        return headers;
+    }
 
     public List<Map<String, Object>> generateRecommendations() {
-        RestTemplate restTemplate = new RestTemplate();
         List<Map<String, Object>> recommendations = new ArrayList<>();
 
         try {
+            HttpEntity<Void> requestEntity = new HttpEntity<>(createM2MHeaders());
+
             // 1. Obtener todas las unidades (Catálogo Completo)
             ResponseEntity<List<Map<String, Object>>> unitsResponse = restTemplate.exchange(
-                    SIMCOP_URL + "/units",
+                    getSimcopBaseUrl() + "/units",
                     HttpMethod.GET,
-                    null,
+                    requestEntity,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {}
             );
             List<Map<String, Object>> allUnits = unitsResponse.getBody();
@@ -34,9 +63,9 @@ public class AIRecommendationService {
 
             // 2. Obtener todos los soldados de SIMCOP
             ResponseEntity<List<Map<String, Object>>> soldiersResponse = restTemplate.exchange(
-                    SIMCOP_URL + "/soldiers/search?q=",
+                    getSimcopBaseUrl() + "/soldiers/search?q=",
                     HttpMethod.GET,
-                    null,
+                    requestEntity,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {}
             );
             List<Map<String, Object>> allSoldiers = soldiersResponse.getBody();
@@ -71,10 +100,18 @@ public class AIRecommendationService {
                     // Filtrar soldados que pertenecen a la unidad de origen (sourceUnit)
                     List<Map<String, Object>> candidates = allSoldiers.stream()
                         .filter(s -> {
-                            Map<String, Object> u = (Map<String, Object>) s.get("unit");
-                            return u != null && sourceUnitId.equals(u.get("id"));
+                            String soldierUnitId = null;
+                            Object uObj = s.get("unit");
+                            if (uObj instanceof Map<?, ?> uMap) {
+                                Object idVal = uMap.get("id");
+                                soldierUnitId = idVal != null ? idVal.toString() : null;
+                            }
+                            if (soldierUnitId == null && s.get("unitId") != null) {
+                                soldierUnitId = s.get("unitId").toString();
+                            }
+                            return sourceUnitId.equals(soldierUnitId);
                         })
-                        .filter(s -> "APTO".equals(s.get("healthStatus"))) // Solo sanidad APTA
+                        .filter(s -> "APTO".equalsIgnoreCase((String) s.get("healthStatus"))) // Solo sanidad APTA
                         .filter(s -> s.get("timeInPosition") != null && ((Number) s.get("timeInPosition")).intValue() > 24) // Más de 2 años
                         .collect(Collectors.toList());
                         
@@ -82,21 +119,21 @@ public class AIRecommendationService {
                         // Tomamos el mejor candidato (el primero para simplificar)
                         Map<String, Object> bestCandidate = candidates.get(0);
                         
-                        Map<String, Object> rec = Map.of(
-                            "sourceUnit", sourceUnitId,
-                            "targetUnit", targetUnitId,
-                            "soldier", Map.of(
-                                "id", bestCandidate.get("id"),
-                                "name", bestCandidate.get("fullName"),
-                                "rank", bestCandidate.get("rank"),
-                                "moceCode", bestCandidate.get("moceCode"),
-                                "healthStatus", bestCandidate.get("healthStatus"),
-                                "timeInPosition", bestCandidate.get("timeInPosition"),
-                                "cursosCombate", bestCandidate.get("cursosCombate")
-                            ),
-                            "reason", String.format("La unidad %s está en nivel Óptimo. %s tiene un déficit crítico (POI alto). El candidato %s tiene sanidad APTA, %s meses en la unidad y cumple perfil táctico.", 
-                                sourceUnitId, targetUnitId, bestCandidate.get("fullName"), bestCandidate.get("timeInPosition"))
-                        );
+                        Map<String, Object> soldierData = new HashMap<>();
+                        soldierData.put("id", bestCandidate.get("id") != null ? bestCandidate.get("id") : "");
+                        soldierData.put("name", bestCandidate.get("fullName") != null ? bestCandidate.get("fullName") : (bestCandidate.get("name") != null ? bestCandidate.get("name") : ""));
+                        soldierData.put("rank", bestCandidate.get("rank") != null ? bestCandidate.get("rank") : "");
+                        soldierData.put("moceCode", bestCandidate.get("moceCode") != null ? bestCandidate.get("moceCode") : (bestCandidate.get("mosCode") != null ? bestCandidate.get("mosCode") : ""));
+                        soldierData.put("healthStatus", bestCandidate.get("healthStatus") != null ? bestCandidate.get("healthStatus") : "");
+                        soldierData.put("timeInPosition", bestCandidate.get("timeInPosition") != null ? bestCandidate.get("timeInPosition") : 0);
+                        soldierData.put("cursosCombate", bestCandidate.get("cursosCombate") != null ? bestCandidate.get("cursosCombate") : "NINGUNO");
+
+                        Map<String, Object> rec = new HashMap<>();
+                        rec.put("sourceUnit", sourceUnitId);
+                        rec.put("targetUnit", targetUnitId);
+                        rec.put("soldier", soldierData);
+                        rec.put("reason", String.format("La unidad %s está en nivel Óptimo. %s tiene un déficit crítico (POI alto). El candidato %s tiene sanidad APTA, %s meses en la unidad y cumple perfil táctico.", 
+                            sourceUnitId, targetUnitId, soldierData.get("name"), soldierData.get("timeInPosition")));
                         recommendations.add(rec);
                         break; // Pasamos a la siguiente unidad en déficit
                     }

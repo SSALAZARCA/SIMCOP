@@ -41,6 +41,13 @@ public class MilitaryUnitController {
             return new ArrayList<>();
         }
 
+        // Acceso directo para servicio M2M o administradores sin requerir registro en base de datos de usuarios
+        if ("sigep-service-m2m".equals(auth.getName()) || 
+            auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRATOR"))) {
+            logger.info("✅ Acceso total M2M/Administrativo concedido para: {}", auth.getName());
+            return repository.findAll();
+        }
+
         com.simcop.model.User user = userRepository.findByUsername(auth.getName()).orElse(null);
         if (user == null) {
             logger.error("❌ Acceso denegado: Usuario no encontrado para el principal autenticado {}", auth.getName());

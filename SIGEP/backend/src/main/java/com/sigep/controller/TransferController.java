@@ -2,6 +2,7 @@ package com.sigep.controller;
 
 import com.sigep.model.Transfer;
 import com.sigep.repository.TransferRepository;
+import com.sigep.service.TransferService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -9,11 +10,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/transfers")
 public class TransferController {
+
+    @Autowired
+    private TransferService transferService;
 
     @Autowired
     private TransferRepository transferRepository;
@@ -25,15 +30,7 @@ public class TransferController {
         String unitId = (String) auth.getDetails(); // Extracted from JWT
         String role = auth.getAuthorities().iterator().next().getAuthority();
 
-        // Si es Gestor de Batallon, forzamos que el origen sea su propia unidad
-        if ("ROLE_BATALLON".equals(role)) {
-            transfer.setOriginUnitId(unitId);
-        }
-
-        transfer.setStatus("PENDING_APPROVAL");
-        transfer.setCreatedBy(username);
-        
-        Transfer saved = transferRepository.save(transfer);
+        Transfer saved = transferService.createTransfer(transfer, username, unitId, role);
         return ResponseEntity.ok(saved);
     }
 
@@ -57,21 +54,19 @@ public class TransferController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable String id, @RequestBody java.util.Map<String, String> body) {
+    public ResponseEntity<?> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String role = auth.getAuthorities().iterator().next().getAuthority();
-        
-        return transferRepository.findById(id).map(transfer -> {
-            String newStatus = body.get("status");
-            
-            // Reglas de negocio
-            if ("APPROVED".equals(newStatus) && !("ROLE_EJERCITO".equals(role) || "ROLE_DIVISION".equals(role))) {
-                return ResponseEntity.status(403).body("Solo el Comando Superior puede aprobar traslados.");
-            }
-            
-            transfer.setStatus(newStatus);
-            transferRepository.save(transfer);
-            return ResponseEntity.ok(transfer);
-        }).orElse(ResponseEntity.notFound().build());
+        String username = auth.getName();
+        String newStatus = body.get("status");
+
+        try {
+            Transfer updated = transferService.updateTransferStatus(id, newStatus, username, role);
+            return ResponseEntity.ok(updated);
+        } catch (SecurityException se) {
+            return ResponseEntity.status(403).body(se.getMessage());
+        } catch (IllegalArgumentException iae) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

@@ -23,6 +23,27 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
+            // 1. Verificación M2M desde SIMCOP
+            final String serviceTokenHeader = request.getHeader("X-Service-Token");
+            final String authHeader = request.getHeader("Authorization");
+            final String envServiceToken = System.getenv("SIMCOP_SERVICE_TOKEN");
+            final String expectedServiceToken = (envServiceToken != null && !envServiceToken.trim().isEmpty())
+                    ? envServiceToken.trim()
+                    : "simcop-tactical-m2m-secure-token-2026";
+
+            boolean isM2MAuthorized = (serviceTokenHeader != null && serviceTokenHeader.equals(expectedServiceToken))
+                    || (authHeader != null && authHeader.equals("Bearer " + expectedServiceToken));
+
+            if (isM2MAuthorized && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        "simcop-service-m2m", null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMINISTRATOR")));
+                authentication.setDetails("SIMCOP_M2M_INTEGRATION");
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 2. Verificación estándar de usuario JWT
             String jwt = parseJwt(request);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);

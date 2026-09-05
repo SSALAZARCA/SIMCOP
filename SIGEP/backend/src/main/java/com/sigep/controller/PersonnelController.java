@@ -4,6 +4,7 @@ import com.sigep.model.Soldier;
 import com.sigep.repository.SoldierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class PersonnelController {
         return ResponseEntity.ok(soldierRepository.save(soldier));
     }
     
+    @Transactional
     @PostMapping("/novedades")
     public ResponseEntity<Novedad> registerNovedad(@RequestBody Novedad novedad) {
         novedad.setFecha(LocalDateTime.now());

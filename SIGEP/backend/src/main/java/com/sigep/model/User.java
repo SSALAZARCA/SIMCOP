@@ -1,9 +1,13 @@
 package com.sigep.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "sigep_users")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class User {
 
     @Id
@@ -14,6 +18,8 @@ public class User {
     private String username;
 
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonAlias({"password", "hashedPassword"})
     private String password;
 
     @Column(nullable = false)
@@ -33,6 +39,10 @@ public class User {
     
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    // Compatibility methods with frontend / SIMCOP
+    public String getHashedPassword() { return password; }
+    public void setHashedPassword(String hashedPassword) { this.password = hashedPassword; }
     
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
@@ -43,3 +53,4 @@ public class User {
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
 }
+
