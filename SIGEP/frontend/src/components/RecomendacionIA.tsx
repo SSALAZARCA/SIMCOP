@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Brain, Zap, ArrowRight, CheckCircle } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 
 export default function RecomendacionIA() {
   const { user } = useAuth();
@@ -10,7 +11,7 @@ export default function RecomendacionIA() {
 
   const runAIEngine = () => {
     setLoading(true);
-    fetch(`http://localhost:4000/api/ai/recommend-transfers`, {
+    fetch(`${SIGEP_API_URL}/ai/recommend-transfers`, {
       headers: { 'Authorization': `Bearer ${user.token}` }
     })
       .then(res => res.json())

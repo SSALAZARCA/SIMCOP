@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 import { ShieldAlert, AlertTriangle, Info, Download } from 'lucide-react';
 
 export default function Recomendaciones({ unitId, role }: { unitId: string, role: string }) {
@@ -14,7 +15,7 @@ export default function Recomendaciones({ unitId, role }: { unitId: string, role
         let CRITICAL = 85;
         let WARNING = 95;
         try {
-          const resParams = await fetch('http://localhost:4000/api/parameters', {
+          const resParams = await fetch(`${SIGEP_API_URL}/parameters`, {
             headers: { 'Authorization': `Bearer ${user.token}` }
           });
           if (resParams.ok) {
@@ -27,7 +28,7 @@ export default function Recomendaciones({ unitId, role }: { unitId: string, role
         }
 
         // 2. Buscar el TOE real para generar alertas
-        const resToe = await fetch('http://localhost:4000/api/analysis/toe-balance/' + unitId, {
+        const resToe = await fetch(`${SIGEP_API_URL}/analysis/toe-balance/` + unitId, {
           headers: { 'Authorization': `Bearer ${user.token}` }
         });
         

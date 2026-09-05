@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 import { Users, ShieldAlert, Activity, ArrowRightLeft, TrendingDown, Target, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -9,7 +10,7 @@ export default function DashboardNacional({ unitId, role }: { unitId: string, ro
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:4000/api/analysis/toe', {
+    fetch(`${SIGEP_API_URL}/analysis/toe`, {
       headers: {
         'Authorization': `Bearer ${user.token}`
       }

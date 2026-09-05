@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 import { Users, ArrowRight, Check, X } from 'lucide-react';
 import RecomendacionIA from './RecomendacionIA';
 
@@ -10,7 +11,7 @@ export default function TrasladoSuboficiales({ unitId, role }: { unitId: string,
   const [loading, setLoading] = useState(false);
 
   const fetchTransfers = () => {
-    fetch('http://localhost:4000/api/transfers?rankCategory=SUBOFICIAL', {
+    fetch(`${SIGEP_API_URL}/transfers?rankCategory=SUBOFICIAL`, {
       headers: { 'Authorization': `Bearer ${user.token}` }
     })
       .then(res => res.json())
@@ -26,7 +27,7 @@ export default function TrasladoSuboficiales({ unitId, role }: { unitId: string,
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch('http://localhost:4000/api/transfers', {
+      await fetch(`${SIGEP_API_URL}/transfers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,7 +51,7 @@ export default function TrasladoSuboficiales({ unitId, role }: { unitId: string,
   };
 
   const updateStatus = async (id: string, newStatus: string) => {
-    await fetch(`http://localhost:4000/api/transfers/${id}/status`, {
+    await fetch(`${SIGEP_API_URL}/transfers/${id}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

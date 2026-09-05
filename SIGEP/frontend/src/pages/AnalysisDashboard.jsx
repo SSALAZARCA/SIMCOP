@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
@@ -20,7 +21,7 @@ const AnalysisDashboard = () => {
       try {
         const token = user?.token || localStorage.getItem('token');
         const authConfig = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
-        const res = await axios.get(`http://localhost:4000/api/simcop/units`, authConfig);
+        const res = await axios.get(`${SIGEP_API_URL}/simcop/units`, authConfig);
         setUnits(res.data);
         if (res.data.length > 0) {
           setUnitId(res.data[0].id); // Autoseleccionar la primera
@@ -43,13 +44,13 @@ const AnalysisDashboard = () => {
     if (!user || !user.token) return;
     const config = { headers: { 'Authorization': `Bearer ${user.token}` } };
     try {
-      const resToe = await axios.get(`http://localhost:4000/api/analysis/toe-balance/${unitId}`, config);
+      const resToe = await axios.get(`${SIGEP_API_URL}/analysis/toe-balance/${unitId}`, config);
       setToeData(resToe.data);
       
-      const resAvail = await axios.get(`http://localhost:4000/api/analysis/availability/${unitId}`, config);
+      const resAvail = await axios.get(`${SIGEP_API_URL}/analysis/availability/${unitId}`, config);
       setAvailability(resAvail.data);
       
-      const resCrit = await axios.get(`http://localhost:4000/api/analysis/critical-rotation/${unitId}`, config);
+      const resCrit = await axios.get(`${SIGEP_API_URL}/analysis/critical-rotation/${unitId}`, config);
       setCriticalRotation(resCrit.data);
     } catch (error) {
       console.error("Error fetching analysis data", error);

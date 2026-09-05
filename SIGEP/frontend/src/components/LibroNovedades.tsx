@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { SIGEP_API_URL } from '../apiConfig';
 
 export default function LibroNovedades({ unitId, userToken, soldiers, onUpdate }: { unitId: string, userToken: string, soldiers: any[], onUpdate: () => void }) {
   const [novedades, setNovedades] = useState([]);
@@ -11,7 +12,7 @@ export default function LibroNovedades({ unitId, userToken, soldiers, onUpdate }
 
   const fetchNovedades = async () => {
     try {
-      const res = await axios.get(`http://localhost:4000/api/personnel/unit/${unitId}/novedades`, {
+      const res = await axios.get(`${SIGEP_API_URL}/personnel/unit/${unitId}/novedades`, {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       setNovedades(res.data);
@@ -27,7 +28,7 @@ export default function LibroNovedades({ unitId, userToken, soldiers, onUpdate }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:4000/api/personnel/novedades', {
+      await axios.post(`${SIGEP_API_URL}/personnel/novedades`, {
         ...formData,
         unitId,
         registradoPor: 'S1/G1'

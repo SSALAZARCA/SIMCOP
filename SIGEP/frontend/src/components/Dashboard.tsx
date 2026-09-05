@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 
 export default function Dashboard({ role }: { role: string }) {
   const [personnel, setPersonnel] = useState([]);
   const { user } = useAuth();
 
   useEffect(() => {
-    fetch('http://localhost:4000/api/personnel', {
+    fetch(`${SIGEP_API_URL}/personnel`, {
       headers: {
         'Authorization': `Bearer ${user.token}`
       }

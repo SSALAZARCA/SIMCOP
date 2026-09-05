@@ -46,6 +46,7 @@ services:
       - SPRING_FLYWAY_ENABLED=${SPRING_FLYWAY_ENABLED:-false}
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-ssc841209}
+      - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop_secure_webhook_secret_2026}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
     depends_on:
@@ -89,6 +90,52 @@ services:
       retries: 10
       start_period: 25s
 
+  # ============================================================
+  # 5. SIGEP BACKEND (Spring Boot REST API - Internal)
+  # ============================================================
+  sigep_backend:
+    build:
+      context: ./SIGEP/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 4000
+    environment:
+      - PORT=4000
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/app/data/sigep-db;AUTO_SERVER=TRUE
+      - SIMCOP_API_URL=http://backend:8080/api
+      - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
+      - SIGEP_JWT_SECRET=${SIGEP_JWT_SECRET:-SigepSecretKeyForMilitaryPersonnelManagementVerySecureKey20261234567890}
+      - CORS_ALLOWED_ORIGINS=${SIGEP_CORS_ALLOWED_ORIGINS:-*}
+    volumes:
+      - sigep_data:/app/data
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - simcop_internal
+
+  # ============================================================
+  # 6. SIGEP FRONTEND (React / Nginx - Entrypoint)
+  # ============================================================
+  sigep_frontend:
+    build:
+      context: ./SIGEP/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_SIGEP_API_URL=${VITE_SIGEP_API_URL:-}
+    restart: unless-stopped
+    expose:
+      - 80
+    ports:
+      - "3000:80"
+    depends_on:
+      sigep_backend:
+        condition: service_started
+    networks:
+      - coolify
+      - simcop_internal
+
 networks:
   coolify:
     external: true
@@ -97,4 +144,5 @@ networks:
 
 volumes:
   mysql_data:
+  sigep_data:
 

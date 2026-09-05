@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 import { Shield, ArrowRight, Check, X, UserPlus, FileText, CheckCircle, XCircle, Search } from 'lucide-react';
 import RecomendacionIA from './RecomendacionIA';
 import TransferViabilityModal from './TransferViabilityModal';
@@ -12,7 +13,7 @@ export default function TrasladoOficiales({ unitId, role }: { unitId: string, ro
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchTransfers = () => {
-    fetch('http://localhost:4000/api/transfers?rankCategory=OFICIAL', {
+    fetch(`${SIGEP_API_URL}/transfers?rankCategory=OFICIAL`, {
       headers: { 'Authorization': `Bearer ${user.token}` }
     })
       .then(res => res.json())
@@ -35,7 +36,7 @@ export default function TrasladoOficiales({ unitId, role }: { unitId: string, ro
     setIsModalOpen(false);
     setLoading(true);
     try {
-      await fetch('http://localhost:4000/api/transfers', {
+      await fetch(`${SIGEP_API_URL}/transfers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,7 +62,7 @@ export default function TrasladoOficiales({ unitId, role }: { unitId: string, ro
   };
 
   const updateStatus = async (id: string, newStatus: string) => {
-    await fetch(`http://localhost:4000/api/transfers/${id}/status`, {
+    await fetch(`${SIGEP_API_URL}/transfers/${id}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

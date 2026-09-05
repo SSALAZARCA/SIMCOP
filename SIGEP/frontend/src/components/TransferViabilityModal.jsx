@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
+import { SIGEP_API_URL } from '../apiConfig';
 
 const TransferViabilityModal = ({ isOpen, onClose, soldierId, targetUnitId, onConfirmTransfer }) => {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ const TransferViabilityModal = ({ isOpen, onClose, soldierId, targetUnitId, onCo
     setLoading(true);
     try {
       const config = { headers: { 'Authorization': `Bearer ${user.token}` } };
-      const res = await axios.get(`http://localhost:4000/api/analysis/viability/${soldierId}/to/${targetUnitId}`, config);
+      const res = await axios.get(`${SIGEP_API_URL}/analysis/viability/${soldierId}/to/${targetUnitId}`, config);
       setViability(res.data);
     } catch (error) {
       console.error("Error checking viability", error);
