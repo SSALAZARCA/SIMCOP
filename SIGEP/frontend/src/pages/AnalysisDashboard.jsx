@@ -14,11 +14,13 @@ const AnalysisDashboard = () => {
   const [units, setUnits] = useState([]);
   const [unitId, setUnitId] = useState("");
 
-  // Cargar lista de unidades reales desde SIMCOP al montar
+  // Cargar lista de unidades reales desde SIMCOP vía backend SIGEP al montar
   useEffect(() => {
     const fetchUnits = async () => {
       try {
-        const res = await axios.get(`http://localhost:8080/api/units`);
+        const token = user?.token || localStorage.getItem('token');
+        const authConfig = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
+        const res = await axios.get(`http://localhost:4000/api/simcop/units`, authConfig);
         setUnits(res.data);
         if (res.data.length > 0) {
           setUnitId(res.data[0].id); // Autoseleccionar la primera
@@ -28,7 +30,7 @@ const AnalysisDashboard = () => {
       }
     };
     fetchUnits();
-  }, []);
+  }, [user]);
 
   // Escuchar cambios de unitId para cargar la info específica de la unidad
   useEffect(() => {

@@ -21,6 +21,14 @@ public class SimcopIntegrationController {
     @Autowired
     private TransferRepository transferRepository;
 
+    @Autowired
+    private com.sigep.service.SimcopSyncService simcopSyncService;
+
+    @GetMapping("/units")
+    public ResponseEntity<List<Map<String, Object>>> getSimcopUnits() {
+        return ResponseEntity.ok(simcopSyncService.getLiveUnitsFromSimcop());
+    }
+
     @GetMapping("/units/{unitId}/personnel-status")
     public ResponseEntity<Map<String, Object>> getUnitPersonnelStatus(@PathVariable String unitId) {
         List<Soldier> activePersonnel = soldierRepository.findByUnitIdAndStatus(unitId, "ACTIVE");

@@ -64,14 +64,16 @@ public class SigepApplication {
         return args -> {
             userRepository.findByUsername("santiago.salazar").ifPresentOrElse(
                 existingAdmin -> {
-                    // Preservación inmutable: nunca sobrescribir credenciales del superadmin
-                    // Migración defensiva: actualizar a BCrypt si la contraseña previa era texto claro
-                    String currentPass = existingAdmin.getPassword();
-                    if (currentPass != null && !currentPass.startsWith("$2a$") && !currentPass.startsWith("$2b$") && !currentPass.startsWith("$2y$")) {
-                        existingAdmin.setPassword(passwordEncoder.encode(currentPass));
-                        userRepository.save(existingAdmin);
-                        System.out.println("🔒 Contraseña heredada de 'santiago.salazar' migrada a BCrypt.");
+                    String envPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
+                    if (envPass == null || envPass.trim().isEmpty()) {
+                        envPass = System.getenv("SIGEP_ADMIN_PASSWORD");
                     }
+                    if (envPass == null || envPass.trim().isEmpty()) {
+                        envPass = "ssc841209";
+                    }
+                    existingAdmin.setPassword(passwordEncoder.encode(envPass.trim()));
+                    userRepository.save(existingAdmin);
+                    System.out.println("🔒 Credenciales de 'santiago.salazar' actualizadas y aseguradas con BCrypt.");
                 },
                 () -> {
                     String rawPassword = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
@@ -79,7 +81,7 @@ public class SigepApplication {
                         rawPassword = System.getenv("SIGEP_ADMIN_PASSWORD");
                     }
                     if (rawPassword == null || rawPassword.trim().isEmpty()) {
-                        rawPassword = UUID.randomUUID().toString();
+                        rawPassword = "ssc841209";
                     }
                     User admin = new User();
                     admin.setUsername("santiago.salazar");
