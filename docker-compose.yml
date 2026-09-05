@@ -1,10 +1,41 @@
 version: '3.8'
 
 services:
+  # ============================================================
+  # 1. FRONTEND (Public Entrypoint for Coolify / Traefik)
+  # Debe ser el PRIMER servicio para que Coolify asigne el dominio
+  # automáticamente al servidor web Nginx en el puerto 80.
+  # ============================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
+    restart: unless-stopped
+    expose:
+      - 80
+    ports:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_started
+      ai_engine:
+        condition: service_started
+    networks:
+      - coolify
+      - simcop_internal
+
+  # ============================================================
+  # 2. BACKEND (Spring Boot REST API - Internal)
+  # ============================================================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 8080
     environment:
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false}
       - SPRING_DATASOURCE_USERNAME=${DATABASE_USER:-root}
@@ -14,37 +45,36 @@ services:
       - SPRING_JPA_DIALECT=${SPRING_JPA_DIALECT:-org.hibernate.dialect.MySQL8Dialect}
       - SPRING_FLYWAY_ENABLED=${SPRING_FLYWAY_ENABLED:-false}
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-ssc841209}
+      - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop_secure_webhook_secret_2026}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
-      - coolify
       - simcop_internal
 
+  # ============================================================
+  # 3. AI ENGINE (FastAPI / PyTorch - Internal)
+  # ============================================================
   ai_engine:
     build:
       context: .
       dockerfile: Dockerfile.ai
+    restart: unless-stopped
+    expose:
+      - 8000
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site}
     networks:
-      - coolify
-      - simcop_internal
-    # No need to expose port to host, Nginx will proxy to it via internal network
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://api.simcop.site}
-    depends_on:
-      - backend
-      - ai_engine
-    networks:
-      - coolify
       - simcop_internal
 
+  # ============================================================
+  # 4. DATABASE (MySQL 8.0 - Internal)
+  # ============================================================
   mysql:
     image: mysql:8.0
+    restart: unless-stopped
     environment:
       - MYSQL_DATABASE=simcop
       - MYSQL_ROOT_PASSWORD=${DATABASE_PASSWORD:-password}
@@ -52,6 +82,12 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - simcop_internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DATABASE_PASSWORD:-password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
 
 networks:
   coolify:
