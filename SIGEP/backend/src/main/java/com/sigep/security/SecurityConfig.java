@@ -73,6 +73,12 @@ public class SecurityConfig {
                     .toList();
         } else {
             origins = Arrays.asList(
+                    "https://sigep.site",
+                    "http://sigep.site",
+                    "https://api.sigep.site",
+                    "http://api.sigep.site",
+                    "https://simcop.site",
+                    "http://simcop.site",
                     "http://localhost:3000",
                     "http://localhost:5173",
                     "http://localhost:80",
@@ -85,7 +91,11 @@ public class SecurityConfig {
             );
         }
         
-        config.setAllowedOrigins(origins);
+        if (origins.contains("*")) {
+            config.setAllowedOriginPatterns(Arrays.asList("*"));
+        } else {
+            config.setAllowedOrigins(origins);
+        }
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "X-Service-Token"));
         config.setExposedHeaders(Arrays.asList("Authorization", "X-Service-Token"));

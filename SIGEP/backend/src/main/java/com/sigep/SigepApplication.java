@@ -37,6 +37,12 @@ public class SigepApplication {
                             .toArray(String[]::new);
                 } else {
                     origins = new String[]{
+                            "https://sigep.site",
+                            "http://sigep.site",
+                            "https://api.sigep.site",
+                            "http://api.sigep.site",
+                            "https://simcop.site",
+                            "http://simcop.site",
                             "http://localhost:3000",
                             "http://localhost:5173",
                             "http://localhost:80",
@@ -48,8 +54,13 @@ public class SigepApplication {
                             "http://127.0.0.1:8085"
                     };
                 }
-                registry.addMapping("/**")
-                        .allowedOrigins(origins)
+                var registration = registry.addMapping("/**");
+                if (Arrays.asList(origins).contains("*")) {
+                    registration.allowedOriginPatterns("*");
+                } else {
+                    registration.allowedOrigins(origins);
+                }
+                registration
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "X-Service-Token")
                         .exposedHeaders("Authorization", "X-Service-Token")

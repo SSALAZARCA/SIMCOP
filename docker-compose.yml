@@ -106,7 +106,7 @@ services:
       - SIMCOP_API_URL=http://backend:8080/api
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - SIGEP_JWT_SECRET=${SIGEP_JWT_SECRET:-SigepSecretKeyForMilitaryPersonnelManagementVerySecureKey20261234567890}
-      - CORS_ALLOWED_ORIGINS=${SIGEP_CORS_ALLOWED_ORIGINS:-*}
+      - CORS_ALLOWED_ORIGINS=${SIGEP_CORS_ALLOWED_ORIGINS:-https://sigep.site,http://sigep.site,https://api.sigep.site,http://api.sigep.site,https://simcop.site,http://simcop.site,http://localhost:3000,http://localhost:5173,http://localhost:80,http://localhost:8080,http://localhost:8085}
     volumes:
       - sigep_data:/app/data
     depends_on:

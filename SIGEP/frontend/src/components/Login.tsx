@@ -16,7 +16,13 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        data = { message: text || 'Error de conexión con el servidor' };
+      }
       if (!res.ok) throw new Error(data.message || 'Credenciales inválidas');
       
       login(data.token, data.simcopToken, data.username, data.role, data.unitId);
