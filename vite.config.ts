@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       }
     },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+      legalComments: 'none',
+    },
     build: {
       sourcemap: false,
       chunkSizeWarningLimit: 2000,
@@ -33,6 +37,7 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               if (id.includes('cesium')) return 'cesium';
               if (id.includes('leaflet')) return 'leaflet';
+              if (id.includes('milsymbol')) return 'milsymbol';
               if (id.includes('react')) return 'vendor';
               return 'deps';
             }

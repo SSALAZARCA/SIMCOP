@@ -10,35 +10,12 @@ import { MapPinIcon } from './components/icons/MapPinIcon';
 import { BellAlertIcon } from './components/icons/BellAlertIcon';
 import { ChatBubbleOvalLeftEllipsisIcon } from './components/icons/ChatBubbleOvalLeftEllipsisIcon';
 import { ResizableDivider } from './components/ResizableDivider';
-import { DashboardView } from './components/DashboardView';
-import { UnitsView } from './components/UnitsView';
-import { IntelView } from './components/IntelView';
-import { AlertsView } from './components/AlertsView';
-import { AnalysisView } from './components/AnalysisView';
-import { CommunicationsView } from './components/CommunicationsView';
-import { ArtilleryViewComponent } from './components/ArtilleryViewComponent';
-import { HistoricalViewComponent } from './components/HistoricalViewComponent';
-import { UnitHistoryViewComponent } from './components/UnitHistoryViewComponent';
-import { Q5ViewComponent } from './components/Q5ViewComponent';
-import { RetrainingAreaViewComponent } from './components/RetrainingAreaViewComponent';
-import { InsitopViewComponent } from './components/InsitopViewComponent';
-import { SpotViewComponent } from './components/SpotViewComponent';
-import { TwoFactorSetupModal } from './components/TwoFactorSetupModal';
-import { ORDOPViewComponent } from './components/ORDOPViewComponent';
 import { LoginViewComponent } from './components/LoginViewComponent';
-// Security Audit: Admin components are lazy loaded to prevent bundle exposure
+// Security Audit: Admin & Tactical components are lazy loaded to prevent bundle exposure to unauthenticated visitors
 import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from './utils/apiConfig';
-import { OrganizationStructureView } from './components/OrganizationStructureView';
-import { PlatoonCommanderView } from './components/platoon/PlatoonCommanderView';
-import { CompanyCommanderView } from './components/company/CompanyCommanderView';
-import { LogisticsViewComponent } from './components/LogisticsViewComponent';
-
-import { PersonnelView } from './components/PersonnelView';
-import { UAVManagementView } from './components/UAVManagementView';
 import { SimpleErrorBoundary } from './components/SimpleErrorBoundary';
-import { BMAPanel } from './components/BMAPanel';
 
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
@@ -47,7 +24,6 @@ import { getCommandFromGemini, encode, decode, decodeAudioData } from './utils/g
 import { eventBus } from './utils/eventEmitter';
 import { ViewType, MapEntityType, UnitStatus, PlantillaType, UserRole, UnitType as UnitTypeEnum, AlertType, AlertSeverity } from './types';
 import type { MilitaryUnit, IntelligenceReport, Alert, SelectedEntity, AfterActionReport, Q5Report, PICCDrawConfig, SpotReportPayload, OperationsOrder, User, TargetSelectionRequest, GeoLocation, ForwardObserver, NewArtilleryPieceData, LogisticsRequest, PendingFireMission, ActiveFireMission, FiringSolution, ProjectileType, UserTelegramConfig, NewUserData, UpdateUserData, Hotspot } from './types';
-import { Map3DDisplayComponent } from './components/Map3DDisplayComponent';
 import { bmaService } from './services/bmaService';
 import { uavService } from './services/uavService';
 import { apiClient } from './utils/apiClient';
@@ -55,9 +31,54 @@ import { userService } from './services/userService';
 
 const SIMCOP_USER_SESSION_KEY = 'simcop_currentUser_id';
 
+// Hardened Dynamic Lazy Chunks - Tactical components isolated from unauthenticated public traffic
+const DashboardView = React.lazy(() => import('./components/DashboardView').then(m => ({ default: m.DashboardView })));
+const UnitsView = React.lazy(() => import('./components/UnitsView').then(m => ({ default: m.UnitsView })));
+const IntelView = React.lazy(() => import('./components/IntelView').then(m => ({ default: m.IntelView })));
+const AlertsView = React.lazy(() => import('./components/AlertsView').then(m => ({ default: m.AlertsView })));
+const AnalysisView = React.lazy(() => import('./components/AnalysisView').then(m => ({ default: m.AnalysisView })));
+const CommunicationsView = React.lazy(() => import('./components/CommunicationsView').then(m => ({ default: m.CommunicationsView })));
+const ArtilleryViewComponent = React.lazy(() => import('./components/ArtilleryViewComponent').then(m => ({ default: m.ArtilleryViewComponent })));
+const HistoricalViewComponent = React.lazy(() => import('./components/HistoricalViewComponent').then(m => ({ default: m.HistoricalViewComponent })));
+const UnitHistoryViewComponent = React.lazy(() => import('./components/UnitHistoryViewComponent').then(m => ({ default: m.UnitHistoryViewComponent })));
+const Q5ViewComponent = React.lazy(() => import('./components/Q5ViewComponent').then(m => ({ default: m.Q5ViewComponent })));
+const RetrainingAreaViewComponent = React.lazy(() => import('./components/RetrainingAreaViewComponent').then(m => ({ default: m.RetrainingAreaViewComponent })));
+const InsitopViewComponent = React.lazy(() => import('./components/InsitopViewComponent').then(m => ({ default: m.InsitopViewComponent })));
+const SpotViewComponent = React.lazy(() => import('./components/SpotViewComponent').then(m => ({ default: m.SpotViewComponent })));
+const ORDOPViewComponent = React.lazy(() => import('./components/ORDOPViewComponent').then(m => ({ default: m.ORDOPViewComponent })));
+const OrganizationStructureView = React.lazy(() => import('./components/OrganizationStructureView').then(m => ({ default: m.OrganizationStructureView })));
+const PlatoonCommanderView = React.lazy(() => import('./components/platoon/PlatoonCommanderView').then(m => ({ default: m.PlatoonCommanderView })));
+const CompanyCommanderView = React.lazy(() => import('./components/company/CompanyCommanderView').then(m => ({ default: m.CompanyCommanderView })));
+const LogisticsViewComponent = React.lazy(() => import('./components/LogisticsViewComponent').then(m => ({ default: m.LogisticsViewComponent })));
+const PersonnelView = React.lazy(() => import('./components/PersonnelView').then(m => ({ default: m.PersonnelView })));
+const UAVManagementView = React.lazy(() => import('./components/UAVManagementView').then(m => ({ default: m.UAVManagementView })));
+const BMAPanel = React.lazy(() => import('./components/BMAPanel').then(m => ({ default: m.BMAPanel })));
+const Map3DDisplayComponent = React.lazy(() => import('./components/Map3DDisplayComponent').then(m => ({ default: m.Map3DDisplayComponent })));
 const UserManagementViewComponent = React.lazy(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })));
 const SettingsView = React.lazy(() => import('./components/SettingsView'));
 const AdminDashboardComponent = React.lazy(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })));
+
+const TacticalModuleFallback: React.FC<{ label?: string }> = ({ label = "CARGANDO MÓDULO TÁCTICO..." }) => (
+  <div className="flex flex-col items-center justify-center h-full min-h-[250px] w-full p-6 text-slate-400">
+    <div className="relative mb-3">
+      <div className="w-10 h-10 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono text-blue-400 font-bold">COP</div>
+    </div>
+    <span className="text-xs font-mono uppercase tracking-widest text-slate-300 font-bold">{label}</span>
+    <span className="text-[10px] font-mono text-slate-500 mt-1">SIMCOP // SEGURIDAD OPERACIONAL</span>
+  </div>
+);
+
+const TacticalMapFallback: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full w-full min-h-[400px] bg-[#0d1117] text-slate-400">
+    <div className="relative mb-4">
+      <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-cyan-400 font-bold">3D</div>
+    </div>
+    <span className="text-xs font-mono uppercase tracking-widest text-slate-200 font-bold">INICIALIZANDO MOTOR GEOESPACIAL 3D...</span>
+    <span className="text-[10px] font-mono text-slate-500 mt-1">CESIUM DIGITAL TWIN // MANDO Y CONTROL</span>
+  </div>
+);
 
 // Remove static initialization
 // const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -1028,49 +1049,53 @@ const App: React.FC = () => {
   // Role-based rendering logic
   if (currentUser.role === UserRole.COMANDANTE_PELOTON) {
     return (
-      <PlatoonCommanderView
-        isMobile={isMobile}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        allUnits={units}
-        operationsOrders={operationsOrders}
-        artilleryPieces={artilleryPieces}
-        forwardObservers={forwardObservers}
-        activeFireMissions={activeFireMissions as ActiveFireMission[]}
-        unitHistoryLog={unitHistoryLog}
-        acknowledgeOperationsOrder={acknowledgeOperationsOrder}
-        submitAmmoExpenditureReport={submitAmmoExpenditureReport}
-        logPlatoonNovelty={logPlatoonNovelty}
-        onCallForFire={handleCallForFire}
-        onCancelFireMission={handleCancelFireMission}
-        targetSelectionRequest={targetSelectionRequest}
-        eventBus={eventBus}
-        entityToPanTo={entityToPanTo}
-        onTargetSelected={handleTargetSelected}
-        pendingFireMissions={pendingFireMissions}
-        dismissPendingMission={dismissPendingMission}
-      />
+      <React.Suspense fallback={<TacticalModuleFallback label="CARGANDO PUESTO DE MANDO PELOTÓN..." />}>
+        <PlatoonCommanderView
+          isMobile={isMobile}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          allUnits={units}
+          operationsOrders={operationsOrders}
+          artilleryPieces={artilleryPieces}
+          forwardObservers={forwardObservers}
+          activeFireMissions={activeFireMissions as ActiveFireMission[]}
+          unitHistoryLog={unitHistoryLog}
+          acknowledgeOperationsOrder={acknowledgeOperationsOrder}
+          submitAmmoExpenditureReport={submitAmmoExpenditureReport}
+          logPlatoonNovelty={logPlatoonNovelty}
+          onCallForFire={handleCallForFire}
+          onCancelFireMission={handleCancelFireMission}
+          targetSelectionRequest={targetSelectionRequest}
+          eventBus={eventBus}
+          entityToPanTo={entityToPanTo}
+          onTargetSelected={handleTargetSelected}
+          pendingFireMissions={pendingFireMissions}
+          dismissPendingMission={dismissPendingMission}
+        />
+      </React.Suspense>
     );
   }
 
   if (currentUser.role === UserRole.COMANDANTE_COMPANIA) {
     return (
-      <CompanyCommanderView
-        isMobile={isMobile}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        allUnits={units}
-        operationsOrders={operationsOrders}
-        alerts={alerts}
-        unitHistoryLog={unitHistoryLog}
-        acknowledgeOperationsOrder={acknowledgeOperationsOrder}
-        approveAmmoReport={approveAmmoReport}
-        rejectAmmoReport={rejectAmmoReport}
-        approvePlatoonNovelty={approvePlatoonNovelty}
-        rejectPlatoonNovelty={rejectPlatoonNovelty}
-        eventBus={eventBus}
-        entityToPanTo={entityToPanTo}
-      />
+      <React.Suspense fallback={<TacticalModuleFallback label="CARGANDO PUESTO DE MANDO COMPAÑÍA..." />}>
+        <CompanyCommanderView
+          isMobile={isMobile}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          allUnits={units}
+          operationsOrders={operationsOrders}
+          alerts={alerts}
+          unitHistoryLog={unitHistoryLog}
+          acknowledgeOperationsOrder={acknowledgeOperationsOrder}
+          approveAmmoReport={approveAmmoReport}
+          rejectAmmoReport={rejectAmmoReport}
+          approvePlatoonNovelty={approvePlatoonNovelty}
+          rejectPlatoonNovelty={rejectPlatoonNovelty}
+          eventBus={eventBus}
+          entityToPanTo={entityToPanTo}
+        />
+      </React.Suspense>
     );
   }
 
@@ -1192,14 +1217,20 @@ const App: React.FC = () => {
             {currentView === ViewType.MAP ? (
               <main className="flex-1 flex h-full w-full relative z-10 pb-16">
                 <div className="w-full h-full relative">
-                  <Map3DDisplayComponent {...mapDisplayProps} />
+                  <SimpleErrorBoundary viewName="MapDisplay">
+                    <React.Suspense fallback={<TacticalMapFallback />}>
+                      <Map3DDisplayComponent {...mapDisplayProps} />
+                    </React.Suspense>
+                  </SimpleErrorBoundary>
                 </div>
               </main>
             ) : (
               <main className="flex-1 flex p-2 md:p-4 overflow-y-auto h-full w-full relative z-10 pb-20">
                 <div className="w-full h-full glass-effect rounded-2xl p-4 shadow-2xl">
                   <SimpleErrorBoundary viewName={currentView || 'Unknown'}>
-                    {renderView()}
+                    <React.Suspense fallback={<TacticalModuleFallback label={`CARGANDO ${currentView}...`} />}>
+                      {renderView()}
+                    </React.Suspense>
                   </SimpleErrorBoundary>
                 </div>
               </main>
@@ -1221,7 +1252,9 @@ const App: React.FC = () => {
               <div className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
                 <div className="animate-in fade-in slide-in-from-left-4 duration-500">
                   <SimpleErrorBoundary viewName={currentView || 'Unknown'}>
-                    {renderView()}
+                    <React.Suspense fallback={<TacticalModuleFallback label={`CARGANDO ${currentView}...`} />}>
+                      {renderView()}
+                    </React.Suspense>
                   </SimpleErrorBoundary>
                 </div>
               </div>
@@ -1232,7 +1265,9 @@ const App: React.FC = () => {
             <div className="h-full flex-1 p-2 overflow-hidden">
               <div className="glass-effect rounded-2xl shadow-2xl h-full border border-white/5 overflow-hidden map-container-glow relative">
                 <SimpleErrorBoundary viewName="MapDisplay">
-                  <Map3DDisplayComponent {...mapDisplayProps} />
+                  <React.Suspense fallback={<TacticalMapFallback />}>
+                    <Map3DDisplayComponent {...mapDisplayProps} />
+                  </React.Suspense>
                 </SimpleErrorBoundary>
               </div>
             </div>
