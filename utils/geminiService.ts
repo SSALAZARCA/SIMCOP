@@ -1025,7 +1025,84 @@ ${escapeTemplateLiteralContent(query)}`;
   }
 };
 
-// FIX: Implement and export generateCOAPlan, which was missing.
+export const normalizeCOAPlan = (raw: any): COAPlan => {
+  const planName = raw.nombre_operacion || raw.planName || "Plan de Maniobra Táctica COA";
+  const conceptOfOperations = raw.intencion_comandante || raw.conceptOfOperations || "";
+  
+  const rawPhases = raw.fases || raw.phases || [];
+  const phases: COAPhase[] = rawPhases.map((phase: any, pIdx: number) => {
+    const phaseName = phase.nombre || phase.phaseName || `Fase ${phase.fase_numero || (pIdx + 1)}`;
+    const description = phase.descripcion || phase.description || "";
+    
+    // Normalizar medidas de control / graphics
+    const rawGraphics = phase.medidas_control_graficacion || phase.graphics || [];
+    const graphics: COAGraphicElement[] = rawGraphics.map((item: any) => {
+      let gType: COAGraphicType = COAGraphicType.PHASE_LINE;
+      const cat = (item.categoria || item.type || "").toUpperCase();
+      const tipo = (item.tipo || "").toUpperCase();
+      
+      if (cat.includes('LINEA_FASE') || cat.includes('PHASE_LINE')) gType = COAGraphicType.PHASE_LINE;
+      else if (cat.includes('EJE_AVANCE') || cat.includes('AXIS')) gType = COAGraphicType.AXIS_OF_ADVANCE;
+      else if (cat.includes('AREA_OBJETIVO') || cat.includes('OBJECTIVE')) gType = COAGraphicType.OBJECTIVE;
+      else if (cat.includes('ZONA_REUNION') || cat.includes('ASSEMBLY')) gType = COAGraphicType.ASSEMBLY_AREA;
+      else if (cat.includes('POSICION_BLOQUEO') || cat.includes('BOUNDARY')) gType = COAGraphicType.BOUNDARY;
+      else if (cat.includes('PUNTO_CONTROL') || cat.includes('PUNTO_INSERCION') || cat.includes('CHECKPOINT') || tipo === 'PUNTO') gType = COAGraphicType.CHECKPOINT;
+      else if (tipo === 'LINEA') gType = COAGraphicType.PHASE_LINE;
+      else if (tipo === 'POLIGONO') gType = COAGraphicType.OBJECTIVE;
+      
+      const coords = item.coordenadas || item.locations || [];
+      let locations: GeoLocation[] = [];
+      if (Array.isArray(coords)) {
+        if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+          // Coordenada individual [lat, lon]
+          const isLatFirst = Math.abs(coords[0]) <= 90;
+          locations = [{
+            lat: isLatFirst ? coords[0] : coords[1],
+            lon: isLatFirst ? coords[1] : coords[0]
+          }];
+        } else if (coords.length > 0 && Array.isArray(coords[0])) {
+          // Array de coordenadas [[lat, lon], ...]
+          locations = coords.map((c: any) => {
+            const isLatFirst = Math.abs(c[0]) <= 90;
+            return {
+              lat: isLatFirst ? c[0] : c[1],
+              lon: isLatFirst ? c[1] : c[0]
+            };
+          });
+        } else if (coords.length > 0 && typeof coords[0] === 'object') {
+          locations = coords.map((c: any) => ({
+            lat: c.lat ?? c.latitude ?? 0,
+            lon: c.lon ?? c.lng ?? c.longitude ?? 0
+          }));
+        }
+      }
+      
+      return {
+        type: gType,
+        label: item.etiqueta || item.label || 'Control Táctico',
+        locations
+      };
+    });
+    
+    return {
+      phaseName,
+      description,
+      graphics,
+      fase_numero: phase.fase_numero || (pIdx + 1),
+      nombre: phaseName,
+      descripcion: description,
+      medidas_control_graficacion: rawGraphics
+    };
+  });
+  
+  return {
+    ...raw,
+    planName,
+    conceptOfOperations,
+    phases
+  };
+};
+
 export const generateCOAPlan = async (
   objective: string,
   units: MilitaryUnit[],
@@ -1037,67 +1114,110 @@ export const generateCOAPlan = async (
     throw new Error("Gemini AI client no inicializado. Por favor, configure la API key en Configuración.");
   }
 
-  const unitContext = formatUnitsForPrompt(units);
+  const unitContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
   
-  const systemInstruction = `Eres un oficial de planeamiento experto. Tu tarea es generar un Curso de Acción (COA) militar en formato JSON basado en el objetivo, las unidades amigas disponibles y la inteligencia del enemigo. El COA debe ser lógico y seguir una estructura de fases. Responde ÚNICAMENTE con el objeto JSON.`;
+  const systemInstruction = `Eres el Oficial de Planeamiento y Operaciones (G3) del sistema SIMCOP. Tu tarea es diseñar un Curso de Acción (COA) táctico completo y generar simultáneamente su CALCO TÁCTICO DE GRAFICACIÓN sobre el mapa.
 
-  const prompt = `
-REGLA DE ORO: DEBES centrar tu plan estrictamente en la unidad o intención descrita en el OBJETIVO. Es imperativo que la unidad mencionada en el objetivo sea la protagonista de tu respuesta.
-El plan debe ser EXTENSAMENTE DETALLADO Y PROFUNDAMENTE TÁCTICO, analizando y aprovechando el terreno, la población civil y el clima reportados en el Entorno Operacional.
+REGLAS OBLIGATORIAS:
+1. ANCLAJE ESPACIAL: Prohibido inventar coordenadas. Emplea exclusivamente las coordenadas y posiciones de las unidades amigas e informes de inteligencia inyectados en la consulta.
+2. INTEGRACIÓN DE GRAFICACIÓN: Cada fase de la maniobra debe incluir obligatoriamente sus capas geométricas de control táctico para ser renderizadas en el mapa (puntos de control, líneas de fase, vectores de avance, zonas de reunión y áreas de objetivo).
+3. FORMATO DE COORDENADAS: Formato estándar [latitud, longitud] en decimales o [longitud, latitud] según GeoJSON. Valida que los vértices sean consistentes con el terreno real del área.
+4. SALIDA: Responde ÚNICAMENTE con un objeto JSON válido, sin bloques de texto introductorio ni explicaciones fuera del JSON.
 
-OBJETIVO DE LA OPERACIÓN:
+ESQUEMA JSON OBLIGATORIO:
+{
+  "coa_id": "COA-1",
+  "nombre_operacion": "Nombre táctico de la operación",
+  "intencion_comandante": "Propósito militar claro, método y estado final deseado.",
+  "unidades_asignadas": [
+    {
+      "indicativo": "ASTRO 1",
+      "rol_tactico": "Esfuerzo Principal | Esfuerzo Secundario | Reserva",
+      "mision": "Tarea táctica asignada (ej. Aislar, Destruir, Bloquear, Fijar)"
+    }
+  ],
+  "fases": [
+    {
+      "fase_numero": 1,
+      "nombre": "Fase I: Infiltración y Aislamiento",
+      "descripcion": "Detalle de maniobra táctica de las unidades en esta fase.",
+      "medidas_control_graficacion": [
+        {
+          "id": "MC-01",
+          "tipo": "PUNTO",
+          "categoria": "PUNTO_CONTROL",
+          "etiqueta": "PZ Alfa",
+          "coordenadas": [3.1234, -76.5678],
+          "unidad_responsable": "ASTRO 1",
+          "estilo": {
+            "color": "#0055FF",
+            "tipo_linea": "solida"
+          }
+        },
+        {
+          "id": "MC-02",
+          "tipo": "LINEA",
+          "categoria": "EJE_AVANCE",
+          "etiqueta": "Eje Halcón",
+          "coordenadas": [
+            [3.1234, -76.5678],
+            [3.1280, -76.5710],
+            [3.1350, -76.5800]
+          ],
+          "unidad_responsable": "ASTRO 1",
+          "estilo": {
+            "color": "#0055FF",
+            "tipo_linea": "discontinua"
+          }
+        },
+        {
+          "id": "MC-03",
+          "tipo": "POLIGONO",
+          "categoria": "AREA_OBJETIVO",
+          "etiqueta": "OBJ Águila",
+          "coordenadas": [
+            [3.1350, -76.5800],
+            [3.1380, -76.5800],
+            [3.1380, -76.5850],
+            [3.1350, -76.5850]
+          ],
+          "unidad_responsable": "ASTRO 1",
+          "estilo": {
+            "color": "#FF0000",
+            "tipo_linea": "solida"
+          }
+        }
+      ]
+    }
+  ],
+  "sincronizacion_fuegos_y_uav": {
+    "reconocimiento_aereo": "Ventanas de vuelo y sectores de vigilancia sensor UAS",
+    "apoyo_fuego": "Líneas restrictivas de fuego o posiciones de armas de apoyo"
+  },
+  "riesgo_y_mitigacion": [
+    {
+      "riesgo": "Descripción del riesgo táctico o amenaza de IED",
+      "mitigacion": "Acción preventiva requerida"
+    }
+  ]
+}`;
+
+  const prompt = `INFORMACIÓN OPERACIONAL DE SIMCOP:
+
+OBJETIVO Y PROPÓSITO DE LA OPERACIÓN:
 ${escapeTemplateLiteralContent(objective)}
 
-FUERZAS AMIGAS DISPONIBLES:
+FUERZAS AMIGAS DISPONIBLES EN EL MAPA:
 ${unitContext}
 
-INTELIGENCIA DEL ENEMIGO:
+INTELIGENCIA Y AMENAZAS EN EL MAPA:
 ${intelContext}
 
 ---
-SOLICITUD:
-Genera un plan de Curso de Acción (COA) en formato JSON. El plan debe tener un nombre, un concepto de la operación EXHAUSTIVO, y múltiples fases detalladas. Cada fase debe tener un nombre, una descripción MUY ESPECÍFICA (qué hace la unidad, por dónde se mueve, por qué lo hace según el terreno) y una lista de elementos gráficos (graphics) con tipo (PHASE_LINE, AXIS_OF_ADVANCE, OBJECTIVE, ASSEMBLY_AREA, BOUNDARY, CHECKPOINT), etiqueta, y una lista de coordenadas geográficas (locations).
-IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avance lógicos, áreas de reunión ocultas y límites sectoriales. Para lograr esto, PUEDES inventar o calcular nuevas coordenadas (sumando o restando pequeños valores como 0.01 a la latitud/longitud de las referencias) para crear líneas y polígonos alrededor de las fuerzas enemigas y amigas. ¡Genera un paquete de gráficos tácticos abundante y realista!
-`;
-
-  const responseSchema = {
-    type: Type.OBJECT,
-    properties: {
-      planName: { type: Type.STRING, description: 'Nombre del plan de acción.' },
-      conceptOfOperations: { type: Type.STRING, description: 'Concepto general de la operación.' },
-      phases: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            phaseName: { type: Type.STRING },
-            description: { type: Type.STRING },
-            graphics: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING, description: 'PHASE_LINE, AXIS_OF_ADVANCE, OBJECTIVE, ASSEMBLY_AREA' },
-                  label: { type: Type.STRING },
-                  locations: {
-                    type: Array,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        lat: { type: Type.NUMBER },
-                        lon: { type: Type.NUMBER }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  };
+SOLICITUD G3:
+Diseña el Curso de Acción (COA) táctico completo y genera simultáneamente las medidas de control gráfico táctico (puntos, líneas y polígonos) para su renderizado y calco directo en el mapa 3D de SIMCOP.
+Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
 
   if (aiProvider === 'NATIVE_SIMCOP') {
     try {
@@ -1107,7 +1227,7 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
         unidades_amigas: unitContext,
         inteligencia_enemiga: intelContext
       });
-      const coaPlan = data as COAPlan;
+      const coaPlan = normalizeCOAPlan(data);
       updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
       return coaPlan;
     } catch (error: any) {
@@ -1117,37 +1237,56 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
     }
   }
 
+  // Extraer y reparar JSON truncado usando un stack para mantener balance
+  const extractAndRepairJson = (text: string): string => {
+    const start = text.indexOf('{');
+    if (start === -1) return "";
+    
+    const stack: ('{' | '[')[] = [];
+    let inString = false;
+    let escape = false;
+    
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      
+      if (ch === '{') stack.push('{');
+      else if (ch === '[') stack.push('[');
+      else if (ch === '}') {
+        if (stack[stack.length - 1] === '{') stack.pop();
+        if (stack.length === 0) return text.slice(start, i + 1);
+      }
+      else if (ch === ']') {
+        if (stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+    
+    // JSON Truncado: Reparación
+    let repaired = text.slice(start);
+    if (inString) repaired += '"';
+    
+    // Limpiar última coma o dos puntos si la cadena quedó cortada a medias
+    repaired = repaired.replace(/[,:]\s*$/, '');
+    if (repaired.endsWith('"null')) repaired = repaired.replace(/"null$/, 'null');
+    
+    // Cerrar estructuras en orden inverso
+    while (stack.length > 0) {
+        const char = stack.pop();
+        repaired += char === '{' ? '}' : ']';
+    }
+    
+    return repaired;
+  };
+
   if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE' || !ai) {
     try {
-      // Prompt simplificado: no se envía el schema serializado (reduce tokens y evita confusión del modelo)
-      const localPrompt = `${systemInstruction}\n\n${prompt}\n\nIMPORTANTE: DEBES RESPONDER ÚNICAMENTE CON UN OBJETO JSON VÁLIDO. NO ESCRIBAS TEXTO CONVERSACIONAL NI SALUDOS. Si no usas formato JSON, el sistema fallará.\n\nEstructura exacta requerida:\n{
-  "planName": "Nombre de la Operación",
-  "conceptOfOperations": "Concepto táctico general...",
-  "phases": [
-    {
-      "phaseName": "Fase 1: Ejemplo",
-      "description": "Descripción detallada de la maniobra...",
-      "graphics": [
-        {
-          "type": "PHASE_LINE",
-          "label": "PL ALPHA",
-          "locations": [{"lat": 0.0, "lon": 0.0}, {"lat": 0.1, "lon": 0.1}]
-        },
-        {
-          "type": "OBJECTIVE",
-          "label": "OBJ TIGER",
-          "locations": [{"lat": 0.05, "lon": 0.05}]
-        }
-      ]
-    }
-  ]
-}
-(Asegúrate de incluir múltiples medidas tácticas de control en la sección 'graphics' de cada fase para que puedan ser graficadas en el mapa).`;
-
-      const responseText = await generateContentViaBackend(localPrompt, 'coaGeneration');
+      const responseText = await generateContentViaBackend(prompt, 'coaGeneration', systemInstruction);
       let jsonStr = responseText.trim();
 
-      // Eliminar etiquetas de razonamiento interno (solo si están cerradas para no borrar JSON por error)
+      // Eliminar etiquetas de razonamiento interno (<think>...</think>)
       jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/(?:thought|think|thinking|reasoning)>/gi, '').trim();
 
       // Extraer bloque JSON de markdown si viene con fences
@@ -1157,70 +1296,22 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
         jsonStr = fenceMatch[1].trim();
       }
 
-      // Extraer y reparar JSON truncado usando un stack para mantener balance
-      const extractAndRepairJson = (text: string): string => {
-        const start = text.indexOf('{');
-        if (start === -1) return "";
-        
-        const stack: ('{' | '[')[] = [];
-        let inString = false;
-        let escape = false;
-        
-        for (let i = start; i < text.length; i++) {
-          const ch = text[i];
-          if (escape) { escape = false; continue; }
-          if (ch === '\\' && inString) { escape = true; continue; }
-          if (ch === '"') { inString = !inString; continue; }
-          if (inString) continue;
-          
-          if (ch === '{') stack.push('{');
-          else if (ch === '[') stack.push('[');
-          else if (ch === '}') {
-            if (stack[stack.length - 1] === '{') stack.pop();
-            if (stack.length === 0) return text.slice(start, i + 1);
-          }
-          else if (ch === ']') {
-            if (stack[stack.length - 1] === '[') stack.pop();
-          }
-        }
-        
-        // JSON Truncado: Reparación
-        let repaired = text.slice(start);
-        if (inString) repaired += '"';
-        
-        // Limpiar última coma o dos puntos si la cadena quedó cortada a medias
-        repaired = repaired.replace(/[,:]\s*$/, '');
-        if (repaired.endsWith('"null')) repaired = repaired.replace(/"null$/, 'null'); // edge case
-        
-        // Cerrar estructuras en orden inverso
-        while (stack.length > 0) {
-            const char = stack.pop();
-            repaired += char === '{' ? '}' : ']';
-        }
-        
-        return repaired;
-      };
-
       jsonStr = extractAndRepairJson(jsonStr);
       
       if (!jsonStr) {
         let snippet = responseText.trim().substring(0, 150);
         if (responseText.length > 150) snippet += "...";
-        throw new Error(`La IA no generó un JSON válido. Respondió: "${snippet}". Verifique que el modelo entienda instrucciones de formato JSON.`);
+        throw new Error(`La IA no generó un JSON válido. Respondió: "${snippet}".`);
       }
       
-      const coaPlan = JSON.parse(jsonStr) as COAPlan;
-
-      // Validar estructura mínima
-      if (!coaPlan.planName || !Array.isArray(coaPlan.phases)) {
-        throw new Error("El plan generado no tiene la estructura mínima requerida (planName y phases).");
-      }
+      const rawPlan = JSON.parse(jsonStr);
+      const coaPlan = normalizeCOAPlan(rawPlan);
 
       updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
       return coaPlan;
     } catch (error: unknown) {
-      console.error("Error generando COA con IA Local:", error);
-      let errorMessage = "Fallo al generar el Curso de Acción con IA Local.";
+      console.error("Error generando COA con IA Local/OmniRoute:", error);
+      let errorMessage = "Fallo al generar el Curso de Acción con IA.";
       if (error instanceof Error) {
         errorMessage += ` Detalles: ${error.message}`;
       }
@@ -1237,7 +1328,6 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
       config: {
         systemInstruction,
         responseMimeType: "application/json",
-        responseSchema,
       },
     });
 
@@ -1249,12 +1339,9 @@ IMPORTANTE PARA LOS GRÁFICOS: Eres un comandante táctico. Dibuja ejes de avanc
       jsonStr = match[2].trim();
     }
 
-    const coaPlan = JSON.parse(jsonStr) as COAPlan;
-    
-    // Validar estructura mínima
-    if (!coaPlan.planName || !Array.isArray(coaPlan.phases)) {
-      throw new Error("El plan generado no tiene la estructura mínima requerida (planName y phases).");
-    }
+    jsonStr = extractAndRepairJson(jsonStr);
+    const rawPlan = JSON.parse(jsonStr);
+    const coaPlan = normalizeCOAPlan(rawPlan);
 
     updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
     return coaPlan;

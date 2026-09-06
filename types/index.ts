@@ -1181,6 +1181,10 @@ export interface COAPhase {
   phaseName: string;
   description: string;
   graphics: COAGraphicElement[];
+  fase_numero?: number;
+  nombre?: string;
+  descripcion?: string;
+  medidas_control_graficacion?: any[];
 }
 
 export interface COAPlan {
@@ -1191,6 +1195,23 @@ export interface COAPlan {
   createdByUserId?: string;
   createdTimestamp?: string;
   hiddenTimestamp?: string;
+  coa_id?: string;
+  nombre_operacion?: string;
+  intencion_comandante?: string;
+  unidades_asignadas?: Array<{
+    indicativo: string;
+    rol_tactico: string;
+    mision: string;
+  }>;
+  fases?: any[];
+  sincronizacion_fuegos_y_uav?: {
+    reconocimiento_aereo?: string;
+    apoyo_fuego?: string;
+  };
+  riesgo_y_mitigacion?: Array<{
+    riesgo: string;
+    mitigacion: string;
+  }>;
 }
 export interface UserTelegramConfig { userId: string; telegramChatId: string; }
 

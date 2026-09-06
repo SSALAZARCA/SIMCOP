@@ -1041,15 +1041,84 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         </form>
         {coaError && <p className="mt-2 text-sm text-red-400 bg-red-900 p-2 rounded">{coaError}</p>}
         {coaPlan && (
-          <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner space-y-3 text-sm">
-            <h4 className="font-bold text-lime-200">{coaPlan.planName}</h4>
-            <p className="whitespace-pre-wrap">{coaPlan.conceptOfOperations}</p>
-            {coaPlan.phases?.map((phase, index) => (
-              <div key={index} className="pt-2 border-t border-gray-600">
-                <p className="font-semibold text-gray-300">{phase.phaseName}</p>
-                <p className="text-xs text-gray-400 whitespace-pre-wrap">{phase.description}</p>
+          <div className="mt-4 p-4 bg-gray-750 rounded-lg shadow-inner space-y-4 text-sm border border-lime-500/20">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-2">
+              <h4 className="font-bold text-base text-lime-300">{coaPlan.planName}</h4>
+              <span className="px-2 py-0.5 bg-lime-950 text-lime-400 border border-lime-700/50 rounded text-[10px] font-black uppercase tracking-wider">
+                🗺️ Calco Táctico Graficado en Mapa 3D
+              </span>
+            </div>
+
+            {coaPlan.conceptOfOperations && (
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Intención del Comandante / Concepto:</p>
+                <p className="text-gray-200 text-xs whitespace-pre-wrap bg-gray-800/60 p-2.5 rounded border border-gray-700/50">
+                  {coaPlan.conceptOfOperations}
+                </p>
               </div>
-            ))}
+            )}
+
+            {coaPlan.unidades_asignadas && coaPlan.unidades_asignadas.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Unidades y Tareas Tácticas Asignadas:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {coaPlan.unidades_asignadas.map((u, i) => (
+                    <div key={i} className="p-2 bg-gray-800 rounded border border-gray-700/60 flex flex-col gap-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-xs text-cyan-300">{u.indicativo}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 bg-blue-900/60 text-blue-300 rounded font-semibold">{u.rol_tactico}</span>
+                      </div>
+                      <span className="text-[11px] text-gray-300">Misión: {u.mision}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2 border-t border-gray-700">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Fases de la Maniobra y Calco de Control:</p>
+              {coaPlan.phases?.map((phase, index) => (
+                <div key={index} className="p-3 bg-gray-800/80 rounded border border-gray-700/50 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <p className="font-bold text-xs text-lime-200">{phase.phaseName}</p>
+                    {phase.graphics && phase.graphics.length > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800/60 rounded-full font-mono">
+                        📍 {phase.graphics.length} medidas de control
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-300 whitespace-pre-wrap">{phase.description}</p>
+                </div>
+              ))}
+            </div>
+
+            {coaPlan.sincronizacion_fuegos_y_uav && (
+              <div className="pt-2 border-t border-gray-700 space-y-1">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Sincronización de Fuegos y Medios UAS:</p>
+                <div className="p-2.5 bg-gray-800 rounded text-xs space-y-1 border border-gray-700/50">
+                  {coaPlan.sincronizacion_fuegos_y_uav.reconocimiento_aereo && (
+                    <p className="text-gray-300"><span className="text-cyan-400 font-bold">UAS / Reconocimiento:</span> {coaPlan.sincronizacion_fuegos_y_uav.reconocimiento_aereo}</p>
+                  )}
+                  {coaPlan.sincronizacion_fuegos_y_uav.apoyo_fuego && (
+                    <p className="text-gray-300"><span className="text-orange-400 font-bold">Apoyo de Fuegos:</span> {coaPlan.sincronizacion_fuegos_y_uav.apoyo_fuego}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {coaPlan.riesgo_y_mitigacion && coaPlan.riesgo_y_mitigacion.length > 0 && (
+              <div className="pt-2 border-t border-gray-700 space-y-1">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Gestión de Riesgos y Mitigación:</p>
+                <div className="space-y-1.5">
+                  {coaPlan.riesgo_y_mitigacion.map((r, i) => (
+                    <div key={i} className="p-2 bg-red-950/20 border border-red-900/40 rounded text-xs flex flex-col gap-0.5">
+                      <span className="text-red-300 font-bold">⚠️ {r.riesgo}</span>
+                      <span className="text-gray-300">🛡️ Mitigación: {r.mitigacion}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="pt-3 border-t border-gray-600 flex flex-col space-y-3">
               <div className="flex justify-between items-center">
