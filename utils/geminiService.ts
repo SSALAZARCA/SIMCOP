@@ -565,8 +565,24 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
       }
     }
 
-    return `- Unidad: ${escapeTemplateLiteralContent(u.name)} (${translatedType}), Cmdte: ${formatCommander(u.commander)}, Estado: ${translatedStatus}, Ubicación: ${decimalToDMS(u.location)}, Personal Total: ${totalPersonnel}, Últ. Movimiento: ${Math.floor((Date.now() - u.lastMovementTimestamp) / 60000)} mins atrás. CONCIENCIA SITUACIONAL: ${supportStr} | ${closestIntelStr}.`;
-  }).join('\n');
+    const equipmentStr = (u.equipment && u.equipment.length > 0) ? u.equipment.join(', ') : 'Orgánico estándar de infantería';
+    const capabilitiesStr = (u.capabilities && u.capabilities.length > 0) ? u.capabilities.join(', ') : 'Infantería convencional';
+    const uasStr = (u.uavAssets && u.uavAssets.length > 0) ? u.uavAssets.map(a => `${a.model} (${a.type})`).join(', ') : 'Sin medios UAS orgánicos';
+    const coordsDecimal = u.location ? `[Lat: ${u.location.lat.toFixed(5)}°, Lon: ${u.location.lon.toFixed(5)}°]` : '[Sin telemetría GPS]';
+    const ammoStr = u.ammoLevel !== undefined ? `${u.ammoLevel}%` : '100%';
+    const fuelStr = u.fuelLevel !== undefined ? `${u.fuelLevel}%` : '100%';
+    const supplyStr = u.daysOfSupply !== undefined ? `${u.daysOfSupply} días` : 'Adecuado';
+
+    return `- Unidad: "${escapeTemplateLiteralContent(u.name)}" (${translatedType}) | Cmdte: ${formatCommander(u.commander)} | Estado: ${translatedStatus} | Misión: ${u.currentMission || 'En dispositivo asignado'}\n` +
+           `  • Ubicación Real en Mapa: ${coordsDecimal} (DMS: ${decimalToDMS(u.location)})\n` +
+           `  • Efectivos: ${totalPersonnel} orgánicos (${u.personnelBreakdown?.officers || 0} Of, ${u.personnelBreakdown?.ncos || 0} SubOf, ${(u.personnelBreakdown?.professionalSoldiers || 0) + (u.personnelBreakdown?.slRegulars || 0)} Soldados)\n` +
+           `  • Armamento y Equipo: ${equipmentStr}\n` +
+           `  • Capacidades y Entrenamiento: ${capabilitiesStr}\n` +
+           `  • Medios UAS/Drones: ${uasStr}\n` +
+           `  • Nivel Logístico: Munición ${ammoStr} | Combustible ${fuelStr} | Suministros: ${supplyStr}\n` +
+           `  • Conciencia Situacional en Mapa: ${supportStr} | ${closestIntelStr}\n` +
+           `  • Última Telemetría: hace ${Math.floor((Date.now() - u.lastMovementTimestamp) / 60000)} mins.`;
+  }).join('\n\n');
 };
 
 const formatIntelForPrompt = (intelReports: IntelligenceReport[]): string => {
@@ -768,10 +784,38 @@ export const getGeminiAnalysis = async (
   const unitContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
 
-  let systemInstruction = `Eres un analista militar integrado al sistema SIMCOP. Se te proporciona información en tiempo real: estado de unidades, informes de inteligencia, contexto topográfico (alturas, relieve, escarpadura) y meteorología detallada (vientos, visibilidad, techo de nubes). Analiza de manera obligatoria y rigurosa cómo la topografía y el clima limitan o favorecen las operaciones tácticas descritas en la consulta del usuario (por ejemplo, restricciones de vuelo de UAVs por viento/nubes, oclusión de comunicaciones por el relieve montañoso, y riesgos físicos para las patrullas terrestres). Responde la consulta de forma completa, estructurada y con criterio militar profesional. Las coordenadas geográficas están en formato Grados Minutos Segundos (DMS). Si usas Google Search, cita las fuentes al final.`;
+  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor integrado a la plataforma SIMCOP. Tu función es asesorar directamente al Comandante resolviendo consultas operacionales mediante el análisis de la telemetría del sistema, el cuadro de unidades propias en el mapa, la capa de inteligencia y las condiciones del entorno geoespacial.
+
+REGLAS DE ACTUACIÓN OBLIGATORIAS:
+1. ANCLAJE ESTRICTO AL CONTEXTO DEL MAPA (PROHIBIDO ALUCINAR O INVENTAR):
+   - Actúa como si estuvieras observando directamente la pantalla y el mapa táctico de SIMCOP en tiempo real: utiliza ÚNICAMENTE las unidades, ubicaciones geográficas exactas, coordenadas GPS/DMS, reportes de inteligencia/OSINT y variables de clima/terreno provistas en este contexto.
+   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares, municipios o sectores distintos a los registrados en su telemetría real del mapa. Si una unidad está en una coordenada específica, esa es su única posición verídica.
+   - Si se requiere evaluar una unidad, cruza rigurosamente sus datos reales provistos: efectivos orgánicos, armamento/equipo (visión nocturna, tiradores de alta precisión, medios UAS), capacidades de entrenamiento, estado logístico (munición/combustible) y su distancia y tiempo real de aproximación al objetivo o sector.
+
+2. ADAPTABILIDAD AL TIPO DE REQUERIMIENTO:
+   Detecta la intención de la orden o pregunta del Comandante y responde con la estructura correspondiente:
+
+   A. SI LA CONSULTA ES DE SELECCIÓN O IDONEIDAD DE UNIDAD (ej. "¿Qué pelotón está más preparado para X objetivo?"):
+      - Determina la UNIDAD RECOMENDADA de forma explícita y contundente en el primer párrafo.
+      - Justificación por Matriz de Capacidades: compara alcance, movilidad, armamento/equipo y entrenamiento frente al perfil de la amenaza o blanco.
+      - Factor Terreno/Clima/Tiempo: calcula la viabilidad de aproximación, fricción del relieve, fatiga y tiempo estimado de reacción (ETA) desde su posición actual en el mapa hasta el objetivo.
+      - Evaluación de Riesgo de la Misión: impacto y vulnerabilidad en el sector que esa unidad desatiende si se mueve de su dispositivo actual.
+      - Curso de Acción Inmediato: propuesta concreta de orden preparatoria o de movimiento (ejes de avance y medidas de coordinación).
+
+   B. SI LA CONSULTA ES DE APRECIACIÓN GENERAL, ANÁLISIS DE SECTOR O RECONFIGURACIÓN DE AOI:
+      - Diagnóstico de la Amenaza (según reportes de inteligencia y OSINT inyectados en el área).
+      - Análisis de Capacidades y Brechas del dispositivo propio en el terreno.
+      - Prioridades de optimización del AOI (alturas dominantes, ejes de movilidad, avenidas de aproximación).
+      - Maniobra y movimientos sugeridos por unidad (especificando unidad y posición actual en el mapa).
+      - Conclusión y COA recomendado para el Comandante.
+
+3. ESTILO Y DOCTRINA MILITAR:
+   - Redacción militar sobria, directa, asertiva y orientada a la toma de decisiones ejecutivas.
+   - Cero teoría académica o definiciones de manual; ve directo a la asignación de recursos, ventajas tácticas en el terreno y mitigación de amenazas.
+   - Las coordenadas geográficas deben mantenerse fieles a los formatos provistos (grados decimales y DMS).`;
 
   if (enemyLayerActive && useGoogleSearch) {
-    systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Cuando la consulta involucre áreas de Colombia, complementa tu análisis con información histórica de incidentes de seguridad, tácticas enemigas reportadas y nivel de riesgo para la región. Cita todas las fuentes web utilizadas.`;
+    systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Complementa tu análisis con información histórica y de inteligencia sobre incidentes de seguridad y tácticas enemigas reportadas en el sector geográfico donde operan las unidades. Cita todas las fuentes web utilizadas al final.`;
   }
 
   let geoPrompt = '';
