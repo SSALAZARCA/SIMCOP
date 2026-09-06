@@ -2297,27 +2297,70 @@ export const getBMASituationBrief = async (
     return "Análisis de IA no disponible. Verifique la configuración.";
   }
 
-  const systemInstruction = `Eres SIMCOP BMA-AI, un asistente de análisis de batalla. Tu tarea es generar un "Resumen Ejecutivo de Situación" para un comandante regional. El resumen debe ser extremadamente conciso (máximo 150 palabras), directo y con tono militar profesional. Utiliza viñetas para los puntos clave. Enfócate en la amenaza seleccionada, el impacto del clima y los riesgos logísticos o de hotspots detectados.`;
+  const systemInstruction = `Eres SIMCOP BMA-AI, el asistente de inteligencia y operaciones tácticas. Tu función es generar un "Resumen Ejecutivo de Situación" para el Comandante Regional.
+
+REGLAS DE REDACCIÓN:
+1. CONCISIÓN OPERACIONAL: Máximo 150 palabras. Sin introducciones, formalismos ni despedidas.
+2. ANCLAJE ESTRICTO: Basa el resumen ÚNICAMENTE en la amenaza seleccionada, coordenadas/sectores y datos reales de clima/hotspots inyectados por la plataforma. Prohibido inventar eventos o ubicaciones no provistos.
+3. ESTRUCTURA OBLIGATORIA (Usa viñetas):
+   - • AMENAZA: Identificación del blanco/GANE, sector crítico y vector de movimiento probable.
+   - • FACTOR CLIMA/TERRENO: Impacto directo en movilidad terrestre, visibilidad y empleo de plataformas UAS.
+   - • HOTSPOTS Y RIESGO LOGÍSTICO: Puntos de estrangulamiento activos, riesgo de IEDs y estado de líneas de abastecimiento.
+   - • DECISIÓN RECOMENDADA: Acción táctica inmediata para el escalón de mando.`;
+
+  const threatLocationStr = threat?.location 
+    ? `${decimalToDMS(threat.location.lat, threat.location.lon)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]` 
+    : 'No precisadas';
+
+  const recommendationsStr = recommendations.length > 0 
+    ? recommendations.map(r => `${r.unitName} (${Math.round(r.score)}% idoneidad - Rol: ${r.reasoning})`).slice(0, 3).join('; ')
+    : 'Sin unidades con asignación directa asignada';
+
+  const weatherStr = weather 
+    ? `${weather.condition}, Temp: ${Math.round(weather.temperature)}°C, Viento: ${weather.windSpeed || 0} km/h ${weather.windDirection || ''}, Nubosidad: ${weather.clouds || 0}%, Impacto: ${weather.operationalImpact ? 'ALTO / ADVERSO' : 'FAVORABLE'}`
+    : 'Condiciones meteorológicas estándar';
+
+  const hotspotsStr = hotspots.length > 0 
+    ? hotspots.slice(0, 5).map(h => `${h.name || 'Hotspot'} [${h.riskLevel || 'Riesgo activo'} en lat ${h.location?.lat?.toFixed(3) || '0'}, lon ${h.location?.lon?.toFixed(3) || '0'}]`).join('; ')
+    : 'Sin puntos de estrangulamiento ni hotspots críticos reportados';
+
+  const logisticsStr = logistics.length > 0
+    ? logistics.slice(0, 4).map(l => `${l.unitName || 'Unidad'}: ${l.predictionText || l.resourceType || 'Riesgo logístico activo'}`).join('; ')
+    : 'Líneas de abastecimiento y niveles en umbrales operacionales seguros';
 
   const prompt = `
-SITUACIÓN ACTUAL BMA:
-- Amenaza Seleccionada: ${threat ? `${threat.title} (${threat.type})` : 'Ninguna'}
-- Recomendación de Respuesta: ${recommendations.length > 0 ? `${recommendations[0].unitName} (${Math.round(recommendations[0].score)}% idoneidad)` : 'N/A'}
-- Clima Regional: ${weather ? `${weather.condition}, Temp: ${Math.round(weather.temperature)}°C, Impacto: ${weather.operationalImpact ? 'ALTO' : 'BAJO'}` : 'Desconocido'}
-- Hotspots (POL): ${hotspots.length} detectados.
-- Unidades con Riesgo Logístico: ${logistics.length}
+DATOS TÁCTICOS DE SITUACIÓN EN EL TEATRO DE OPERACIONES:
 
-Genera el Resumen Ejecutivo de Situación.
-Genera el Resumen Ejecutivo de Situación.
-`;
+AMENAZA SELECCIONADA:
+- Identificación / Blanco: ${threat ? `${threat.title} (${threat.type})` : 'Sin amenaza activa seleccionada'}
+- Confiabilidad / Credibilidad: ${threat ? `${threat.reliability}/${threat.credibility}` : 'N/A'}
+- Coordenadas: ${threatLocationStr}
+- Inteligencia Reportada: ${threat?.description || 'Alerta temprana de hostiles'}
+
+RECOMENDACIÓN DE FUERZAS / RESPUESTA:
+${recommendationsStr}
+
+METEOROLOGÍA Y CONDICIONES DEL TERRENO:
+${weatherStr}
+
+HOTSPOTS Y PUNTOS CRÍTICOS:
+${hotspotsStr}
+
+ESTADO LOGÍSTICO Y SUMINISTROS:
+${logisticsStr}
+
+---
+INSTRUCCIÓN:
+Genera el Resumen Ejecutivo de Situación para el Comandante Regional cumpliendo rigurosamente las 4 viñetas y el límite de 150 palabras.`;
 
   if (aiProvider === 'NATIVE_SIMCOP') {
     try {
       updateTaskState('bmaBrief', { status: 'RUNNING', error: null });
       const data = await callNativeAI('/wargaming/bma_brief', {
         threat: threat ? threat.title : 'Ninguna',
-        recommendation: recommendations.length > 0 ? recommendations[0].unitName : 'N/A',
-        weather: weather ? weather.condition : 'Desconocido',
+        threat_location: threatLocationStr,
+        recommendation: recommendationsStr,
+        weather: weatherStr,
         hotspots_count: hotspots.length,
         logistics_count: logistics.length
       });
@@ -2332,8 +2375,29 @@ Genera el Resumen Ejecutivo de Situación.
     }
   }
 
+  if (aiProvider === 'GEMINI' && ai) {
+    try {
+      updateTaskState('bmaBrief', { status: 'RUNNING', error: null });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+        },
+      });
+      const text = response.text || "";
+      updateTaskState('bmaBrief', { status: 'COMPLETED', result: text });
+      return text;
+    } catch (error: any) {
+      console.error("Error en getBMASituationBrief Gemini:", error);
+      const errorMessage = error.message || "Error al generar el resumen de situación.";
+      updateTaskState('bmaBrief', { status: 'FAILED', error: errorMessage });
+      return errorMessage;
+    }
+  }
+
   try {
-    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`, 'bmaBrief');
+    const text = await generateContentViaBackend(prompt, 'bmaBrief', systemInstruction);
     updateTaskState('bmaBrief', { status: 'COMPLETED', result: text });
     return text;
   } catch (error: any) {

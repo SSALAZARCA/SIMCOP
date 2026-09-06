@@ -200,13 +200,29 @@ export const BMAPanel: React.FC<BMAPanelProps> = ({
                 ) : briefTask.status === 'FAILED' ? (
                     <p className="text-[10px] text-red-400 py-2">{briefTask.error || 'Error al generar resumen.'}</p>
                 ) : aiBrief ? (
-                    <div className="text-[11px] text-indigo-50 leading-relaxed italic border-l-2 border-indigo-400/50 pl-4 py-1">
-                        {aiBrief.split('\n').map((line: string, i: number) => (
-                            <p key={i} className={line.startsWith('-') ? 'mt-2 flex items-start' : ''}>
-                                {line.startsWith('-') && <span className="mr-2 text-indigo-400">•</span>}
-                                {line.startsWith('-') ? line.substring(1).trim() : line}
-                            </p>
-                        ))}
+                    <div className="text-[11px] text-indigo-50 leading-relaxed border-l-2 border-indigo-400/50 pl-3 py-1 space-y-2">
+                        {aiBrief.split('\n').filter((l: string) => l.trim().length > 0).map((line: string, i: number) => {
+                            const trimmed = line.trim().replace(/^[-*•\s]+/, '').trim();
+                            const colonIdx = trimmed.indexOf(':');
+                            const label = colonIdx > -1 ? trimmed.substring(0, colonIdx + 1) : '';
+                            const content = colonIdx > -1 ? trimmed.substring(colonIdx + 1).trim() : trimmed;
+
+                            let labelColor = 'text-indigo-300';
+                            if (label.includes('AMENAZA')) labelColor = 'text-rose-400';
+                            else if (label.includes('CLIMA') || label.includes('TERRENO')) labelColor = 'text-sky-400';
+                            else if (label.includes('HOTSPOT') || label.includes('LOGÍSTICO')) labelColor = 'text-amber-400';
+                            else if (label.includes('DECISIÓN') || label.includes('RECOMENDADA')) labelColor = 'text-emerald-400';
+
+                            return (
+                                <div key={i} className="flex items-start gap-1.5">
+                                    <span className={`text-xs mt-0.5 font-bold ${labelColor}`}>•</span>
+                                    <p className="text-[11px] text-gray-200">
+                                        {label && <strong className={`${labelColor} font-bold mr-1.5`}>{label}</strong>}
+                                        <span>{content}</span>
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : (
                     <p className="text-[11px] text-gray-500 italic py-2">Sin datos suficientes para generación de síntesis.</p>
