@@ -324,6 +324,7 @@ export interface GeminiAnalysisResult {
   text: string;
   sources?: GroundingSource[];
   wargameResult?: WargameSimulationResult;
+  bmaSimulationResult?: BMAInterceptionSimulationResult;
 }
 
 export enum MoraleLevel {
@@ -1263,6 +1264,59 @@ export interface WargameSimulationResult {
   atricion_estimada: WargameAttrition;
   fases_wargaming: WargamePhase[];
   puntos_falla_criticos: WargameFailurePoint[];
+}
+
+// --- BMA Interception Simulation Types ---
+export interface BMAMetrics {
+  probabilidad_intercepcion_porcentaje: number;
+  probabilidad_neutralizacion_porcentaje: number;
+  tiempo_estimado_contacto_minutos: number;
+  nivel_riesgo_general: 'BAJO' | 'MEDIO' | 'ALTO' | 'CRÍTICO' | string;
+}
+
+export interface BMACasualtiesOwn {
+  estimado_bajas_totales: number;
+  heridos_wia: number;
+  muertos_kia: number;
+  requiere_medevac: boolean;
+  danos_material_equipo: string;
+}
+
+export interface BMACasualtiesThreat {
+  neutralizados_kia: number;
+  capturados_pow: number;
+  dispersos_huidos: number;
+}
+
+export interface BMACasualtiesAndDamage {
+  propias: BMACasualtiesOwn;
+  amenaza: BMACasualtiesThreat;
+}
+
+export interface BMALogisticsAmmo {
+  porcentaje_consumo_unidad: number;
+  desglose: string;
+}
+
+export interface BMALogisticsFuel {
+  porcentaje_consumo: number;
+  observacion: string;
+}
+
+export interface BMALogisticsExpense {
+  municion_clase_v: BMALogisticsAmmo;
+  combustible_clase_iii: BMALogisticsFuel;
+  autonomia_remanente_horas: number;
+}
+
+export interface BMAInterceptionSimulationResult {
+  intercepcion_id: string;
+  unidad_amiga: string;
+  amenaza_objetivo: string;
+  metricas_clave: BMAMetrics;
+  control_danos_y_bajas: BMACasualtiesAndDamage;
+  gasto_logistico_estimado: BMALogisticsExpense;
+  evaluacion_operacional: string;
 }
 
 // --- Map Display Types ---

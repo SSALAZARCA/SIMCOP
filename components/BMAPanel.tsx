@@ -55,6 +55,7 @@ export const BMAPanel: React.FC<BMAPanelProps> = ({
     const [simulatingUnitId, setSimulatingUnitId] = useState<string | null>(() => isSameIntel ? bmaStateCache.simulatingUnitId : null);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
     const [activeMission, setActiveMission] = useState<any>(null);
+    const [showRawInterceptionText, setShowRawInterceptionText] = useState(false);
 
     // Sync BMA state with the cache
     useEffect(() => {
@@ -301,18 +302,146 @@ export const BMAPanel: React.FC<BMAPanelProps> = ({
                                     </div>
                                 )}
 
-                                {interceptionTask.result?.text && simulatingUnitId === rec.unitId && (
-                                    <div className="mt-3 p-3 bg-indigo-900/50 border border-indigo-500/50 rounded-lg text-[10px] text-indigo-50 italic animate-in fade-in slide-in-from-top-2">
-                                        <p className="font-black text-indigo-300 mb-2 flex items-center uppercase tracking-tighter">
-                                            <SparklesIcon className="w-3 h-3 mr-2" /> Reporte de Simulación Tactical-AI:
-                                        </p>
-                                        {interceptionTask.result.text}
+                                {interceptionTask.result && simulatingUnitId === rec.unitId && (
+                                    <div className="mt-3 p-3 bg-gray-950/95 border border-indigo-500/60 rounded-lg text-xs animate-in fade-in slide-in-from-top-2 space-y-3 shadow-lg">
+                                        {/* Header */}
+                                        <div className="flex justify-between items-center border-b border-indigo-900/60 pb-1.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
+                                                <span className="font-black text-indigo-300 uppercase tracking-wide text-[10px]">
+                                                    Simulación Táctica BMA
+                                                </span>
+                                                {interceptionTask.result.bmaSimulationResult && (
+                                                    <span className="text-[9px] font-mono px-1.5 py-0.2 bg-indigo-950 text-indigo-300 border border-indigo-800/60 rounded">
+                                                        {interceptionTask.result.bmaSimulationResult.intercepcion_id}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {interceptionTask.result.bmaSimulationResult && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowRawInterceptionText(!showRawInterceptionText)}
+                                                    className="text-[9px] text-gray-400 hover:text-white px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 transition"
+                                                >
+                                                    {showRawInterceptionText ? "Ver Estructurado" : "Ver Texto"}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {interceptionTask.result.bmaSimulationResult && !showRawInterceptionText ? (
+                                            <div className="space-y-2.5 text-[11px]">
+                                                {/* Metrics Grid */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                                                    <div className="bg-gray-900/80 p-2 rounded border border-gray-800 flex flex-col">
+                                                        <span className="text-[9px] text-gray-400 uppercase font-bold">Intercepción</span>
+                                                        <span className="text-sm font-black text-emerald-400">
+                                                            {interceptionTask.result.bmaSimulationResult.metricas_clave.probabilidad_intercepcion_porcentaje}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-gray-900/80 p-2 rounded border border-gray-800 flex flex-col">
+                                                        <span className="text-[9px] text-gray-400 uppercase font-bold">Neutralización</span>
+                                                        <span className="text-sm font-black text-indigo-400">
+                                                            {interceptionTask.result.bmaSimulationResult.metricas_clave.probabilidad_neutralizacion_porcentaje}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-gray-900/80 p-2 rounded border border-gray-800 flex flex-col">
+                                                        <span className="text-[9px] text-gray-400 uppercase font-bold">Tiempo Contacto</span>
+                                                        <span className="text-sm font-black text-cyan-300">
+                                                            {interceptionTask.result.bmaSimulationResult.metricas_clave.tiempo_estimado_contacto_minutos} min
+                                                        </span>
+                                                    </div>
+                                                    <div className={`p-2 rounded border flex flex-col justify-between ${
+                                                        interceptionTask.result.bmaSimulationResult.metricas_clave.nivel_riesgo_general.includes('CRÍTICO') || interceptionTask.result.bmaSimulationResult.metricas_clave.nivel_riesgo_general.includes('ALTO')
+                                                            ? 'bg-red-950/40 border-red-800/60 text-red-300'
+                                                            : 'bg-amber-950/40 border-amber-800/60 text-amber-300'
+                                                    }`}>
+                                                        <span className="text-[9px] uppercase font-bold text-gray-400">Riesgo</span>
+                                                        <span className="text-xs font-black">
+                                                            {interceptionTask.result.bmaSimulationResult.metricas_clave.nivel_riesgo_general}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Damage Control & Casualties */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    {/* Propias */}
+                                                    <div className="p-2 bg-blue-950/20 border border-blue-900/40 rounded-lg space-y-1">
+                                                        <div className="flex justify-between items-center border-b border-blue-900/40 pb-0.5">
+                                                            <span className="font-bold text-blue-300 text-[10px] uppercase">
+                                                                🛡️ Bajas Propias
+                                                            </span>
+                                                            <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
+                                                                interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.requiere_medevac
+                                                                    ? 'bg-red-950 text-red-300 border border-red-700/60'
+                                                                    : 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                                                            }`}>
+                                                                {interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.requiere_medevac ? '🚨 REQUIERE MEDEVAC' : 'SIN MEDEVAC'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex gap-2 text-[10px]">
+                                                            <span className="text-gray-300">Total: <b className="text-amber-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.estimado_bajas_totales}</b></span>
+                                                            <span className="text-gray-300">WIA: <b className="text-yellow-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.heridos_wia}</b></span>
+                                                            <span className="text-gray-300">KIA: <b className="text-rose-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.muertos_kia}</b></span>
+                                                        </div>
+                                                        <p className="text-[9px] text-gray-400">
+                                                            Material: <span className="text-gray-200">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.propias.danos_material_equipo}</span>
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Amenaza */}
+                                                    <div className="p-2 bg-red-950/20 border border-red-900/40 rounded-lg space-y-1">
+                                                        <div className="flex justify-between items-center border-b border-red-900/40 pb-0.5">
+                                                            <span className="font-bold text-red-300 text-[10px] uppercase">
+                                                                🎯 Bajas Amenaza
+                                                            </span>
+                                                            <span className="text-[9px] font-mono px-1.5 py-0.2 bg-red-900/60 text-red-200 rounded font-bold">
+                                                                {interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.amenaza.neutralizados_kia} KIA
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex gap-2 text-[10px]">
+                                                            <span className="text-gray-300">Neutralizados: <b className="text-rose-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.amenaza.neutralizados_kia}</b></span>
+                                                            <span className="text-gray-300">POW: <b className="text-emerald-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.amenaza.capturados_pow}</b></span>
+                                                            <span className="text-gray-300">Huidos: <b className="text-gray-400">{interceptionTask.result.bmaSimulationResult.control_danos_y_bajas.amenaza.dispersos_huidos}</b></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Logistics Expenditure */}
+                                                <div className="p-2 bg-orange-950/20 border border-orange-900/40 rounded-lg space-y-0.5 text-[10px]">
+                                                    <div className="flex justify-between items-center border-b border-orange-900/30 pb-0.5">
+                                                        <span className="font-bold text-orange-300 uppercase text-[10px]">
+                                                            📦 Gasto Logístico Proyectado
+                                                        </span>
+                                                        <span className="text-cyan-300 font-mono text-[10px]">
+                                                            Autonomía: {interceptionTask.result.bmaSimulationResult.gasto_logistico_estimado.autonomia_remanente_horas}h
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-gray-300">
+                                                        <span className="text-orange-400 font-semibold">Clase V (Munición):</span> {interceptionTask.result.bmaSimulationResult.gasto_logistico_estimado.municion_clase_v.porcentaje_consumo_unidad}% dotación — {interceptionTask.result.bmaSimulationResult.gasto_logistico_estimado.municion_clase_v.desglose}
+                                                    </p>
+                                                    <p className="text-gray-300">
+                                                        <span className="text-yellow-400 font-semibold">Clase III (Combustible):</span> {interceptionTask.result.bmaSimulationResult.gasto_logistico_estimado.combustible_clase_iii.porcentaje_consumo}% — {interceptionTask.result.bmaSimulationResult.gasto_logistico_estimado.combustible_clase_iii.observacion}
+                                                    </p>
+                                                </div>
+
+                                                {/* Operational Evaluation */}
+                                                <div className="p-2 bg-gray-900/80 rounded border border-gray-800 text-[10px] text-gray-300 italic">
+                                                    <span className="text-indigo-400 font-bold not-italic">Evaluación Operacional: </span>
+                                                    "{interceptionTask.result.bmaSimulationResult.evaluacion_operacional}"
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-[10px] text-indigo-50 italic whitespace-pre-wrap bg-gray-900/60 p-2 rounded border border-gray-800">
+                                                {interceptionTask.result.text}
+                                            </div>
+                                        )}
+
                                         <button
                                             onClick={() => {
                                                 updateTaskState('bmaInterception', { result: null });
                                                 setSimulatingUnitId(null);
                                             }}
-                                            className="mt-3 text-[9px] font-black text-indigo-400 hover:text-indigo-200 uppercase tracking-widest block w-full text-right"
+                                            className="mt-1 text-[9px] font-black text-indigo-400 hover:text-indigo-200 uppercase tracking-widest block w-full text-right"
                                         >
                                             [ Cerrar ]
                                         </button>

@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult } from '../types';
 import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
 import { useState, useEffect } from 'react';
@@ -1958,6 +1958,71 @@ Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
   }
 };
 
+export const normalizeBMAInterceptionResult = (raw: any): BMAInterceptionSimulationResult => {
+  return {
+    intercepcion_id: raw.intercepcion_id || `BMA-INT-${Date.now().toString().slice(-4)}`,
+    unidad_amiga: raw.unidad_amiga || "Unidad Amiga",
+    amenaza_objetivo: raw.amenaza_objetivo || "Vector Hostil",
+    metricas_clave: {
+      probabilidad_intercepcion_porcentaje: Number(raw.metricas_clave?.probabilidad_intercepcion_porcentaje ?? 75),
+      probabilidad_neutralizacion_porcentaje: Number(raw.metricas_clave?.probabilidad_neutralizacion_porcentaje ?? 70),
+      tiempo_estimado_contacto_minutos: Number(raw.metricas_clave?.tiempo_estimado_contacto_minutos ?? 30),
+      nivel_riesgo_general: (raw.metricas_clave?.nivel_riesgo_general || "MEDIO").toUpperCase()
+    },
+    control_danos_y_bajas: {
+      propias: {
+        estimado_bajas_totales: Number(raw.control_danos_y_bajas?.propias?.estimado_bajas_totales ?? 0),
+        heridos_wia: Number(raw.control_danos_y_bajas?.propias?.heridos_wia ?? 0),
+        muertos_kia: Number(raw.control_danos_y_bajas?.propias?.muertos_kia ?? 0),
+        requiere_medevac: Boolean(raw.control_danos_y_bajas?.propias?.requiere_medevac),
+        danos_material_equipo: raw.control_danos_y_bajas?.propias?.danos_material_equipo || "Ninguno reportado"
+      },
+      amenaza: {
+        neutralizados_kia: Number(raw.control_danos_y_bajas?.amenaza?.neutralizados_kia ?? 0),
+        capturados_pow: Number(raw.control_danos_y_bajas?.amenaza?.capturados_pow ?? 0),
+        dispersos_huidos: Number(raw.control_danos_y_bajas?.amenaza?.dispersos_huidos ?? 0)
+      }
+    },
+    gasto_logistico_estimado: {
+      municion_clase_v: {
+        porcentaje_consumo_unidad: Number(raw.gasto_logistico_estimado?.municion_clase_v?.porcentaje_consumo_unidad ?? 25),
+        desglose: raw.gasto_logistico_estimado?.municion_clase_v?.desglose || "Consumo estimado de munición"
+      },
+      combustible_clase_iii: {
+        porcentaje_consumo: Number(raw.gasto_logistico_estimado?.combustible_clase_iii?.porcentaje_consumo ?? 10),
+        observacion: raw.gasto_logistico_estimado?.combustible_clase_iii?.observacion || "Consumo táctico en desplazamiento"
+      },
+      autonomia_remanente_horas: Number(raw.gasto_logistico_estimado?.autonomia_remanente_horas ?? 48)
+    },
+    evaluacion_operacional: raw.evaluacion_operacional || "Contacto táctico completado."
+  };
+};
+
+export const formatBMAMarkdown = (bma: BMAInterceptionSimulationResult): string => {
+  let md = `### 🎯 INFORME DE CONTROL DE DAÑOS Y SIMULACIÓN TÁCTICA (BMA)\n\n`;
+  md += `**ID Intercepción:** \`${bma.intercepcion_id}\`  \n`;
+  md += `**Unidad Amiga:** **${bma.unidad_amiga}** | **Amenaza Objetivo:** **${bma.amenaza_objetivo}**  \n`;
+  md += `**Nivel de Riesgo General:** **${bma.metricas_clave.nivel_riesgo_general}** | **Contacto Estimado:** **${bma.metricas_clave.tiempo_estimado_contacto_minutos} min**  \n\n`;
+
+  md += `#### 📈 Métricas Clave de Enfrentamiento\n`;
+  md += `- **Probabilidad de Intercepción:** ${bma.metricas_clave.probabilidad_intercepcion_porcentaje}%\n`;
+  md += `- **Probabilidad de Neutralización:** ${bma.metricas_clave.probabilidad_neutralizacion_porcentaje}%\n\n`;
+
+  md += `#### 🛡️ Control de Daños y Bajas Estimadas\n`;
+  md += `| Fuerza | Bajas Totales | Heridos (W.I.A) | Muertos (K.I.A) | Daños a Material / Estado |\n`;
+  md += `| :--- | :---: | :---: | :---: | :--- |\n`;
+  md += `| **Fuerzas Propias** | ${bma.control_danos_y_bajas.propias.estimado_bajas_totales} | ${bma.control_danos_y_bajas.propias.heridos_wia} | ${bma.control_danos_y_bajas.propias.muertos_kia} | ${bma.control_danos_y_bajas.propias.danos_material_equipo} ${bma.control_danos_y_bajas.propias.requiere_medevac ? '(🚨 REQUIERE MEDEVAC)' : '(Sin MEDEVAC)'} |\n`;
+  md += `| **Amenaza Hostil** | ${bma.control_danos_y_bajas.amenaza.neutralizados_kia + bma.control_danos_y_bajas.amenaza.capturados_pow} | - | ${bma.control_danos_y_bajas.amenaza.neutralizados_kia} (Neutralizados) | ${bma.control_danos_y_bajas.amenaza.capturados_pow} Capturados, ${bma.control_danos_y_bajas.amenaza.dispersos_huidos} Dispersos |\n\n`;
+
+  md += `#### 📦 Gasto Logístico Proyectado\n`;
+  md += `- **Clase V (Munición):** ${bma.gasto_logistico_estimado.municion_clase_v.porcentaje_consumo_unidad}% de dotación (${bma.gasto_logistico_estimado.municion_clase_v.desglose})\n`;
+  md += `- **Clase III (Combustible):** ${bma.gasto_logistico_estimado.combustible_clase_iii.porcentaje_consumo}% de reserva (${bma.gasto_logistico_estimado.combustible_clase_iii.observacion})\n`;
+  md += `- **Autonomía Remanente:** ${bma.gasto_logistico_estimado.autonomia_remanente_horas} horas operacionales\n\n`;
+
+  md += `> **Evaluación Operacional:** ${bma.evaluacion_operacional}\n`;
+  return md;
+};
+
 export const simulateBMAInterception = async (
   unit: MilitaryUnit,
   threat: IntelligenceReport,
@@ -1968,6 +2033,54 @@ export const simulateBMAInterception = async (
     throw new Error("Gemini AI client no inicializado. Verifique la configuración.");
   }
 
+  const systemInstruction = `Eres el Oficial de Control de Daños, Evaluación de Bajas y Simulación Táctica (BMA) del sistema SIMCOP. Tu misión es simular el resultado de una intercepción directa entre una unidad amiga y un vector de amenaza reportado, calculando atrición, probabilidad de éxito y gasto logístico.
+
+REGLAS DE EVALUACIÓN TÁCTICA:
+1. ANCLAJE DE DATOS: Utiliza exclusivamente las capacidades orgánicas de la unidad amiga, la naturaleza de la amenaza inyectada y el clima/terreno del punto de contacto.
+2. MODELADO LOGÍSTICO Y ATRICIÓN:
+   - Cuantifica bajas (WIA/KIA) de forma realista para el escalón involucrado (escuadra/pelotón).
+   - Estima gasto logístico por clases: Clase V (munición de fusilería, ametralladora, mortero en porcentaje o tiros), Clase III (galones de combustible consumidos por desplazamiento/patrulla) y requerimientos de soporte médico (MEDEVAC/CASEVAC).
+3. FORMATO DE SALIDA: Responde EXCLUSIVAMENTE con el siguiente esquema JSON válido, sin bloques de texto conversacional ni explicaciones adicionales.
+
+ESQUEMA JSON REQUERIDO:
+{
+  "intercepcion_id": "BMA-INT-01",
+  "unidad_amiga": "Indicativo de la unidad",
+  "amenaza_objetivo": "Identificación de la amenaza",
+  "metricas_clave": {
+    "probabilidad_intercepcion_porcentaje": 82,
+    "probabilidad_neutralizacion_porcentaje": 74,
+    "tiempo_estimado_contacto_minutos": 35,
+    "nivel_riesgo_general": "BAJO | MEDIO | ALTO | CRÍTICO"
+  },
+  "control_danos_y_bajas": {
+    "propias": {
+      "estimado_bajas_totales": 1,
+      "heridos_wia": 1,
+      "muertos_kia": 0,
+      "requiere_medevac": true,
+      "danos_material_equipo": "Ninguno | Leve en comunicaciones | Pérdida de material"
+    },
+    "amenaza": {
+      "neutralizados_kia": 3,
+      "capturados_pow": 2,
+      "dispersos_huidos": 2
+    }
+  },
+  "gasto_logistico_estimado": {
+    "municion_clase_v": {
+      "porcentaje_consumo_unidad": 35,
+      "desglose": "Gasto estimado de 5.56mm y granadas 40mm"
+    },
+    "combustible_clase_iii": {
+      "porcentaje_consumo": 15,
+      "observacion": "Consumo de vehículos tácticos / generadores"
+    },
+    "autonomia_remanente_horas": 48
+  },
+  "evaluacion_operacional": "Conclusión concisa sobre la ventaja táctica lograda tras el contacto."
+}`;
+
   if (aiProvider === 'NATIVE_SIMCOP') {
     try {
       updateTaskState('bmaInterception', { status: 'RUNNING', error: null, result: null });
@@ -1976,8 +2089,15 @@ export const simulateBMAInterception = async (
         amenaza: JSON.stringify(threat),
         clima: weather ? JSON.stringify(weather) : "Sin reporte"
       });
-      const resultText = typeof data === 'string' ? data : (data.simulation || JSON.stringify(data));
-      const result = { text: resultText };
+      let parsedBma: BMAInterceptionSimulationResult | undefined = undefined;
+      let resultText = "";
+      if (typeof data === 'object' && data !== null) {
+        parsedBma = normalizeBMAInterceptionResult(data);
+        resultText = formatBMAMarkdown(parsedBma);
+      } else {
+        resultText = typeof data === 'string' ? data : JSON.stringify(data);
+      }
+      const result: GeminiAnalysisResult = { text: resultText, bmaSimulationResult: parsedBma };
       updateTaskState('bmaInterception', { status: 'COMPLETED', result });
       return result;
     } catch (error: any) {
@@ -1987,29 +2107,178 @@ export const simulateBMAInterception = async (
     }
   }
 
-  const systemInstruction = `Eres un oficial de control de daños y simulación táctica. Tu tarea es simular el resultado de una intercepción entre una unidad amiga y una amenaza de inteligencia. Considera el tipo de unidad vs tipo de amenaza, el clima actual y la doctrina militar. Proporciona: 
-1. Probabilidad de éxito (%).
-2. Nivel de riesgo estimado.
-3. Posibles bajas o daños esperados.
-4. Una recomendación táctica final breve.
-Responde de forma profesional y concisa.`;
+  const unitTotalPersonnel = (unit.personnelBreakdown?.officers || 0) + 
+                             (unit.personnelBreakdown?.nonCommissionedOfficers || 0) + 
+                             (unit.personnelBreakdown?.soldiers || 0);
+
+  const unitEquipmentStr = (unit.equipment && unit.equipment.length > 0) 
+    ? unit.equipment.join(', ') 
+    : 'Fusilería 5.56mm Galil/Tavor, ametralladora M249/M60';
+
+  const unitCapabilitiesStr = (unit.capabilities && unit.capabilities.length > 0)
+    ? unit.capabilities.join(', ')
+    : 'Infiltración, asalto táctico, combate cercano';
+
+  const unitCoordinates = unit.location 
+    ? `${decimalToDMS(unit.location.lat, unit.location.lon)} [${unit.location.lat.toFixed(4)}, ${unit.location.lon.toFixed(4)}]`
+    : 'No disponibles';
+
+  const threatCoordinates = threat.location
+    ? `${decimalToDMS(threat.location.lat, threat.location.lon)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]`
+    : 'Coordenadas no fijadas';
+
+  let distanceKm = 0;
+  if (unit.location && threat.location) {
+    distanceKm = calculateDistanceKm(unit.location.lat, unit.location.lon, threat.location.lat, threat.location.lon);
+  }
+
+  const weatherStr = weather ? `
+- Condición: ${weather.condition}
+- Temperatura: ${weather.temperature}°C
+- Viento: ${weather.windSpeed || 0} km/h (${weather.windDirection || 'N/D'})
+- Techo de Nubes: ${weather.clouds || 0}%
+- Impacto Operacional: ${weather.operationalImpact ? 'ALTO IMPACTO / RESTRINGIDO' : 'FAVORABLE / SIN RESTRICCIÓN'}` : 'Clima estándar en el teatro de operaciones.';
 
   const prompt = `
-SIMULACIÓN DE INTERCEPCIÓN:
-- Unidad Amiga: ${unit.name} (${translateUnitType(unit.type)}, Estado: ${translateUnitStatus(unit.status)}, Munición: ${unit.ammoLevel}%)
-- Amenaza Enemiga: ${threat.title} (${threat.type}, Riesgo: ${threat.reliability}/${threat.credibility})
-- Clima en Zona: ${weather ? `${weather.condition}, Temp: ${weather.temperature}°C, Impacto Operacional: ${weather.operationalImpact}` : 'Normal'}
+VECTOR DE ENFRENTAMIENTO DIRECTO (BMA INTERCEPTION):
 
-Simula el encuentro y proporciona el reporte de resultados.
-`;
+1. UNIDAD DEFENSORA / AMIGA:
+- Indicativo: ${unit.name}
+- Tipo y Escalón: ${translateUnitType(unit.type)} (Comandante: ${unit.commander?.rank || ''} ${unit.commander?.name || 'Oficial al mando'})
+- Efectivos Totales: ${unitTotalPersonnel > 0 ? `${unitTotalPersonnel} efectivos` : 'Pelotón reglamentario (~32 hombres)'}
+- Estado Operacional: ${translateUnitStatus(unit.status)}
+- Ubicación Táctica: ${unitCoordinates}
+- Armamento Orgánico: ${unitEquipmentStr}
+- Capacidades de Combate: ${unitCapabilitiesStr}
+- Estado Logístico: Munición Clase V: ${unit.ammoLevel}%, Combustible Clase III: ${unit.fuelLevel}%, Raciones Clase I: ${unit.rationsLevel}%
+
+2. AMENAZA HOSTIL OBJETIVO:
+- Identificación: ${threat.title}
+- Clasificación INT: ${threat.type} (Confiabilidad: ${threat.reliability}, Credibilidad: ${threat.credibility})
+- Ubicación Reportada: ${threatCoordinates}
+- Distancia Táctica de Contacto: ~${distanceKm > 0 ? distanceKm.toFixed(2) : '5.0'} km
+- Resumen de Inteligencia: ${threat.description || 'Elementos armados hostiles en movimiento o punto de acecho.'}
+
+3. CONDICIONES METEOROLÓGICAS Y DEL TERRENO EN EL PUNTO:
+${weatherStr}
+
+---
+INSTRUCCIÓN:
+Somete el vector a simulación física y táctica. Calcula la atrición bilateral realista, consumo logístico por clases (Clase V y Clase III) y emite el informe estricto en el formato JSON requerido.`;
+
+  // Extractor y reparador de JSON robusto
+  const extractAndRepairJson = (text: string): string => {
+    const start = text.indexOf('{');
+    if (start === -1) return "";
+    
+    const stack: ('{' | '[')[] = [];
+    let inString = false;
+    let escape = false;
+    
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      
+      if (ch === '{') stack.push('{');
+      else if (ch === '[') stack.push('[');
+      else if (ch === '}') {
+        if (stack[stack.length - 1] === '{') stack.pop();
+        if (stack.length === 0) return text.slice(start, i + 1);
+      }
+      else if (ch === ']') {
+        if (stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+    
+    let repaired = text.slice(start);
+    if (inString) repaired += '"';
+    repaired = repaired.replace(/[,:]\s*$/, '');
+    if (repaired.endsWith('"null')) repaired = repaired.replace(/"null$/, 'null');
+    
+    while (stack.length > 0) {
+      const char = stack.pop();
+      repaired += char === '{' ? '}' : ']';
+    }
+    return repaired;
+  };
+
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE' || !ai) {
+    try {
+      const responseText = await generateContentViaBackend(prompt, 'bmaInterception', systemInstruction);
+      let jsonStr = responseText.trim();
+      jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/(?:thought|think|thinking|reasoning)>/gi, '').trim();
+
+      const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
+      const fenceMatch = jsonStr.match(fenceRegex);
+      if (fenceMatch && fenceMatch[1]) {
+        jsonStr = fenceMatch[1].trim();
+      }
+
+      jsonStr = extractAndRepairJson(jsonStr);
+      let parsedResult: BMAInterceptionSimulationResult | undefined = undefined;
+      let finalMarkdown = responseText;
+
+      if (jsonStr) {
+        try {
+          const rawBma = JSON.parse(jsonStr);
+          parsedResult = normalizeBMAInterceptionResult(rawBma);
+          finalMarkdown = formatBMAMarkdown(parsedResult);
+        } catch (parseErr) {
+          console.warn("No se pudo parsear JSON directo de BMA, usando texto en crudo:", parseErr);
+        }
+      }
+
+      const result: GeminiAnalysisResult = { text: finalMarkdown, bmaSimulationResult: parsedResult };
+      updateTaskState('bmaInterception', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: any) {
+      console.error("Error en simulateBMAInterception Backend/OmniRoute:", error);
+      const errorMessage = error.message || "Fallo la simulación de intercepción.";
+      updateTaskState('bmaInterception', { status: 'FAILED', error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  }
 
   try {
-    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`, 'bmaInterception');
-    const result = { text };
+    updateTaskState('bmaInterception', { status: 'RUNNING', error: null, result: null });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    let jsonStr = (response.text || "").trim();
+    const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[2]) {
+      jsonStr = match[2].trim();
+    }
+    jsonStr = extractAndRepairJson(jsonStr);
+
+    let parsedResult: BMAInterceptionSimulationResult | undefined = undefined;
+    let finalMarkdown = response.text || "";
+
+    if (jsonStr) {
+      try {
+        const rawBma = JSON.parse(jsonStr);
+        parsedResult = normalizeBMAInterceptionResult(rawBma);
+        finalMarkdown = formatBMAMarkdown(parsedResult);
+      } catch (parseErr) {
+        console.warn("No se pudo parsear JSON directo de Gemini para BMA:", parseErr);
+      }
+    }
+
+    const result: GeminiAnalysisResult = { text: finalMarkdown, bmaSimulationResult: parsedResult };
     updateTaskState('bmaInterception', { status: 'COMPLETED', result });
     return result;
   } catch (error: any) {
-    console.error("Error en simulateBMAInterception:", error);
+    console.error("Error en simulateBMAInterception Gemini:", error);
     const errorMessage = error.message || "Fallo la simulación de intercepción.";
     updateTaskState('bmaInterception', { status: 'FAILED', error: errorMessage });
     throw new Error(errorMessage);
