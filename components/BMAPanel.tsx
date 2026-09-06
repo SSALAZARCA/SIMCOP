@@ -207,11 +207,12 @@ export const BMAPanel: React.FC<BMAPanelProps> = ({
                             const label = colonIdx > -1 ? trimmed.substring(0, colonIdx + 1) : '';
                             const content = colonIdx > -1 ? trimmed.substring(colonIdx + 1).trim() : trimmed;
 
+                            const normalizedLabel = label.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                             let labelColor = 'text-indigo-300';
-                            if (label.includes('AMENAZA')) labelColor = 'text-rose-400';
-                            else if (label.includes('CLIMA') || label.includes('TERRENO')) labelColor = 'text-sky-400';
-                            else if (label.includes('HOTSPOT') || label.includes('LOGÍSTICO')) labelColor = 'text-amber-400';
-                            else if (label.includes('DECISIÓN') || label.includes('RECOMENDADA')) labelColor = 'text-emerald-400';
+                            if (normalizedLabel.includes('AMENAZA')) labelColor = 'text-rose-400';
+                            else if (normalizedLabel.includes('CLIMA') || normalizedLabel.includes('TERRENO')) labelColor = 'text-sky-400';
+                            else if (normalizedLabel.includes('HOTSPOT') || normalizedLabel.includes('LOGISTICO')) labelColor = 'text-amber-400';
+                            else if (normalizedLabel.includes('DECISION') || normalizedLabel.includes('RECOMENDADA')) labelColor = 'text-emerald-400';
 
                             return (
                                 <div key={i} className="flex items-start gap-1.5">

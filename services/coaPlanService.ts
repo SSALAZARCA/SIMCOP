@@ -9,9 +9,23 @@ const API_URL = `${API_BASE_URL}/api/coa-plans`;
  * Parses phasesJson string back to phases array
  */
 const transformCOAPlan = (plan: any): COAPlan => {
+    if (!plan || typeof plan !== 'object') {
+        return {
+            planName: 'Plan de Maniobra Táctica COA',
+            conceptOfOperations: '',
+            phases: []
+        };
+    }
     if (plan.phasesJson && typeof plan.phasesJson === 'string') {
-        plan.phases = JSON.parse(plan.phasesJson);
+        try {
+            plan.phases = JSON.parse(plan.phasesJson);
+        } catch (e) {
+            console.error('Failed to parse phasesJson in transformCOAPlan:', e);
+            plan.phases = [];
+        }
         delete plan.phasesJson;
+    } else if (!plan.phases || !Array.isArray(plan.phases)) {
+        plan.phases = [];
     }
     return plan;
 };

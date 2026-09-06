@@ -308,6 +308,41 @@ const App: React.FC = () => {
     return () => eventBus.unsubscribe(finishedToken);
   }, []);
 
+  // COA Plan persistence across view switches and sessions
+  useEffect(() => {
+    const tokenNew = eventBus.subscribe('newCOAPlan', (_msg: string, plan: any) => {
+      if (plan && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          localStorage.setItem('simcop_active_coa_plan', JSON.stringify(plan));
+        } catch (e) {
+          console.error('Error persisting newCOAPlan in App:', e);
+        }
+      }
+    });
+
+    const tokenRender = eventBus.subscribe('renderCOAGraphics', (_msg: string, plan: any) => {
+      if (plan && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          localStorage.setItem('simcop_active_coa_plan', JSON.stringify(plan));
+        } catch (e) {
+          console.error('Error persisting renderCOAGraphics in App:', e);
+        }
+      }
+    });
+
+    const tokenClear = eventBus.subscribe('clearCOALayer', () => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('simcop_active_coa_plan');
+      }
+    });
+
+    return () => {
+      eventBus.unsubscribe(tokenNew);
+      eventBus.unsubscribe(tokenRender);
+      eventBus.unsubscribe(tokenClear);
+    };
+  }, []);
+
   const handleApproveAo = useCallback(async () => {
     if (!pendingAoiGeoJson) return;
 

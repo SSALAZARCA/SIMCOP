@@ -1,5 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult } from '../types';
+import { COAGraphicType } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, COAPhase, COAGraphicElement, GeoLocation, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult } from '../types';
 import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
 import { useState, useEffect } from 'react';
@@ -567,7 +568,7 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
 
     const equipmentStr = (u.equipment && u.equipment.length > 0) ? u.equipment.join(', ') : 'Orgánico estándar de infantería';
     const capabilitiesStr = (u.capabilities && u.capabilities.length > 0) ? u.capabilities.join(', ') : 'Infantería convencional';
-    const uasStr = (u.uavAssets && u.uavAssets.length > 0) ? u.uavAssets.map(a => `${a.model} (${a.type})`).join(', ') : 'Sin medios UAS orgánicos';
+    const uasStr = (u.uavAssets && u.uavAssets.length > 0) ? u.uavAssets.map(a => `${(a as any).model || a.id} (${a.type})`).join(', ') : 'Sin medios UAS orgánicos';
     const coordsDecimal = u.location ? `[Lat: ${u.location.lat.toFixed(5)}°, Lon: ${u.location.lon.toFixed(5)}°]` : '[Sin telemetría GPS]';
     const ammoStr = u.ammoLevel !== undefined ? `${u.ammoLevel}%` : '100%';
     const fuelStr = u.fuelLevel !== undefined ? `${u.fuelLevel}%` : '100%';
@@ -1026,19 +1027,50 @@ ${escapeTemplateLiteralContent(query)}`;
 };
 
 export const normalizeCOAPlan = (raw: any): COAPlan => {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      planName: "Plan de Maniobra Táctica COA",
+      conceptOfOperations: "",
+      phases: []
+    };
+  }
+
   const planName = raw.nombre_operacion || raw.planName || "Plan de Maniobra Táctica COA";
   const conceptOfOperations = raw.intencion_comandante || raw.conceptOfOperations || "";
   
-  const rawPhases = raw.fases || raw.phases || [];
+  const rawPhases = Array.isArray(raw.fases) ? raw.fases : (Array.isArray(raw.phases) ? raw.phases : []);
   const phases: COAPhase[] = rawPhases.map((phase: any, pIdx: number) => {
+    if (!phase || typeof phase !== 'object') {
+      return {
+        phaseName: `Fase ${pIdx + 1}`,
+        description: "",
+        graphics: [],
+        fase_numero: pIdx + 1,
+        nombre: `Fase ${pIdx + 1}`,
+        descripcion: "",
+        medidas_control_graficacion: []
+      };
+    }
+
     const phaseName = phase.nombre || phase.phaseName || `Fase ${phase.fase_numero || (pIdx + 1)}`;
     const description = phase.descripcion || phase.description || "";
     
     // Normalizar medidas de control / graphics
-    const rawGraphics = phase.medidas_control_graficacion || phase.graphics || [];
+    const rawGraphics = Array.isArray(phase.medidas_control_graficacion)
+      ? phase.medidas_control_graficacion
+      : (Array.isArray(phase.graphics) ? phase.graphics : []);
+
     const graphics: COAGraphicElement[] = rawGraphics.map((item: any) => {
+      if (!item || typeof item !== 'object') {
+        return {
+          type: COAGraphicType.PHASE_LINE,
+          label: 'Control Táctico',
+          locations: []
+        };
+      }
+
       let gType: COAGraphicType = COAGraphicType.PHASE_LINE;
-      const cat = (item.categoria || item.type || "").toUpperCase();
+      const cat = (item.categoria || item.type || item.tipo || item.label || item.etiqueta || item.nombre || "").toUpperCase();
       const tipo = (item.tipo || "").toUpperCase();
       
       if (cat.includes('LINEA_FASE') || cat.includes('PHASE_LINE')) gType = COAGraphicType.PHASE_LINE;
@@ -1046,34 +1078,58 @@ export const normalizeCOAPlan = (raw: any): COAPlan => {
       else if (cat.includes('AREA_OBJETIVO') || cat.includes('OBJECTIVE')) gType = COAGraphicType.OBJECTIVE;
       else if (cat.includes('ZONA_REUNION') || cat.includes('ASSEMBLY')) gType = COAGraphicType.ASSEMBLY_AREA;
       else if (cat.includes('POSICION_BLOQUEO') || cat.includes('BOUNDARY')) gType = COAGraphicType.BOUNDARY;
-      else if (cat.includes('PUNTO_CONTROL') || cat.includes('PUNTO_INSERCION') || cat.includes('CHECKPOINT') || tipo === 'PUNTO') gType = COAGraphicType.CHECKPOINT;
+      else if (cat.includes('PUNTO_CONTROL') || cat.includes('PUNTO_INSERCION') || cat.includes('CHECKPOINT') || cat.includes('PZ') || cat.includes('LZ') || tipo === 'PUNTO') gType = COAGraphicType.CHECKPOINT;
       else if (tipo === 'LINEA') gType = COAGraphicType.PHASE_LINE;
       else if (tipo === 'POLIGONO') gType = COAGraphicType.OBJECTIVE;
       
+      const parseCoordPair = (c0: any, c1: any): GeoLocation => {
+        const v0 = typeof c0 === 'number' ? c0 : parseFloat(c0);
+        const v1 = typeof c1 === 'number' ? c1 : parseFloat(c1);
+        const safe0 = isNaN(v0) ? 0 : v0;
+        const safe1 = isNaN(v1) ? 0 : v1;
+        // In South America / Colombia, longitude is negative (-66 to -82 W)
+        // If c0 is longitude (< -20 or |c0| > 20), it is GeoJSON [lon, lat]
+        if (safe0 < -20 || Math.abs(safe0) > 20) {
+          return { lat: safe1, lon: safe0 };
+        } else if (safe1 < -20 || Math.abs(safe1) > 20) {
+          return { lat: safe0, lon: safe1 };
+        }
+        return { lat: safe0, lon: safe1 };
+      };
+
       const coords = item.coordenadas || item.locations || [];
       let locations: GeoLocation[] = [];
       if (Array.isArray(coords)) {
-        if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
-          // Coordenada individual [lat, lon]
-          const isLatFirst = Math.abs(coords[0]) <= 90;
-          locations = [{
-            lat: isLatFirst ? coords[0] : coords[1],
-            lon: isLatFirst ? coords[1] : coords[0]
-          }];
+        if (coords.length >= 2 && (typeof coords[0] === 'number' || typeof coords[0] === 'string') && (typeof coords[1] === 'number' || typeof coords[1] === 'string')) {
+          // Coordenada individual [lat, lon] o [lon, lat]
+          locations = [parseCoordPair(coords[0], coords[1])];
         } else if (coords.length > 0 && Array.isArray(coords[0])) {
-          // Array de coordenadas [[lat, lon], ...]
+          // Array de coordenadas [[c0, c1], ...]
           locations = coords.map((c: any) => {
-            const isLatFirst = Math.abs(c[0]) <= 90;
-            return {
-              lat: isLatFirst ? c[0] : c[1],
-              lon: isLatFirst ? c[1] : c[0]
-            };
-          });
+            if (Array.isArray(c) && c.length >= 2) {
+              return parseCoordPair(c[0], c[1]);
+            }
+            return { lat: 0, lon: 0 };
+          }).filter(loc => !(loc.lat === 0 && loc.lon === 0));
         } else if (coords.length > 0 && typeof coords[0] === 'object') {
-          locations = coords.map((c: any) => ({
-            lat: c.lat ?? c.latitude ?? 0,
-            lon: c.lon ?? c.lng ?? c.longitude ?? 0
-          }));
+          locations = coords.map((c: any) => {
+            if (Array.isArray(c) && c.length >= 2) {
+              return parseCoordPair(c[0], c[1]);
+            }
+            if (c && typeof c === 'object') {
+              let lat = typeof c.lat === 'number' ? c.lat : (c.latitude !== undefined ? parseFloat(c.latitude) : parseFloat(c.lat || 0));
+              let lon = typeof c.lon === 'number' ? c.lon : (c.lng !== undefined ? parseFloat(c.lng) : (c.longitude !== undefined ? parseFloat(c.longitude) : parseFloat(c.lon || 0)));
+              lat = isNaN(lat) ? 0 : lat;
+              lon = isNaN(lon) ? 0 : lon;
+              if (lat < -20 && lon > -20) {
+                const tmp = lat;
+                lat = lon;
+                lon = tmp;
+              }
+              return { lat, lon };
+            }
+            return { lat: 0, lon: 0 };
+          });
         }
       }
       
@@ -1621,39 +1677,63 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
 };
 
 export const normalizeWargameResult = (raw: any): WargameSimulationResult => {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      simulacion_id: `WARGAME-${Date.now().toString().slice(-4)}`,
+      resultado_global: {
+        probabilidad_exito_porcentaje: 75,
+        veredicto_operacional: "VIABLE CON ADVERTENCIAS",
+        justificacion_resumida: "Simulación procesada conforme a doctrina militar."
+      },
+      atricion_estimada: {
+        fuerzas_propias: { estimado_bajas_totales: 0, heridos: 0, muertos_en_combate: 0, perdida_medios: "Sin pérdidas materiales críticas estimadas" },
+        fuerzas_enemigas: { estimado_neutralizaciones: 0, capturas_estimadas: 0, material_incautado_esperado: "Armamento y material de intendencia" }
+      },
+      fases_wargaming: [],
+      puntos_falla_criticos: []
+    };
+  }
+
+  const heridos = Math.max(0, Number(raw.atricion_estimada?.fuerzas_propias?.heridos ?? 0));
+  const muertos_en_combate = Math.max(0, Number(raw.atricion_estimada?.fuerzas_propias?.muertos_en_combate ?? 0));
+  const estimado_bajas_totales = Math.max(Number(raw.atricion_estimada?.fuerzas_propias?.estimado_bajas_totales ?? 0), heridos + muertos_en_combate);
+
+  const estimado_neutralizaciones = Math.max(0, Number(raw.atricion_estimada?.fuerzas_enemigas?.estimado_neutralizaciones ?? 0));
+  const capturas_estimadas = Math.max(0, Number(raw.atricion_estimada?.fuerzas_enemigas?.capturas_estimadas ?? 0));
+
   return {
     simulacion_id: raw.simulacion_id || `WARGAME-${Date.now().toString().slice(-4)}`,
     resultado_global: {
-      probabilidad_exito_porcentaje: Number(raw.resultado_global?.probabilidad_exito_porcentaje ?? 75),
+      probabilidad_exito_porcentaje: Math.min(100, Math.max(0, Number(raw.resultado_global?.probabilidad_exito_porcentaje ?? 75))),
       veredicto_operacional: raw.resultado_global?.veredicto_operacional || "VIABLE CON ADVERTENCIAS",
       justificacion_resumida: raw.resultado_global?.justificacion_resumida || "Simulación procesada conforme a doctrina militar."
     },
     atricion_estimada: {
       fuerzas_propias: {
-        estimado_bajas_totales: Number(raw.atricion_estimada?.fuerzas_propias?.estimado_bajas_totales ?? 0),
-        heridos: Number(raw.atricion_estimada?.fuerzas_propias?.heridos ?? 0),
-        muertos_en_combate: Number(raw.atricion_estimada?.fuerzas_propias?.muertos_en_combate ?? 0),
+        estimado_bajas_totales,
+        heridos,
+        muertos_en_combate,
         perdida_medios: raw.atricion_estimada?.fuerzas_propias?.perdida_medios || "Sin pérdidas materiales críticas estimadas"
       },
       fuerzas_enemigas: {
-        estimado_neutralizaciones: Number(raw.atricion_estimada?.fuerzas_enemigas?.estimado_neutralizaciones ?? 0),
-        capturas_estimadas: Number(raw.atricion_estimada?.fuerzas_enemigas?.capturas_estimadas ?? 0),
+        estimado_neutralizaciones,
+        capturas_estimadas,
         material_incautado_esperado: raw.atricion_estimada?.fuerzas_enemigas?.material_incautado_esperado || "Armamento y material de intendencia"
       }
     },
     fases_wargaming: Array.isArray(raw.fases_wargaming) ? raw.fases_wargaming.map((f: any, idx: number) => ({
-      fase_numero: Number(f.fase_numero ?? (idx + 1)),
-      nombre_fase: f.nombre_fase || `Fase ${idx + 1}`,
-      accion_propia: f.accion_propia || "",
-      reaccion_enemiga_probable: f.reaccion_enemiga_probable || "",
-      contraaccion_y_efecto: f.contraaccion_y_efecto || "",
-      evento_critico: f.evento_critico || "",
-      tasa_exito_fase_porcentaje: Number(f.tasa_exito_fase_porcentaje ?? 75)
+      fase_numero: Number(f?.fase_numero ?? (idx + 1)),
+      nombre_fase: f?.nombre_fase || `Fase ${idx + 1}`,
+      accion_propia: f?.accion_propia || "",
+      reaccion_enemiga_probable: f?.reaccion_enemiga_probable || "",
+      contraaccion_y_efecto: f?.contraaccion_y_efecto || "",
+      evento_critico: f?.evento_critico || "",
+      tasa_exito_fase_porcentaje: Math.min(100, Math.max(0, Number(f?.tasa_exito_fase_porcentaje ?? 75)))
     })) : [],
     puntos_falla_criticos: Array.isArray(raw.puntos_falla_criticos) ? raw.puntos_falla_criticos.map((p: any) => ({
-      factor: p.factor || "Factor Crítico",
-      impacto: p.impacto || "",
-      medida_mitigacion: p.medida_mitigacion || ""
+      factor: p?.factor || "Factor Crítico",
+      impacto: p?.impacto || "",
+      medida_mitigacion: p?.medida_mitigacion || ""
     })) : []
   };
 };
@@ -1959,40 +2039,92 @@ Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
 };
 
 export const normalizeBMAInterceptionResult = (raw: any): BMAInterceptionSimulationResult => {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      intercepcion_id: `BMA-INT-${Date.now().toString().slice(-4)}`,
+      unidad_amiga: "Unidad Amiga",
+      amenaza_objetivo: "Vector Hostil",
+      metricas_clave: {
+        probabilidad_intercepcion_porcentaje: 75,
+        probabilidad_neutralizacion_porcentaje: 70,
+        tiempo_estimado_contacto_minutos: 30,
+        nivel_riesgo_general: "MEDIO"
+      },
+      control_danos_y_bajas: {
+        propias: {
+          estimado_bajas_totales: 0,
+          heridos_wia: 0,
+          muertos_kia: 0,
+          requiere_medevac: false,
+          danos_material_equipo: "Ninguno reportado"
+        },
+        amenaza: {
+          neutralizados_kia: 0,
+          capturados_pow: 0,
+          dispersos_huidos: 0
+        }
+      },
+      gasto_logistico_estimado: {
+        municion_clase_v: {
+          porcentaje_consumo_unidad: 25,
+          desglose: "Consumo estimado de munición"
+        },
+        combustible_clase_iii: {
+          porcentaje_consumo: 10,
+          observacion: "Consumo táctico en desplazamiento"
+        },
+        autonomia_remanente_horas: 48
+      },
+      evaluacion_operacional: "Contacto táctico completado."
+    };
+  }
+
+  const heridosWia = Math.max(0, Number(raw.control_danos_y_bajas?.propias?.heridos_wia ?? 0));
+  const muertosKia = Math.max(0, Number(raw.control_danos_y_bajas?.propias?.muertos_kia ?? 0));
+  const estimadoBajasPropias = Math.max(Number(raw.control_danos_y_bajas?.propias?.estimado_bajas_totales ?? 0), heridosWia + muertosKia);
+  const requiereMedevac = heridosWia > 0 ? true : Boolean(raw.control_danos_y_bajas?.propias?.requiere_medevac);
+
+  const neutralizadosKia = Math.max(0, Number(raw.control_danos_y_bajas?.amenaza?.neutralizados_kia ?? 0));
+  const capturadosPow = Math.max(0, Number(raw.control_danos_y_bajas?.amenaza?.capturados_pow ?? 0));
+  const dispersosHuidos = Math.max(0, Number(raw.control_danos_y_bajas?.amenaza?.dispersos_huidos ?? 0));
+
+  const probInt = Number(raw.metricas_clave?.probabilidad_intercepcion_porcentaje ?? 75);
+  const probNeut = Number(raw.metricas_clave?.probabilidad_neutralizacion_porcentaje ?? 70);
+
   return {
     intercepcion_id: raw.intercepcion_id || `BMA-INT-${Date.now().toString().slice(-4)}`,
     unidad_amiga: raw.unidad_amiga || "Unidad Amiga",
     amenaza_objetivo: raw.amenaza_objetivo || "Vector Hostil",
     metricas_clave: {
-      probabilidad_intercepcion_porcentaje: Number(raw.metricas_clave?.probabilidad_intercepcion_porcentaje ?? 75),
-      probabilidad_neutralizacion_porcentaje: Number(raw.metricas_clave?.probabilidad_neutralizacion_porcentaje ?? 70),
-      tiempo_estimado_contacto_minutos: Number(raw.metricas_clave?.tiempo_estimado_contacto_minutos ?? 30),
+      probabilidad_intercepcion_porcentaje: Math.min(100, Math.max(0, isNaN(probInt) ? 75 : probInt)),
+      probabilidad_neutralizacion_porcentaje: Math.min(100, Math.max(0, isNaN(probNeut) ? 70 : probNeut)),
+      tiempo_estimado_contacto_minutos: Math.max(0, Number(raw.metricas_clave?.tiempo_estimado_contacto_minutos ?? 30)),
       nivel_riesgo_general: (raw.metricas_clave?.nivel_riesgo_general || "MEDIO").toUpperCase()
     },
     control_danos_y_bajas: {
       propias: {
-        estimado_bajas_totales: Number(raw.control_danos_y_bajas?.propias?.estimado_bajas_totales ?? 0),
-        heridos_wia: Number(raw.control_danos_y_bajas?.propias?.heridos_wia ?? 0),
-        muertos_kia: Number(raw.control_danos_y_bajas?.propias?.muertos_kia ?? 0),
-        requiere_medevac: Boolean(raw.control_danos_y_bajas?.propias?.requiere_medevac),
+        estimado_bajas_totales: estimadoBajasPropias,
+        heridos_wia: heridosWia,
+        muertos_kia: muertosKia,
+        requiere_medevac: requiereMedevac,
         danos_material_equipo: raw.control_danos_y_bajas?.propias?.danos_material_equipo || "Ninguno reportado"
       },
       amenaza: {
-        neutralizados_kia: Number(raw.control_danos_y_bajas?.amenaza?.neutralizados_kia ?? 0),
-        capturados_pow: Number(raw.control_danos_y_bajas?.amenaza?.capturados_pow ?? 0),
-        dispersos_huidos: Number(raw.control_danos_y_bajas?.amenaza?.dispersos_huidos ?? 0)
+        neutralizados_kia: neutralizadosKia,
+        capturados_pow: capturadosPow,
+        dispersos_huidos: dispersosHuidos
       }
     },
     gasto_logistico_estimado: {
       municion_clase_v: {
-        porcentaje_consumo_unidad: Number(raw.gasto_logistico_estimado?.municion_clase_v?.porcentaje_consumo_unidad ?? 25),
+        porcentaje_consumo_unidad: Math.min(100, Math.max(0, Number(raw.gasto_logistico_estimado?.municion_clase_v?.porcentaje_consumo_unidad ?? 25))),
         desglose: raw.gasto_logistico_estimado?.municion_clase_v?.desglose || "Consumo estimado de munición"
       },
       combustible_clase_iii: {
-        porcentaje_consumo: Number(raw.gasto_logistico_estimado?.combustible_clase_iii?.porcentaje_consumo ?? 10),
+        porcentaje_consumo: Math.min(100, Math.max(0, Number(raw.gasto_logistico_estimado?.combustible_clase_iii?.porcentaje_consumo ?? 10))),
         observacion: raw.gasto_logistico_estimado?.combustible_clase_iii?.observacion || "Consumo táctico en desplazamiento"
       },
-      autonomia_remanente_horas: Number(raw.gasto_logistico_estimado?.autonomia_remanente_horas ?? 48)
+      autonomia_remanente_horas: Math.max(0, Number(raw.gasto_logistico_estimado?.autonomia_remanente_horas ?? 48))
     },
     evaluacion_operacional: raw.evaluacion_operacional || "Contacto táctico completado."
   };
@@ -2108,8 +2240,9 @@ ESQUEMA JSON REQUERIDO:
   }
 
   const unitTotalPersonnel = (unit.personnelBreakdown?.officers || 0) + 
-                             (unit.personnelBreakdown?.nonCommissionedOfficers || 0) + 
-                             (unit.personnelBreakdown?.soldiers || 0);
+                             (unit.personnelBreakdown?.ncos || 0) + 
+                             (unit.personnelBreakdown?.professionalSoldiers || 0) +
+                             (unit.personnelBreakdown?.slRegulars || 0);
 
   const unitEquipmentStr = (unit.equipment && unit.equipment.length > 0) 
     ? unit.equipment.join(', ') 
@@ -2120,11 +2253,11 @@ ESQUEMA JSON REQUERIDO:
     : 'Infiltración, asalto táctico, combate cercano';
 
   const unitCoordinates = unit.location 
-    ? `${decimalToDMS(unit.location.lat, unit.location.lon)} [${unit.location.lat.toFixed(4)}, ${unit.location.lon.toFixed(4)}]`
+    ? `${decimalToDMS(unit.location)} [${unit.location.lat.toFixed(4)}, ${unit.location.lon.toFixed(4)}]`
     : 'No disponibles';
 
   const threatCoordinates = threat.location
-    ? `${decimalToDMS(threat.location.lat, threat.location.lon)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]`
+    ? `${decimalToDMS(threat.location)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]`
     : 'Coordenadas no fijadas';
 
   let distanceKm = 0;
@@ -2136,7 +2269,7 @@ ESQUEMA JSON REQUERIDO:
 - Condición: ${weather.condition}
 - Temperatura: ${weather.temperature}°C
 - Viento: ${weather.windSpeed || 0} km/h (${weather.windDirection || 'N/D'})
-- Techo de Nubes: ${weather.clouds || 0}%
+- Techo de Nubes: ${weather.cloudCover ?? weather.cloudCeiling ?? 0}%
 - Impacto Operacional: ${weather.operationalImpact ? 'ALTO IMPACTO / RESTRINGIDO' : 'FAVORABLE / SIN RESTRICCIÓN'}` : 'Clima estándar en el teatro de operaciones.';
 
   const prompt = `
@@ -2150,14 +2283,14 @@ VECTOR DE ENFRENTAMIENTO DIRECTO (BMA INTERCEPTION):
 - Ubicación Táctica: ${unitCoordinates}
 - Armamento Orgánico: ${unitEquipmentStr}
 - Capacidades de Combate: ${unitCapabilitiesStr}
-- Estado Logístico: Munición Clase V: ${unit.ammoLevel}%, Combustible Clase III: ${unit.fuelLevel}%, Raciones Clase I: ${unit.rationsLevel}%
+- Estado Logístico: Munición Clase V: ${unit.ammoLevel ?? 100}%, Combustible Clase III: ${unit.fuelLevel ?? 100}%, Raciones / Suministros: ${unit.daysOfSupply !== undefined ? `${unit.daysOfSupply} días` : 'Adecuado'}
 
 2. AMENAZA HOSTIL OBJETIVO:
 - Identificación: ${threat.title}
 - Clasificación INT: ${threat.type} (Confiabilidad: ${threat.reliability}, Credibilidad: ${threat.credibility})
 - Ubicación Reportada: ${threatCoordinates}
 - Distancia Táctica de Contacto: ~${distanceKm > 0 ? distanceKm.toFixed(2) : '5.0'} km
-- Resumen de Inteligencia: ${threat.description || 'Elementos armados hostiles en movimiento o punto de acecho.'}
+- Resumen de Inteligencia: ${threat.details || 'Elementos armados hostiles en movimiento o punto de acecho.'}
 
 3. CONDICIONES METEOROLÓGICAS Y DEL TERRENO EN EL PUNTO:
 ${weatherStr}
@@ -2309,7 +2442,7 @@ REGLAS DE REDACCIÓN:
    - • DECISIÓN RECOMENDADA: Acción táctica inmediata para el escalón de mando.`;
 
   const threatLocationStr = threat?.location 
-    ? `${decimalToDMS(threat.location.lat, threat.location.lon)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]` 
+    ? `${decimalToDMS(threat.location)} [${threat.location.lat.toFixed(4)}, ${threat.location.lon.toFixed(4)}]` 
     : 'No precisadas';
 
   const recommendationsStr = recommendations.length > 0 
@@ -2317,7 +2450,7 @@ REGLAS DE REDACCIÓN:
     : 'Sin unidades con asignación directa asignada';
 
   const weatherStr = weather 
-    ? `${weather.condition}, Temp: ${Math.round(weather.temperature)}°C, Viento: ${weather.windSpeed || 0} km/h ${weather.windDirection || ''}, Nubosidad: ${weather.clouds || 0}%, Impacto: ${weather.operationalImpact ? 'ALTO / ADVERSO' : 'FAVORABLE'}`
+    ? `${weather.condition}, Temp: ${Math.round(weather.temperature)}°C, Viento: ${weather.windSpeed || 0} km/h ${weather.windDirection || ''}, Nubosidad: ${weather.cloudCover ?? weather.cloudCeiling ?? 0}%, Impacto: ${weather.operationalImpact ? 'ALTO / ADVERSO' : 'FAVORABLE'}`
     : 'Condiciones meteorológicas estándar';
 
   const hotspotsStr = hotspots.length > 0 
@@ -2335,7 +2468,7 @@ AMENAZA SELECCIONADA:
 - Identificación / Blanco: ${threat ? `${threat.title} (${threat.type})` : 'Sin amenaza activa seleccionada'}
 - Confiabilidad / Credibilidad: ${threat ? `${threat.reliability}/${threat.credibility}` : 'N/A'}
 - Coordenadas: ${threatLocationStr}
-- Inteligencia Reportada: ${threat?.description || 'Alerta temprana de hostiles'}
+- Inteligencia Reportada: ${threat?.details || 'Alerta temprana de hostiles'}
 
 RECOMENDACIÓN DE FUERZAS / RESPUESTA:
 ${recommendationsStr}

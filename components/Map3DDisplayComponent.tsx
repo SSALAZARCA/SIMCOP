@@ -37,6 +37,7 @@ import {
   DEFAULT_PICC_SYMBOL_SIZE
 } from '../constants';
 import { piccService } from '../services/piccService';
+import { coaPlanService } from '../services/coaPlanService';
 
 const PlantillaPICCConfig: any = {};
 
@@ -217,8 +218,33 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const aoi3DPointsRef = useRef<Cesium.Cartesian3[]>([]);
 
   const [loadedPiccGraphics, setLoadedPiccGraphics] = useState<OperationalGraphic[]>([]);
-  const [currentCOAPlan, setCurrentCOAPlan] = useState<COAPlan | null>(null);
   const [piccPoints, setPiccPoints] = useState<Cesium.Cartesian3[]>([]);
+  const [currentCOAPlan, setCurrentCOAPlan] = useState<COAPlan | null>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('simcop_active_coa_plan');
+        if (saved) return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Error restoring COA plan from localStorage in Map3D:", e);
+    }
+    return null;
+  });
+
+  const updateCurrentCOAPlan = (plan: COAPlan | null) => {
+    setCurrentCOAPlan(plan);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (plan) {
+          localStorage.setItem('simcop_active_coa_plan', JSON.stringify(plan));
+        } else {
+          localStorage.removeItem('simcop_active_coa_plan');
+        }
+      }
+    } catch (e) {
+      console.error("Error saving COA plan to localStorage in Map3D:", e);
+    }
+  };
   const piccDrawingPointsRef = useRef<Cesium.Cartesian3[]>([]);
 
   const unitDataSourceRef = useRef<Cesium.CustomDataSource | null>(null);
@@ -1221,21 +1247,45 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
   // Load COA plan and graphics
   useEffect(() => {
+    // If no COA plan in state, try restoring from coaPlanService
+    if (!currentCOAPlan) {
+      coaPlanService.getAllPlans()
+        .then(plans => {
+          if (plans && plans.length > 0) {
+            const latest = plans[plans.length - 1];
+            if (latest && latest.phases && latest.phases.length > 0) {
+              updateCurrentCOAPlan(latest);
+            }
+          }
+        })
+        .catch(err => {
+          console.warn("Could not restore COA plan from backend:", err);
+        });
+    }
+  }, []);
+
+  useEffect(() => {
     if (!eventBus) return;
 
     const handleNewCOAPlan = (_msg: string, plan: COAPlan) => {
-      setCurrentCOAPlan(plan);
+      if (plan) updateCurrentCOAPlan(plan);
+    };
+
+    const handleRenderCOAGraphics = (_msg: string, plan: COAPlan) => {
+      if (plan) updateCurrentCOAPlan(plan);
     };
 
     const handleClearCOA = () => {
-      setCurrentCOAPlan(null);
+      updateCurrentCOAPlan(null);
     };
 
     const tokenNew = eventBus.subscribe('newCOAPlan', handleNewCOAPlan);
+    const tokenRender = eventBus.subscribe('renderCOAGraphics', handleRenderCOAGraphics);
     const tokenClear = eventBus.subscribe('clearCOALayer', handleClearCOA);
 
     return () => {
       eventBus.unsubscribe(tokenNew);
+      eventBus.unsubscribe(tokenRender);
       eventBus.unsubscribe(tokenClear);
     };
   }, [eventBus]);
@@ -2161,16 +2211,38 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
           const positions = graphic.locations.map((loc: any) => {
             if (Array.isArray(loc) && loc.length >= 2) {
-              const isLatFirst = Math.abs(loc[0]) <= 90;
-              const lat = isLatFirst ? loc[0] : loc[1];
-              const lon = isLatFirst ? loc[1] : loc[0];
-              if (isNaN(Number(lon)) || isNaN(Number(lat))) return null;
+              const c0 = typeof loc[0] === 'number' ? loc[0] : parseFloat(loc[0]);
+              const c1 = typeof loc[1] === 'number' ? loc[1] : parseFloat(loc[1]);
+              if (isNaN(c0) || isNaN(c1)) return null;
+              let lon: number;
+              let lat: number;
+              if (c0 < -20 || Math.abs(c0) > 20) {
+                lon = c0;
+                lat = c1;
+              } else if (c1 < -20 || Math.abs(c1) > 20) {
+                lon = c1;
+                lat = c0;
+              } else {
+                lat = c0;
+                lon = c1;
+              }
               return Cesium.Cartesian3.fromDegrees(Number(lon), Number(lat));
             }
-            const lon = loc.lon ?? loc.lng ?? loc.longitude;
-            const lat = loc.lat ?? loc.latitude ?? loc.lati ?? loc.latitud;
-            if (lon === undefined || lat === undefined || isNaN(Number(lon)) || isNaN(Number(lat))) return null;
-            return Cesium.Cartesian3.fromDegrees(Number(lon), Number(lat));
+            if (loc && typeof loc === 'object') {
+              let rawLon = loc.lon ?? loc.lng ?? loc.longitude;
+              let rawLat = loc.lat ?? loc.latitude ?? loc.lati ?? loc.latitud;
+              if (rawLon === undefined || rawLat === undefined) return null;
+              let lon = typeof rawLon === 'number' ? rawLon : parseFloat(rawLon);
+              let lat = typeof rawLat === 'number' ? rawLat : parseFloat(rawLat);
+              if (isNaN(lon) || isNaN(lat)) return null;
+              if (lat < -20 && lon > -20) {
+                const tmp = lat;
+                lat = lon;
+                lon = tmp;
+              }
+              return Cesium.Cartesian3.fromDegrees(Number(lon), Number(lat));
+            }
+            return null;
           }).filter((pos): pos is Cesium.Cartesian3 => pos !== null);
           const id = `coa-3d-${currentCOAPlan.planName}-${phaseIdx}-${graphicIdx}`;
 
@@ -2342,6 +2414,31 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                     fillColor: phaseColor,
                     outlineColor: Cesium.Color.BLACK,
                     outlineWidth: 2.5,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  }
+                });
+              } else if (positions.length === 1 || positions.length === 2) {
+                const center = positions.length === 2 ? Cesium.Cartesian3.lerp(positions[0], positions[1], 0.5, new Cesium.Cartesian3()) : positions[0];
+                addTacticalEntity({
+                  id: id,
+                  name: `AR ${graphic.label}`,
+                  position: center,
+                  ellipse: {
+                    semiMajorAxis: 600.0,
+                    semiMinorAxis: 600.0,
+                    material: phaseColor.withAlpha(0.2),
+                    outline: true,
+                    outlineColor: phaseColor,
+                    outlineWidth: 2,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  },
+                  label: {
+                    text: `AR ${graphic.label}`,
+                    font: 'bold 11px sans-serif',
+                    fillColor: phaseColor,
+                    outlineColor: Cesium.Color.BLACK,
+                    outlineWidth: 2.5,
+                    pixelOffset: new Cesium.Cartesian2(0, -10),
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
                   }
                 });
