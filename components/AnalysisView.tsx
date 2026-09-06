@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 
 import DOMPurify from 'dompurify';
+import { renderTacticalMarkdown } from '../utils/markdownUtils';
 import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
 import type { Feature as GeoJSONFeature, Polygon as GeoJSONPolygon } from 'geojson';
@@ -1008,7 +1009,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           <div className="mt-4 p-3 bg-gray-750 rounded-lg shadow-inner text-sm">
             <div className="prose prose-invert prose-sm max-w-none text-gray-300">
               <div 
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((doctrinalResponse.text || "").replace(/\n/g, '<br />')) }} 
+                dangerouslySetInnerHTML={{ __html: renderTacticalMarkdown(doctrinalResponse.text || "") }} 
               />
             </div>
           </div>
@@ -1372,7 +1373,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                   ) : (
                     <div className="prose prose-invert prose-sm max-w-none text-gray-300 bg-gray-950/60 p-3 rounded-lg border border-gray-800">
                       <div 
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((simulationResult.text || "").replace(/\n/g, '<br />')) }} 
+                        dangerouslySetInnerHTML={{ __html: renderTacticalMarkdown(simulationResult.text || "") }} 
                       />
                     </div>
                   )}
@@ -1781,7 +1782,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               <h4 className="text-sm font-semibold text-gray-200 mb-1">Respuesta de la IA:</h4>
               <div className="prose prose-invert max-w-none prose-sm text-gray-300">
                 <div 
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(analysisResult.text.replace(/\n/g, '<br />')) }} 
+                  dangerouslySetInnerHTML={{ __html: renderTacticalMarkdown(analysisResult.text) }} 
                 />
               </div>
             </div>

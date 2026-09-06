@@ -813,7 +813,25 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
 3. ESTILO Y DOCTRINA MILITAR:
    - Redacción militar sobria, directa, asertiva y orientada a la toma de decisiones ejecutivas.
    - Cero teoría académica o definiciones de manual; ve directo a la asignación de recursos, ventajas tácticas en el terreno y mitigación de amenazas.
-   - Las coordenadas geográficas deben mantenerse fieles a los formatos provistos (grados decimales y DMS).`;
+   - Las coordenadas geográficas deben mantenerse fieles a los formatos provistos (grados decimales y DMS).
+
+4. FORMATO VISUAL Y PRESENTACIÓN OPERACIONAL (REGLA ESTRICTA DE LEGIBILIDAD):
+   - PROHIBIDO EL USO DE TABLAS O CUADROS DE TEXTO EN FORMATO MARKDOWN (no uses barras verticales '|', ni delimitadores '|---|' ni matrices de celdas). Las tablas con columnas se distorsionan, truncan el texto y resultan incomprensibles en la pantalla táctica.
+   - Presenta toda la información comparativa, capacidades, brechas y prioridades mediante FICHAS TÁCTICAS Y VIÑETAS JERÁRQUICAS ESTRUCTURADAS:
+     Ejemplo obligatorio para capacidades y unidades:
+     ### 2. Capacidades Propias y Brechas
+     • **[Nombre de Unidad]** ([Coordenadas DMS]):
+       - Capacidades clave: [Especialidad, efectivos, armamento, suministros]
+       - Distancia/Eje a focos críticos: [Distancias en km y vías de aproximación]
+       - Brechas operacionales: [Limitaciones críticas de comunicaciones, movilidad o apoyo]
+
+     Ejemplo obligatorio para prioridades y movimientos:
+     ### 3. Prioridades de Optimización del AOI
+     • **Prioridad 1: [Acción táctica concreta]**
+       - Justificación operacional: [Por qué y qué ventaja confiere]
+       - Unidad y Asignación: [Nombre de la unidad, posición actual y nuevo sector asignado]
+
+   - Utiliza títulos con '###', viñetas con '•', sub-puntos con '-' y negrita '**' para resaltar unidades, sectores críticos y decisiones de mando.`;
 
   if (enemyLayerActive && useGoogleSearch) {
     systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Complementa tu análisis con información histórica y de inteligencia sobre incidentes de seguridad y tácticas enemigas reportadas en el sector geográfico donde operan las unidades. Cita todas las fuentes web utilizadas al final.`;
@@ -1520,7 +1538,8 @@ export const getDoctrinalAssistantResponse = async (query: string): Promise<Gemi
     throw new Error("Gemini AI client no inicializado. Verifique la configuración.");
   }
 
-  const systemInstruction = `Eres un asistente experto en la doctrina militar del Ejército Nacional de Colombia (EJC). Tu propósito es responder preguntas y proporcionar resúmenes basados en los manuales de doctrina, regulaciones y tácticas del EJC. Basa tus respuestas en la información disponible y utiliza Google Search para encontrar documentos y referencias doctrinales relevantes. Si usas fuentes externas, cítalas.`;
+  const systemInstruction = `Eres un asistente experto en la doctrina militar del Ejército Nacional de Colombia (EJC). Tu propósito es responder preguntas y proporcionar resúmenes basados en los manuales de doctrina, regulaciones y tácticas del EJC. Basa tus respuestas en la información disponible y utiliza Google Search para encontrar documentos y referencias doctrinales relevantes. Si usas fuentes externas, cítalas.
+ESTRUCTURA DE RESPUESTA: Utiliza títulos '###', viñetas claras '•' y negrita '**' para términos doctrinarios. PROHIBIDO usar tablas con barras '|' ya que rompen el formato de la interfaz táctica.`;
 
   if (aiProvider === 'NATIVE_SIMCOP') {
     try {
