@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult } from '../types';
 import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
 import { useState, useEffect } from 'react';
@@ -1620,6 +1620,79 @@ Basado en los datos, genera un array JSON con las 3 predicciones de necesidades 
   }
 };
 
+export const normalizeWargameResult = (raw: any): WargameSimulationResult => {
+  return {
+    simulacion_id: raw.simulacion_id || `WARGAME-${Date.now().toString().slice(-4)}`,
+    resultado_global: {
+      probabilidad_exito_porcentaje: Number(raw.resultado_global?.probabilidad_exito_porcentaje ?? 75),
+      veredicto_operacional: raw.resultado_global?.veredicto_operacional || "VIABLE CON ADVERTENCIAS",
+      justificacion_resumida: raw.resultado_global?.justificacion_resumida || "Simulación procesada conforme a doctrina militar."
+    },
+    atricion_estimada: {
+      fuerzas_propias: {
+        estimado_bajas_totales: Number(raw.atricion_estimada?.fuerzas_propias?.estimado_bajas_totales ?? 0),
+        heridos: Number(raw.atricion_estimada?.fuerzas_propias?.heridos ?? 0),
+        muertos_en_combate: Number(raw.atricion_estimada?.fuerzas_propias?.muertos_en_combate ?? 0),
+        perdida_medios: raw.atricion_estimada?.fuerzas_propias?.perdida_medios || "Sin pérdidas materiales críticas estimadas"
+      },
+      fuerzas_enemigas: {
+        estimado_neutralizaciones: Number(raw.atricion_estimada?.fuerzas_enemigas?.estimado_neutralizaciones ?? 0),
+        capturas_estimadas: Number(raw.atricion_estimada?.fuerzas_enemigas?.capturas_estimadas ?? 0),
+        material_incautado_esperado: raw.atricion_estimada?.fuerzas_enemigas?.material_incautado_esperado || "Armamento y material de intendencia"
+      }
+    },
+    fases_wargaming: Array.isArray(raw.fases_wargaming) ? raw.fases_wargaming.map((f: any, idx: number) => ({
+      fase_numero: Number(f.fase_numero ?? (idx + 1)),
+      nombre_fase: f.nombre_fase || `Fase ${idx + 1}`,
+      accion_propia: f.accion_propia || "",
+      reaccion_enemiga_probable: f.reaccion_enemiga_probable || "",
+      contraaccion_y_efecto: f.contraaccion_y_efecto || "",
+      evento_critico: f.evento_critico || "",
+      tasa_exito_fase_porcentaje: Number(f.tasa_exito_fase_porcentaje ?? 75)
+    })) : [],
+    puntos_falla_criticos: Array.isArray(raw.puntos_falla_criticos) ? raw.puntos_falla_criticos.map((p: any) => ({
+      factor: p.factor || "Factor Crítico",
+      impacto: p.impacto || "",
+      medida_mitigacion: p.medida_mitigacion || ""
+    })) : []
+  };
+};
+
+export const formatWargameMarkdown = (wg: WargameSimulationResult): string => {
+  let md = `### ⚔️ INFORME DE SIMULACIÓN Y JUEGOS DE GUERRA (WARGAMING)\n\n`;
+  md += `**ID Simulación:** \`${wg.simulacion_id}\`  \n`;
+  md += `**Veredicto Operacional:** **${wg.resultado_global.veredicto_operacional}**  \n`;
+  md += `**Probabilidad Global de Éxito:** **${wg.resultado_global.probabilidad_exito_porcentaje}%**  \n\n`;
+  md += `> **Síntesis del Combate:** ${wg.resultado_global.justificacion_resumida}\n\n`;
+
+  md += `#### 📊 Evaluación Cuantitativa de Atrición\n\n`;
+  md += `| Fuerza | Bajas Totales | Heridos | Muertos (K.I.A) | Pérdida / Incautación de Medios |\n`;
+  md += `| :--- | :---: | :---: | :---: | :--- |\n`;
+  md += `| **Fuerzas Propias** | ${wg.atricion_estimada.fuerzas_propias.estimado_bajas_totales} | ${wg.atricion_estimada.fuerzas_propias.heridos} | ${wg.atricion_estimada.fuerzas_propias.muertos_en_combate} | ${wg.atricion_estimada.fuerzas_propias.perdida_medios || 'Ninguna'} |\n`;
+  md += `| **Fuerzas Adversarias (GANE/GAO)** | ${wg.atricion_estimada.fuerzas_enemigas.estimado_neutralizaciones} | - | ${wg.atricion_estimada.fuerzas_enemigas.capturas_estimadas} (Capturas) | ${wg.atricion_estimada.fuerzas_enemigas.material_incautado_esperado || 'N/A'} |\n\n`;
+
+  if (wg.fases_wargaming.length > 0) {
+    md += `#### 🔄 Dinámica de Combate por Fases (Acción - Reacción - Contraacción)\n\n`;
+    wg.fases_wargaming.forEach(f => {
+      md += `##### Fase ${f.fase_numero}: ${f.nombre_fase} *(Tasa de éxito: ${f.tasa_exito_fase_porcentaje}%)*\n`;
+      md += `- **Acción Propia:** ${f.accion_propia}\n`;
+      md += `- **Reacción Enemiga Probable:** ${f.reaccion_enemiga_probable}\n`;
+      md += `- **Contraacción y Efecto:** ${f.contraaccion_y_efecto}\n`;
+      md += `- **⚠️ Evento Crítico:** ${f.evento_critico}\n\n`;
+    });
+  }
+
+  if (wg.puntos_falla_criticos && wg.puntos_falla_criticos.length > 0) {
+    md += `#### ⚠️ Puntos Críticos de Falla y Medidas de Mitigación\n\n`;
+    wg.puntos_falla_criticos.forEach((p, idx) => {
+      md += `${idx + 1}. **${p.factor}**: ${p.impacto}\n`;
+      md += `   - **Mitigación Táctica:** ${p.medida_mitigacion}\n`;
+    });
+  }
+
+  return md;
+};
+
 export const simulateCOAOutcome = async (
   coaPlan: COAPlan,
   units: MilitaryUnit[],
@@ -1635,10 +1708,17 @@ export const simulateCOAOutcome = async (
       updateTaskState('coaSimulation', { status: 'RUNNING', error: null, result: null });
       const data = await callNativeAI('/wargaming/simulate_outcome', {
         coa: JSON.stringify(coaPlan),
-        fuerzas_amigas_enemigas: `Amigas:\n${formatUnitsForPrompt(units)}\n\nInteligencia Enemiga:\n${formatIntelForPrompt(intelReports)}`
+        fuerzas_amigas_enemigas: `Amigas:\n${formatUnitsForPrompt(units, intelReports)}\n\nInteligencia Enemiga:\n${formatIntelForPrompt(intelReports)}`
       });
-      const resultText = typeof data === 'string' ? data : (data.outcome || JSON.stringify(data));
-      const result = { text: resultText };
+      let parsedWargame: WargameSimulationResult | undefined = undefined;
+      let resultText = "";
+      if (typeof data === 'object' && data !== null) {
+        parsedWargame = normalizeWargameResult(data);
+        resultText = formatWargameMarkdown(parsedWargame);
+      } else {
+        resultText = typeof data === 'string' ? data : JSON.stringify(data);
+      }
+      const result: GeminiAnalysisResult = { text: resultText, wargameResult: parsedWargame };
       updateTaskState('coaSimulation', { status: 'COMPLETED', result });
       return result;
     } catch (error: any) {
@@ -1648,36 +1728,227 @@ export const simulateCOAOutcome = async (
     }
   }
 
-  const unitContext = formatUnitsForPrompt(units);
+  const unitContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
 
-  const systemInstruction = `Eres un oficial de simulación y wargaming. Tu tarea es analizar un plan de Curso de Acción (COA) propuesto y simular su resultado más probable basándote en la doctrina militar, la superioridad de fuegos, el terreno y la inteligencia enemiga. Proporciona un análisis de riesgos, bajas estimadas y probabilidad de éxito.`;
+  const systemInstruction = `Eres el Oficial de Simulación, Juegos de Guerra (Wargaming) y Modelado Táctico del sistema SIMCOP. Tu tarea es someter el Curso de Acción (COA) propuesto a una simulación de combate rigurosa contra las capacidades reales del adversario, aplicando doctrina militar y evaluación cuantitativa de atrición.
+
+MÉTODO DE SIMULACIÓN OBLIGATORIO:
+1. DINÁMICA DE COMBATE (ACCIÓN - REACCIÓN - CONTRAACCIÓN):
+   - Evalúa cada fase del plan enfrentando la Maniobra Propia (Acción) con la Táctica más probable y peligrosa del GANE/GAO (Reacción), y la capacidad de ajuste de la unidad (Contraacción).
+2. MODELADO DE CAPACIDADES Y FACTORES DEL TERRENO:
+   - Cruza correlación de fuegos, línea de vista (LOS), fatiga por pendiente, cobertura vegetal y vulnerabilidad en puntos de estrangulamiento o corredores de movilidad obligados.
+   - Pondera amenazas asimétricas: empleo hostil de IED/AEI, francotiradores y ataques con micro-UAVs comerciales adaptados.
+3. ESTIMACIONES REALISTAS:
+   - Probabilidad de éxito calculada en porcentaje (0-100%).
+   - Atrición y bajas segregadas (Propias vs. Enemigas) expresadas en números enteros realistas según el escalón empeñado.
+4. SALIDA: Responde EXCLUSIVAMENTE con el siguiente esquema JSON válido, sin texto introductorio ni conclusiones fuera de la estructura.
+
+ESQUEMA JSON OBLIGATORIO:
+{
+  "simulacion_id": "WARGAME-COA-01",
+  "resultado_global": {
+    "probabilidad_exito_porcentaje": 78,
+    "veredicto_operacional": "VIABLE CON ALTO RIESGO EN FASE II | VIABLE | NO RECOMENDADO",
+    "justificacion_resumida": "Síntesis operativa del resultado de la confrontación."
+  },
+  "atricion_estimada": {
+    "fuerzas_propias": {
+      "estimado_bajas_totales": 3,
+      "heridos": 2,
+      "muertos_en_combate": 1,
+      "perdida_medios": "1 micro-UAV por fuego de fusilería"
+    },
+    "fuerzas_enemigas": {
+      "estimado_neutralizaciones": 7,
+      "capturas_estimadas": 4,
+      "material_incautado_esperado": "Armamento ligero, precursores y munición"
+    }
+  },
+  "fases_wargaming": [
+    {
+      "fase_numero": 1,
+      "nombre_fase": "Infiltración y Aproximación",
+      "accion_propia": "Avance de ASTRO 1 por el eje desenfilado.",
+      "reaccion_enemiga_probable": "Detección temprana por red de alerta local (campanillas / informantes).",
+      "contraaccion_y_efecto": "Empleo de micro-UAS para fijar posición de tiradores enemigos y reorientar el eje.",
+      "evento_critico": "Cruce del río o paso obligado bajo posible campo de tiro enemigo.",
+      "tasa_exito_fase_porcentaje": 85
+    }
+  ],
+  "puntos_falla_criticos": [
+    {
+      "factor": "Interrupción de Enlace C2",
+      "impacto": "Pérdida de comunicaciones VHF en el fondo del cañón durante el asalto.",
+      "medida_mitigacion": "Despliegue de repetidor táctico en cota dominante previo al asalto."
+    },
+    {
+      "factor": "Alerta Temprana de IED",
+      "impacto": "Ralentización de la columna y riesgo de emboscada coordinada.",
+      "medida_mitigacion": "Avance con equipo EXDE a la vanguardia y reconocimiento visual por drone."
+    }
+  ]
+}`;
+
+  const phasesDetails = (coaPlan.phases || []).map((p, i) => {
+    const graphicsSummary = (p.graphics || []).map(g => `[${g.type} - ${g.label}]`).join(', ');
+    return `Fase ${p.fase_numero || (i + 1)}: ${p.phaseName || p.nombre}
+- Concepto/Descripción: ${p.description || p.descripcion}
+- Medidas de Control/Calco: ${graphicsSummary || 'Sin calco explícito'}`;
+  }).join('\n\n');
+
+  const unitsAssignedSummary = (coaPlan.unidades_asignadas || []).map(u => 
+    `- ${u.indicativo}: Rol: ${u.rol_tactico} | Misión: ${u.mision}`
+  ).join('\n');
 
   const prompt = `
-PLAN DE CURSO DE ACCIÓN (COA):
-Nombre: ${coaPlan.planName}
-Concepto: ${coaPlan.conceptOfOperations}
-Fases:
-${coaPlan.phases.map((p, i) => `Fase ${i + 1}: ${p.phaseName}\n - Desc: ${p.description}`).join('\n')}
+PLAN DE CURSO DE ACCIÓN (COA) A EVALUAR:
+- ID Operación: ${coaPlan.coa_id || 'COA-ACTUAL'}
+- Nombre de la Operación: ${coaPlan.planName || coaPlan.nombre_operacion || 'Operación Táctica'}
+- Intención del Comandante: ${coaPlan.conceptOfOperations || coaPlan.intencion_comandante || 'N/A'}
 
-FUERZAS AMIGAS:
+UNIDADES ASIGNADAS AL PLAN:
+${unitsAssignedSummary || 'Unidades orgánicas disponibles en el TO.'}
+
+FASES Y MEDIDAS DE CONTROL DE LA MANIOBRA:
+${phasesDetails}
+
+SINCRONIZACIÓN DE FUEGOS Y MEDIOS UAS:
+- Reconocimiento Aéreo / UAS: ${coaPlan.sincronizacion_fuegos_y_uav?.reconocimiento_aereo || 'Reconocimiento táctico estándar'}
+- Apoyo de Fuegos: ${coaPlan.sincronizacion_fuegos_y_uav?.apoyo_fuego || 'Fuegos orgánicos de mortero y artillería a solicitud'}
+
+GESTIÓN DE RIESGOS PREVIA:
+${(coaPlan.riesgo_y_mitigacion || []).map(r => `- Riesgo: ${r.riesgo} -> Mitigación: ${r.mitigacion}`).join('\n') || 'Evaluación estándar de riesgos.'}
+
+---
+FUERZAS AMIGAS DISPONIBLES EN EL TEATRO (TELEMETRÍA, ARMAS Y POSICIONES REALES):
 ${unitContext}
 
-INTELIGENCIA ENEMIGA:
+---
+INTELIGENCIA ADVERSARIA Y AMENAZA GANE/GAO (HISTÓRICO Y CONTACTOS RECIENTES):
 ${intelContext}
 
 ---
-SOLICITUD:
-Simula el desarrollo de este plan. ¿Qué resistencia se espera? ¿Cuáles son los puntos críticos de fallo? Proporciona una estimación de bajas y recursos necesarios.
-`;
+INSTRUCCIÓN FINAL:
+Ejecuta el wargaming aplicando Acción - Reacción - Contraacción en cada fase, cuantifica la atrición propia vs enemiga y emite el veredicto operacional.
+Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
+
+  // Extractor y reparador de JSON robusto
+  const extractAndRepairJson = (text: string): string => {
+    const start = text.indexOf('{');
+    if (start === -1) return "";
+    
+    const stack: ('{' | '[')[] = [];
+    let inString = false;
+    let escape = false;
+    
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      
+      if (ch === '{') stack.push('{');
+      else if (ch === '[') stack.push('[');
+      else if (ch === '}') {
+        if (stack[stack.length - 1] === '{') stack.pop();
+        if (stack.length === 0) return text.slice(start, i + 1);
+      }
+      else if (ch === ']') {
+        if (stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+    
+    let repaired = text.slice(start);
+    if (inString) repaired += '"';
+    repaired = repaired.replace(/[,:]\s*$/, '');
+    if (repaired.endsWith('"null')) repaired = repaired.replace(/"null$/, 'null');
+    
+    while (stack.length > 0) {
+      const char = stack.pop();
+      repaired += char === '{' ? '}' : ']';
+    }
+    return repaired;
+  };
+
+  if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE' || !ai) {
+    try {
+      const responseText = await generateContentViaBackend(prompt, 'coaSimulation', systemInstruction);
+      let jsonStr = responseText.trim();
+      jsonStr = jsonStr.replace(/<(?:thought|think|thinking|reasoning)[^>]*>[\s\S]*?<\/(?:thought|think|thinking|reasoning)>/gi, '').trim();
+
+      const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
+      const fenceMatch = jsonStr.match(fenceRegex);
+      if (fenceMatch && fenceMatch[1]) {
+        jsonStr = fenceMatch[1].trim();
+      }
+
+      jsonStr = extractAndRepairJson(jsonStr);
+      let parsedResult: WargameSimulationResult | undefined = undefined;
+      let finalMarkdown = responseText;
+
+      if (jsonStr) {
+        try {
+          const rawWargame = JSON.parse(jsonStr);
+          parsedResult = normalizeWargameResult(rawWargame);
+          finalMarkdown = formatWargameMarkdown(parsedResult);
+        } catch (parseErr) {
+          console.warn("No se pudo parsear JSON directo de wargaming, usando texto en crudo:", parseErr);
+        }
+      }
+
+      const result: GeminiAnalysisResult = { text: finalMarkdown, wargameResult: parsedResult };
+      updateTaskState('coaSimulation', { status: 'COMPLETED', result });
+      return result;
+    } catch (error: unknown) {
+      console.error("Error en simulateCOAOutcome Backend/OmniRoute:", error);
+      let errorMessage = "Fallo al simular el Curso de Acción con IA.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      updateTaskState('coaSimulation', { status: 'FAILED', error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  }
 
   try {
-    const text = await generateContentViaBackend(`${systemInstruction}\n\n${prompt}`, 'coaSimulation');
-    const result = { text };
+    updateTaskState('coaSimulation', { status: 'RUNNING', error: null, result: null });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    let jsonStr = (response.text || "").trim();
+    const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[2]) {
+      jsonStr = match[2].trim();
+    }
+    jsonStr = extractAndRepairJson(jsonStr);
+
+    let parsedResult: WargameSimulationResult | undefined = undefined;
+    let finalMarkdown = response.text || "";
+
+    if (jsonStr) {
+      try {
+        const rawWargame = JSON.parse(jsonStr);
+        parsedResult = normalizeWargameResult(rawWargame);
+        finalMarkdown = formatWargameMarkdown(parsedResult);
+      } catch (parseErr) {
+        console.warn("No se pudo parsear JSON directo de Gemini para wargaming:", parseErr);
+      }
+    }
+
+    const result: GeminiAnalysisResult = { text: finalMarkdown, wargameResult: parsedResult };
     updateTaskState('coaSimulation', { status: 'COMPLETED', result });
     return result;
   } catch (error: unknown) {
-    console.error("Error en simulateCOAOutcome:", error);
+    console.error("Error en simulateCOAOutcome Gemini:", error);
     let errorMessage = "Fallo al simular el resultado del COA.";
     if (error instanceof Error) {
       errorMessage = error.message;

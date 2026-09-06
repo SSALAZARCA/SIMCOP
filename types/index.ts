@@ -323,6 +323,7 @@ export interface GroundingSource {
 export interface GeminiAnalysisResult {
   text: string;
   sources?: GroundingSource[];
+  wargameResult?: WargameSimulationResult;
 }
 
 export enum MoraleLevel {
@@ -1214,6 +1215,55 @@ export interface COAPlan {
   }>;
 }
 export interface UserTelegramConfig { userId: string; telegramChatId: string; }
+
+// --- Wargaming / COA Simulation Types ---
+export interface WargameGlobalResult {
+  probabilidad_exito_porcentaje: number;
+  veredicto_operacional: string;
+  justificacion_resumida: string;
+}
+
+export interface WargameAttritionOwn {
+  estimado_bajas_totales: number;
+  heridos: number;
+  muertos_en_combate: number;
+  perdida_medios?: string;
+}
+
+export interface WargameAttritionEnemy {
+  estimado_neutralizaciones: number;
+  capturas_estimadas: number;
+  material_incautado_esperado?: string;
+}
+
+export interface WargameAttrition {
+  fuerzas_propias: WargameAttritionOwn;
+  fuerzas_enemigas: WargameAttritionEnemy;
+}
+
+export interface WargamePhase {
+  fase_numero: number;
+  nombre_fase: string;
+  accion_propia: string;
+  reaccion_enemiga_probable: string;
+  contraaccion_y_efecto: string;
+  evento_critico: string;
+  tasa_exito_fase_porcentaje: number;
+}
+
+export interface WargameFailurePoint {
+  factor: string;
+  impacto: string;
+  medida_mitigacion: string;
+}
+
+export interface WargameSimulationResult {
+  simulacion_id: string;
+  resultado_global: WargameGlobalResult;
+  atricion_estimada: WargameAttrition;
+  fases_wargaming: WargamePhase[];
+  puntos_falla_criticos: WargameFailurePoint[];
+}
 
 // --- Map Display Types ---
 

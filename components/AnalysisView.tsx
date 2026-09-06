@@ -269,6 +269,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   const [isFetchingElevation, setIsFetchingElevation] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [hasCheckedAoiOnMount, setHasCheckedAoiOnMount] = useState<boolean>(false);
+  const [showRawSimulationText, setShowRawSimulationText] = useState<boolean>(false);
 
   // New state for Line of Sight Tool
   const [lineOfSightActive, setLineOfSightActive] = useState<boolean>(false);
@@ -1136,16 +1137,245 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               {simulationError && <p className="text-xs text-red-400 bg-red-900/50 p-2 rounded">{simulationError}</p>}
 
               {simulationResult && (
-                <div className="p-3 bg-orange-900/20 border border-orange-800 rounded-md">
-                  <h5 className="font-bold text-orange-300 mb-2 flex items-center">
-                    <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
-                    Resultado Estimado de la Simulación
-                  </h5>
-                  <div className="prose prose-invert prose-sm max-w-none text-gray-300 mt-2">
-                    <div 
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((simulationResult.text || "").replace(/\n/g, '<br />')) }} 
-                    />
+                <div className="p-4 bg-gray-900/95 border border-orange-700/60 rounded-lg shadow-xl space-y-4">
+                  {/* Top Bar: Title, ID & Toggle */}
+                  <div className="flex justify-between items-center border-b border-gray-700/80 pb-2.5">
+                    <div className="flex items-center space-x-2">
+                      <span className="p-1.5 bg-orange-950/80 border border-orange-600/60 rounded text-orange-400 text-sm">
+                        ⚔️
+                      </span>
+                      <div>
+                        <h5 className="font-bold text-sm text-orange-300 flex items-center gap-2">
+                          Simulación Táctica y Wargaming
+                          {simulationResult.wargameResult && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 bg-gray-800 text-orange-400 border border-orange-900/60 rounded">
+                              {simulationResult.wargameResult.simulacion_id}
+                            </span>
+                          )}
+                        </h5>
+                        <p className="text-[10px] text-gray-400">Evaluación cuantitativa doctrinal de atrición y dinámica de combate</p>
+                      </div>
+                    </div>
+                    {simulationResult.wargameResult && (
+                      <button
+                        type="button"
+                        onClick={() => setShowRawSimulationText(!showRawSimulationText)}
+                        className="text-[11px] text-gray-400 hover:text-white px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition"
+                      >
+                        {showRawSimulationText ? "Ver Calco Estructurado" : "Ver Texto Informe"}
+                      </button>
+                    )}
                   </div>
+
+                  {simulationResult.wargameResult && !showRawSimulationText ? (
+                    <div className="space-y-4">
+                      {/* Operational Verdict & Success Probability Meter */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className={`p-3 rounded-lg border flex flex-col justify-between ${
+                          simulationResult.wargameResult.resultado_global.veredicto_operacional.toUpperCase().includes('NO RECOMENDADO')
+                            ? 'bg-rose-950/40 border-rose-600/70 text-rose-200'
+                            : simulationResult.wargameResult.resultado_global.veredicto_operacional.toUpperCase().includes('ALTO RIESGO') || simulationResult.wargameResult.resultado_global.veredicto_operacional.toUpperCase().includes('RIESGO')
+                            ? 'bg-amber-950/40 border-amber-600/70 text-amber-200'
+                            : 'bg-emerald-950/40 border-emerald-600/70 text-emerald-200'
+                        }`}>
+                          <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Veredicto Operacional</span>
+                          <span className="text-xs font-black tracking-wide mt-1">
+                            {simulationResult.wargameResult.resultado_global.veredicto_operacional}
+                          </span>
+                        </div>
+
+                        <div className="p-3 bg-gray-800/90 rounded-lg border border-gray-700 md:col-span-2 flex flex-col justify-between">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Probabilidad Global de Éxito</span>
+                            <span className={`text-base font-black ${
+                              simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje >= 75
+                                ? 'text-emerald-400'
+                                : simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje >= 50
+                                ? 'text-amber-400'
+                                : 'text-rose-400'
+                            }`}>
+                              {simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-950 rounded-full h-2.5 overflow-hidden border border-gray-700/60">
+                            <div
+                              className={`h-2.5 rounded-full transition-all duration-700 ${
+                                simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje >= 75
+                                  ? 'bg-gradient-to-r from-emerald-600 to-green-400'
+                                  : simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje >= 50
+                                  ? 'bg-gradient-to-r from-amber-600 to-yellow-400'
+                                  : 'bg-gradient-to-r from-red-600 to-rose-400'
+                              }`}
+                              style={{ width: `${Math.min(Math.max(simulationResult.wargameResult.resultado_global.probabilidad_exito_porcentaje, 5), 100)}%` }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-gray-300 mt-2 italic">
+                            "{simulationResult.wargameResult.resultado_global.justificacion_resumida}"
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quantitative Attrition Matrix */}
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                          <span>📊</span> Balance Cuantitativo de Atrición Estimada:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Fuerzas Propias */}
+                          <div className="p-3 bg-blue-950/20 border border-blue-800/40 rounded-lg space-y-2">
+                            <div className="flex justify-between items-center border-b border-blue-800/40 pb-1">
+                              <span className="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                                🛡️ Fuerzas Propias
+                              </span>
+                              <span className="text-[11px] font-mono px-2 py-0.5 bg-blue-900/60 text-blue-200 rounded font-bold">
+                                {simulationResult.wargameResult.atricion_estimada.fuerzas_propias.estimado_bajas_totales} Bajas Estimadas
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="bg-gray-800/60 p-2 rounded border border-gray-700/50">
+                                <span className="text-[10px] text-gray-400 block">Heridos (W.I.A):</span>
+                                <span className="text-sm font-bold text-amber-300">
+                                  {simulationResult.wargameResult.atricion_estimada.fuerzas_propias.heridos}
+                                </span>
+                              </div>
+                              <div className="bg-gray-800/60 p-2 rounded border border-gray-700/50">
+                                <span className="text-[10px] text-gray-400 block">Muertos (K.I.A):</span>
+                                <span className="text-sm font-bold text-rose-400">
+                                  {simulationResult.wargameResult.atricion_estimada.fuerzas_propias.muertos_en_combate}
+                                </span>
+                              </div>
+                            </div>
+                            {simulationResult.wargameResult.atricion_estimada.fuerzas_propias.perdida_medios && (
+                              <p className="text-[11px] text-gray-300 bg-gray-800/50 p-2 rounded border border-gray-700/40">
+                                <span className="text-blue-400 font-semibold">Pérdida de Medios:</span> {simulationResult.wargameResult.atricion_estimada.fuerzas_propias.perdida_medios}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Fuerzas Adversarias */}
+                          <div className="p-3 bg-red-950/20 border border-red-800/40 rounded-lg space-y-2">
+                            <div className="flex justify-between items-center border-b border-red-800/40 pb-1">
+                              <span className="text-xs font-bold text-red-300 flex items-center gap-1.5">
+                                🎯 Fuerzas Adversarias (GANE/GAO)
+                              </span>
+                              <span className="text-[11px] font-mono px-2 py-0.5 bg-red-900/60 text-red-200 rounded font-bold">
+                                {simulationResult.wargameResult.atricion_estimada.fuerzas_enemigas.estimado_neutralizaciones} Neutralizaciones
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="bg-gray-800/60 p-2 rounded border border-gray-700/50">
+                                <span className="text-[10px] text-gray-400 block">Neutralizados:</span>
+                                <span className="text-sm font-bold text-rose-400">
+                                  {simulationResult.wargameResult.atricion_estimada.fuerzas_enemigas.estimado_neutralizaciones}
+                                </span>
+                              </div>
+                              <div className="bg-gray-800/60 p-2 rounded border border-gray-700/50">
+                                <span className="text-[10px] text-gray-400 block">Capturas:</span>
+                                <span className="text-sm font-bold text-emerald-300">
+                                  {simulationResult.wargameResult.atricion_estimada.fuerzas_enemigas.capturas_estimadas}
+                                </span>
+                              </div>
+                            </div>
+                            {simulationResult.wargameResult.atricion_estimada.fuerzas_enemigas.material_incautado_esperado && (
+                              <p className="text-[11px] text-gray-300 bg-gray-800/50 p-2 rounded border border-gray-700/40">
+                                <span className="text-red-400 font-semibold">Incautación Esperada:</span> {simulationResult.wargameResult.atricion_estimada.fuerzas_enemigas.material_incautado_esperado}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Combat Dynamics by Phase (Action - Reaction - Counteraction) */}
+                      {simulationResult.wargameResult.fases_wargaming && simulationResult.wargameResult.fases_wargaming.length > 0 && (
+                        <div className="space-y-2.5">
+                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span>🔄</span> Dinámica de Combate por Fases (Acción - Reacción - Contraacción):
+                          </p>
+                          <div className="space-y-2">
+                            {simulationResult.wargameResult.fases_wargaming.map((fase, fIdx) => (
+                              <div key={fIdx} className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/70 space-y-2">
+                                <div className="flex justify-between items-center border-b border-gray-700/50 pb-1.5">
+                                  <span className="font-bold text-xs text-lime-300">
+                                    Fase {fase.fase_numero}: {fase.nombre_fase}
+                                  </span>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                                    fase.tasa_exito_fase_porcentaje >= 75
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                                      : 'bg-amber-950 text-amber-300 border border-amber-700/60'
+                                  }`}>
+                                    {fase.tasa_exito_fase_porcentaje}% éxito
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                  <div className="p-2 bg-blue-950/30 border border-blue-900/50 rounded flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                                      🔵 Acción Propia
+                                    </span>
+                                    <p className="text-gray-200 text-[11px]">{fase.accion_propia}</p>
+                                  </div>
+
+                                  <div className="p-2 bg-red-950/30 border border-red-900/50 rounded flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                                      🔴 Reacción Adversaria
+                                    </span>
+                                    <p className="text-gray-200 text-[11px]">{fase.reaccion_enemiga_probable}</p>
+                                  </div>
+
+                                  <div className="p-2 bg-emerald-950/30 border border-emerald-900/50 rounded flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                                      🟢 Contraacción y Efecto
+                                    </span>
+                                    <p className="text-gray-200 text-[11px]">{fase.contraaccion_y_efecto}</p>
+                                  </div>
+                                </div>
+
+                                {fase.evento_critico && (
+                                  <div className="p-2 bg-amber-950/30 border border-amber-800/40 rounded text-[11px] flex items-start gap-1.5 text-amber-200">
+                                    <span className="text-amber-400">⚠️</span>
+                                    <div>
+                                      <span className="font-bold text-amber-300">Punto Crítico de la Fase:</span> {fase.evento_critico}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Critical Failure Points & Mitigations */}
+                      {simulationResult.wargameResult.puntos_falla_criticos && simulationResult.wargameResult.puntos_falla_criticos.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span>⚠️</span> Puntos Críticos de Falla y Mitigación Táctica:
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {simulationResult.wargameResult.puntos_falla_criticos.map((pf, pIdx) => (
+                              <div key={pIdx} className="p-2.5 bg-gray-800/90 border border-orange-900/40 rounded-lg text-xs space-y-1">
+                                <div className="flex items-center gap-1.5 text-orange-300 font-bold">
+                                  <span>⚡</span>
+                                  <span>{pf.factor}</span>
+                                </div>
+                                <p className="text-[11px] text-gray-300">
+                                  <span className="text-gray-400 font-semibold">Impacto:</span> {pf.impacto}
+                                </p>
+                                <p className="text-[11px] text-emerald-300 bg-emerald-950/30 p-1.5 rounded border border-emerald-900/40">
+                                  <span className="text-emerald-400 font-bold">Mitigación:</span> {pf.medida_mitigacion}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="prose prose-invert prose-sm max-w-none text-gray-300 bg-gray-950/60 p-3 rounded-lg border border-gray-800">
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((simulationResult.text || "").replace(/\n/g, '<br />')) }} 
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
