@@ -40,6 +40,12 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
+    public static final java.util.Set<String> BANNED_DEFAULT_PASSWORDS = java.util.Set.of(
+            "password", "admin", "123456", "12345678", "admin123",
+            "change-me-immediately", "admin:password", "admin:admin",
+            "simcop", "simcop2026", "password123", "root", "guest", "test", "ssc841209"
+    );
+
     @Override
     public void run(String... args) throws Exception {
         ensureDataDirectoryExists();
@@ -54,7 +60,7 @@ public class DataInitializer implements CommandLineRunner {
         String initialSecurePassword;
         if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()) {
             initialSecurePassword = envSuperAdminPass.trim();
-        } else if (defaultAdminPassword != null && !defaultAdminPassword.trim().isEmpty() && !"change-me-immediately".equals(defaultAdminPassword.trim())) {
+        } else if (defaultAdminPassword != null && !defaultAdminPassword.trim().isEmpty() && !"change-me-immediately".equals(defaultAdminPassword.trim()) && !BANNED_DEFAULT_PASSWORDS.contains(defaultAdminPassword.trim().toLowerCase())) {
             initialSecurePassword = defaultAdminPassword.trim();
         } else {
             // Generar contraseña segura aleatoria si no fue configurada en variables de entorno
@@ -73,19 +79,68 @@ public class DataInitializer implements CommandLineRunner {
             ss.setPermissions(new java.util.ArrayList<>());
             userRepository.save(ss);
             logger.info("Cuenta SuperAdmin santiago.salazar inicializada con credenciales seguras.");
+        } else {
+            logger.info("Cuenta SuperAdmin santiago.salazar detectada en base de datos. Preservando credenciales inmutables.");
         }
 
-        // Asegurar cuenta administrativa de respaldo 'admin' si no existe
+        // Asegurar cuenta administrativa de respaldo 'admin' con credenciales seguras
         if (userRepository.findByUsername("admin").isEmpty()) {
             User admin = new User();
             admin.setUsername("admin");
             admin.setDisplayName("System Administrator");
-            admin.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
+            String adminInitialPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty())
+                    ? envSuperAdminPass.trim()
+                    : java.util.UUID.randomUUID().toString();
+            admin.setHashedPassword(passwordEncoder.encode(adminInitialPass));
             admin.setRole(UserRole.ADMINISTRATOR);
             admin.setTwoFactorEnabled(false);
             admin.setPermissions(new ArrayList<>());
             userRepository.save(admin);
-            logger.info("Cuenta administrativa de respaldo inicializada.");
+            logger.info("Cuenta administrativa de respaldo 'admin' inicializada con credenciales seguras.");
+        }
+
+        // Escaneo forense de seguridad: Revocar cualquier credencial por defecto o prohibida
+        scanAndRevokeBannedPasswords(initialSecurePassword, envSuperAdminPass);
+    }
+
+    private void scanAndRevokeBannedPasswords(String initialSecurePassword, String envSuperAdminPass) {
+        logger.info("🔍 Ejecutando escaneo de seguridad de contraseñas contra lista de credenciales prohibidas (VULN-001)...");
+        var allUsers = userRepository.findAll();
+        for (User user : allUsers) {
+            String hash = user.getHashedPassword();
+            if (hash == null || hash.isEmpty()) {
+                user.setHashedPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+                userRepository.save(user);
+                logger.warn("🚨 [SECURITY AUDIT] Usuario '{}' sin contraseña. Contraseña revocada y asegurada.", user.getUsername());
+                continue;
+            }
+
+            boolean isBanned = false;
+            for (String banned : BANNED_DEFAULT_PASSWORDS) {
+                if (passwordEncoder.matches(banned, hash) || banned.equalsIgnoreCase(hash)) {
+                    isBanned = true;
+                    break;
+                }
+            }
+
+            if (isBanned) {
+                if ("santiago.salazar".equalsIgnoreCase(user.getUsername())) {
+                    user.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
+                    userRepository.save(user);
+                    logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida detectada en superadministrador 'santiago.salazar'. Restablecida a contraseña segura.");
+                } else if ("admin".equalsIgnoreCase(user.getUsername())) {
+                    String secureAdminPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty())
+                            ? envSuperAdminPass.trim()
+                            : java.util.UUID.randomUUID().toString();
+                    user.setHashedPassword(passwordEncoder.encode(secureAdminPass));
+                    userRepository.save(user);
+                    logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida detectada en 'admin'. Cuenta asegurada con credencial de alta entropía.");
+                } else {
+                    user.setHashedPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+                    userRepository.save(user);
+                    logger.warn("🚨 [SECURITY AUDIT] Revocada credencial débil/por defecto para usuario '{}' en arranque de BD.", user.getUsername());
+                }
+            }
         }
     }
 

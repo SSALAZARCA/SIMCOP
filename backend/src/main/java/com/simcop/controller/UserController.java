@@ -1,9 +1,14 @@
 package com.simcop.controller;
 
 import com.simcop.model.User;
+import com.simcop.model.UserRole;
 import com.simcop.repository.UserRepository;
+import com.simcop.service.LoginRateLimiterService;
+import com.simcop.util.ClientIpResolver;
 import com.simcop.util.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,6 +25,15 @@ import java.util.Map;
 public class UserController {
 
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
+    public static final Set<UserRole> HIGH_PRIVILEGE_ROLES = Set.of(
+            UserRole.ADMINISTRATOR,
+            UserRole.COMANDANTE_EJERCITO,
+            UserRole.COMANDANTE_DIVISION,
+            UserRole.COMANDANTE_BRIGADA,
+            UserRole.COMANDANTE_BATALLON,
+            UserRole.OFICIAL_INTELIGENCIA
+    );
 
     @Autowired
     private UserRepository repository;
@@ -31,6 +46,9 @@ public class UserController {
 
     @Autowired
     private com.simcop.service.TwoFactorService twoFactorService;
+
+    @Autowired
+    private LoginRateLimiterService rateLimiterService;
 
     @GetMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('EJERCITO') or hasAnyRole('COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA')")
@@ -72,9 +90,15 @@ public class UserController {
         logger.info("👤 Iniciando creación de usuario: {}", cleanUsername);
         try {
             user.setUsername(cleanUsername);
-            // Null safety for password encoding
+            // Null safety for password encoding and banned password check
             if (user.getHashedPassword() != null && !user.getHashedPassword().isEmpty()) {
-                user.setHashedPassword(passwordEncoder.encode(user.getHashedPassword()));
+                String rawPass = user.getHashedPassword().trim();
+                for (String banned : com.simcop.config.DataInitializer.BANNED_DEFAULT_PASSWORDS) {
+                    if (banned.equalsIgnoreCase(rawPass)) {
+                        return ResponseEntity.badRequest().body(Map.of("error", "La contraseña elegida está en la lista de contraseñas débiles o por defecto prohibidas"));
+                    }
+                }
+                user.setHashedPassword(passwordEncoder.encode(rawPass));
             } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "Password cannot be empty"));
             }
@@ -88,38 +112,95 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User loginRequest) {
-        logger.info("🔑 Intento de login para usuario: {}", loginRequest.getUsername());
-        var userOpt = repository.findByUsername(loginRequest.getUsername());
-        if (userOpt.isPresent()) {
-            User u = userOpt.get();
-            if (passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
-                
-                // 2FA Verification
-                if (Boolean.TRUE.equals(u.getTwoFactorEnabled())) {
-                    if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
-                        logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
-                        return ResponseEntity.status(403).body("{\"error\": \"2FA_REQUIRED\"}");
-                    }
-                    boolean isValid = twoFactorService.isOtpValid(u.getTwoFactorSecret(), loginRequest.getTotpCode());
-                    if (!isValid) {
-                        logger.warn("Login fallido: Código 2FA inválido para {}", u.getUsername());
-                        return ResponseEntity.status(403).body("{\"error\": \"INVALID_2FA_CODE\"}");
-                    }
-                }
+    public ResponseEntity<?> login(@RequestBody User loginRequest, HttpServletRequest request) {
+        String clientIp = ClientIpResolver.getClientIp(request);
+        String username = (loginRequest != null) ? loginRequest.getUsername() : null;
+        logger.info("🔑 Intento de login para usuario: {} desde IP: {}", username, clientIp);
 
-                String role = u.getRole() != null ? u.getRole().name() : "USER";
-                String token = jwtUtil.generateToken(u.getUsername(), role);
-                u.setToken(token);
-                logger.info("✅ Login exitoso para: {}", u.getUsername());
-                return ResponseEntity.ok(u);
-            } else {
-                logger.warn("⚠️ Contraseña incorrecta para: {}", loginRequest.getUsername());
-            }
-        } else {
-            logger.warn("⚠️ Usuario no encontrado: {}", loginRequest.getUsername());
+        // 1. Verificación de Rate Limiting (Anti-Brute Force - VULN-002)
+        if (rateLimiterService.isBlocked(clientIp, username)) {
+            long retryAfter = rateLimiterService.getRemainingLockoutSeconds(clientIp);
+            logger.warn("🚨 [RATE_LIMIT] Acceso bloqueado por exceso de intentos para IP {} / usuario {} (Retry-After: {}s)",
+                    clientIp, username, retryAfter);
+            return ResponseEntity.status(429)
+                    .header("Retry-After", String.valueOf(retryAfter))
+                    .body(Map.of(
+                            "timestamp", java.time.Instant.now().toString(),
+                            "status", 429,
+                            "error", "Too Many Requests",
+                            "message", "Too many failed login attempts. Please try again later.",
+                            "retryAfterSeconds", retryAfter
+                    ));
         }
-        return ResponseEntity.status(403).build();
+
+        if (loginRequest == null || loginRequest.getUsername() == null || loginRequest.getUsername().trim().isEmpty()) {
+            rateLimiterService.recordFailedAttempt(clientIp, username);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+        }
+
+        var userOpt = repository.findByUsername(loginRequest.getUsername());
+        if (userOpt.isEmpty()) {
+            logger.warn("⚠️ Usuario no encontrado: {}", loginRequest.getUsername());
+            rateLimiterService.recordFailedAttempt(clientIp, username);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+        }
+
+        User u = userOpt.get();
+        if (!passwordEncoder.matches(loginRequest.getHashedPassword(), u.getHashedPassword())) {
+            logger.warn("⚠️ Contraseña incorrecta para: {}", loginRequest.getUsername());
+            rateLimiterService.recordFailedAttempt(clientIp, username);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+        }
+
+        // 2. Verificación de 2FA / TOTP (VULN-004)
+        boolean isHighPrivilege = u.getRole() != null && HIGH_PRIVILEGE_ROLES.contains(u.getRole());
+
+        if (isHighPrivilege) {
+            // A. Si no tiene 2FA configurado, requerir enrolamiento obligatorio y emitir token temporal de alcance restringido
+            if (!Boolean.TRUE.equals(u.getTwoFactorEnabled()) || u.getTwoFactorSecret() == null || u.getTwoFactorSecret().trim().isEmpty()) {
+                logger.warn("⚠️ Usuario de alto privilegio {} requiere configuración obligatoria de 2FA.", u.getUsername());
+                String tempToken = jwtUtil.generatePreAuthToken(u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "2FA_SETUP_REQUIRED",
+                        "message", "2FA es obligatorio para roles de mando y administración. Por favor configure su token TOTP.",
+                        "tempToken", tempToken
+                ));
+            }
+
+            // B. Si tiene 2FA configurado, exigir código TOTP
+            if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
+                logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "2FA_REQUIRED"));
+            }
+
+            boolean isValid = twoFactorService.isOtpValid(u.getTwoFactorSecret(), loginRequest.getTotpCode().trim());
+            if (!isValid) {
+                rateLimiterService.recordFailedAttempt(clientIp, u.getUsername());
+                logger.warn("Login fallido: Código 2FA inválido para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "INVALID_2FA_CODE"));
+            }
+        } else if (Boolean.TRUE.equals(u.getTwoFactorEnabled())) {
+            // Usuario con 2FA opcional activado
+            if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
+                logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "2FA_REQUIRED"));
+            }
+
+            boolean isValid = twoFactorService.isOtpValid(u.getTwoFactorSecret(), loginRequest.getTotpCode().trim());
+            if (!isValid) {
+                rateLimiterService.recordFailedAttempt(clientIp, u.getUsername());
+                logger.warn("Login fallido: Código 2FA inválido para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "INVALID_2FA_CODE"));
+            }
+        }
+
+        // 3. Emisión de JWT de sesión COMPLETO tras superar todas las verificaciones
+        String role = u.getRole() != null ? u.getRole().name() : "USER";
+        String token = jwtUtil.generateToken(u.getUsername(), role);
+        u.setToken(token);
+        rateLimiterService.recordSuccessfulLogin(clientIp, u.getUsername());
+        logger.info("✅ Login exitoso para: {}", u.getUsername());
+        return ResponseEntity.ok(u);
     }
 
     @PutMapping("/{id}")

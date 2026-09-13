@@ -49,6 +49,8 @@ public class User {
     private Boolean isTwoFactorEnabled = false;
 
     @Transient
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String totpCode;
 
     public User() {
@@ -79,10 +81,12 @@ public class User {
         this.displayName = displayName;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getHashedPassword() {
         return hashedPassword;
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     public void setHashedPassword(String hashedPassword) {
         this.hashedPassword = hashedPassword;
     }
@@ -127,6 +131,7 @@ public class User {
         this.token = token;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getTwoFactorSecret() {
         return twoFactorSecret;
     }
@@ -143,10 +148,13 @@ public class User {
         this.isTwoFactorEnabled = twoFactorEnabled;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     public String getTotpCode() {
         return totpCode;
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     public void setTotpCode(String totpCode) {
         this.totpCode = totpCode;
     }

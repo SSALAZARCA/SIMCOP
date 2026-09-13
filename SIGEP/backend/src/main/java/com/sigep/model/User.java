@@ -3,6 +3,7 @@ package com.sigep.model;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
@@ -37,11 +38,15 @@ public class User {
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     
+    @JsonIgnore
     public String getPassword() { return password; }
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public void setPassword(String password) { this.password = password; }
 
     // Compatibility methods with frontend / SIMCOP
+    @JsonIgnore
     public String getHashedPassword() { return password; }
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public void setHashedPassword(String hashedPassword) { this.password = hashedPassword; }
     
     public String getRole() { return role; }

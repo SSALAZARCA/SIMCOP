@@ -75,16 +75,8 @@ public class SigepApplication {
         return args -> {
             userRepository.findByUsername("santiago.salazar").ifPresentOrElse(
                 existingAdmin -> {
-                    String envPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
-                    if (envPass == null || envPass.trim().isEmpty()) {
-                        envPass = System.getenv("SIGEP_ADMIN_PASSWORD");
-                    }
-                    if (envPass == null || envPass.trim().isEmpty()) {
-                        envPass = "ssc841209";
-                    }
-                    existingAdmin.setPassword(passwordEncoder.encode(envPass.trim()));
-                    userRepository.save(existingAdmin);
-                    System.out.println("🔒 Credenciales de 'santiago.salazar' actualizadas y aseguradas con BCrypt.");
+                    // Preservar credenciales existentes para garantizar inmutabilidad del superadministrador
+                    System.out.println("🔒 Cuenta de superadministrador 'santiago.salazar' detectada. Credenciales preservadas e inmutables en SIGEP.");
                 },
                 () -> {
                     String rawPassword = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
@@ -92,11 +84,11 @@ public class SigepApplication {
                         rawPassword = System.getenv("SIGEP_ADMIN_PASSWORD");
                     }
                     if (rawPassword == null || rawPassword.trim().isEmpty()) {
-                        rawPassword = "ssc841209";
+                        rawPassword = UUID.randomUUID().toString();
                     }
                     User admin = new User();
                     admin.setUsername("santiago.salazar");
-                    admin.setPassword(passwordEncoder.encode(rawPassword));
+                    admin.setPassword(passwordEncoder.encode(rawPassword.trim()));
                     admin.setRole("ROLE_ADMINISTRATOR");
                     admin.setDisplayName("Santiago Salazar (Admin)");
                     admin.setAssignedUnitId("NATIONAL");

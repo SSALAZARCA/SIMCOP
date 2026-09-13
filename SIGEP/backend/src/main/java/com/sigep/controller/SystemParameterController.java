@@ -57,19 +57,53 @@ public class SystemParameterController {
     @GetMapping
     public ResponseEntity<Map<String, String>> getAllParameters() {
         Map<String, String> params = repository.findAll().stream()
-                .collect(Collectors.toMap(SystemParameter::getParameterKey, SystemParameter::getParameterValue));
+                .collect(Collectors.toMap(
+                        SystemParameter::getParameterKey,
+                        p -> isSensitiveParameterKey(p.getParameterKey())
+                                ? maskSensitiveValue(p.getParameterValue())
+                                : (p.getParameterValue() != null ? p.getParameterValue() : ""),
+                        (existing, replacement) -> replacement
+                ));
         return ResponseEntity.ok(params);
     }
 
     @PutMapping
     @PreAuthorize("hasRole('EJERCITO') or hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> updateParameters(@RequestBody Map<String, String> newParams) {
+        if (newParams == null) {
+            return ResponseEntity.ok().build();
+        }
         for (Map.Entry<String, String> entry : newParams.entrySet()) {
-            SystemParameter param = repository.findById(entry.getKey())
-                    .orElse(new SystemParameter(entry.getKey(), entry.getValue(), "Parametro de configuracion"));
-            param.setParameterValue(entry.getValue());
+            String key = entry.getKey();
+            String val = entry.getValue();
+
+            // Retain existing sensitive parameter if masked asterisks or null sent
+            if (isSensitiveParameterKey(key) && (val == null || val.contains("****") || val.contains("***"))) {
+                continue;
+            }
+
+            SystemParameter param = repository.findById(key)
+                    .orElse(new SystemParameter(key, val, "Parametro de configuracion"));
+            param.setParameterValue(val);
             repository.save(param);
         }
         return ResponseEntity.ok().build();
+    }
+
+    private boolean isSensitiveParameterKey(String key) {
+        if (key == null) return false;
+        String upper = key.toUpperCase();
+        return upper.contains("KEY") || upper.contains("SECRET") || upper.contains("PASSWORD") || upper.contains("TOKEN");
+    }
+
+    private String maskSensitiveValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 6) {
+            return "******";
+        }
+        return trimmed.substring(0, 6) + "...****";
     }
 }

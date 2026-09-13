@@ -16,6 +16,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 import java.util.Arrays;
 
@@ -43,15 +45,27 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .contentTypeOptions(content -> {})
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'; object-src 'none'"))
                 )
-                .exceptionHandling(e -> e.authenticationEntryPoint(
-                        (request, response, authException) -> {
-                            logger.warn("Unauthorized access to {}: {}", request.getRequestURI(), authException.getMessage());
-                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\"}");
-                        }
-                ))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(
+                                (request, response, authException) -> {
+                                    logger.warn("Unauthorized access to {}: {}", request.getRequestURI(), authException.getMessage());
+                                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                                    response.setContentType("application/json");
+                                    response.getWriter().write("{\"error\": \"Unauthorized\"}");
+                                }
+                        )
+                        .accessDeniedHandler(
+                                (request, response, accessDeniedException) -> {
+                                    logger.warn("Forbidden access to {}: {}", request.getRequestURI(), accessDeniedException.getMessage());
+                                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                                    response.setContentType("application/json");
+                                    response.getWriter().write("{\"error\": \"Forbidden\"}");
+                                }
+                        )
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/users/login").permitAll()
@@ -60,7 +74,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/osint/webhook").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/**").authenticated()
+                        // 2FA endpoints are accessible by authenticated users including scoped ROLE_PRE_AUTH_2FA
+                        .requestMatchers("/api/2fa/**").authenticated()
+                        // All other /api/** endpoints strictly require full authorization without ROLE_PRE_AUTH_2FA
+                        .requestMatchers("/api/**").access((authentication, context) -> {
+                            org.springframework.security.core.Authentication a = authentication.get();
+                            if (a == null || !a.isAuthenticated() || a instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+                                return new AuthorizationDecision(false);
+                            }
+                            boolean isPreAuth = a.getAuthorities().stream()
+                                    .anyMatch(authItem -> "ROLE_PRE_AUTH_2FA".equals(authItem.getAuthority()));
+                            return new AuthorizationDecision(!isPreAuth);
+                        })
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

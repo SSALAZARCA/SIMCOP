@@ -35,15 +35,18 @@ public class ConfigurationController {
     }
 
     /**
-     * Get Gemini API key (admin only)
+     * Get Gemini API key (admin only) - masked to prevent cleartext secret leakage
      */
     @GetMapping("/gemini-api-key")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
-    public ResponseEntity<Map<String, String>> getGeminiApiKey() {
+    public ResponseEntity<Map<String, Object>> getGeminiApiKey() {
         return configService.getGeminiApiKey()
                 .map(apiKey -> {
-                    Map<String, String> response = new HashMap<>();
-                    response.put("apiKey", apiKey);
+                    Map<String, Object> response = new HashMap<>();
+                    String masked = maskApiKey(apiKey);
+                    response.put("configured", true);
+                    response.put("apiKey", masked);
+                    response.put("maskedKey", masked);
                     return ResponseEntity.ok(response);
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -51,6 +54,7 @@ public class ConfigurationController {
 
     /**
      * Save Gemini API key (admin only)
+     * Guards against overwriting real secret if masked key or empty string is submitted
      */
     @PostMapping("/gemini-api-key")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
@@ -60,15 +64,14 @@ public class ConfigurationController {
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                // If it's empty, we treat it as deleting the key since it's optional for LMLink
-                configService.deleteGeminiApiKey();
+            if (apiKey == null || apiKey.trim().isEmpty() || apiKey.contains("****") || apiKey.contains("***")) {
+                // If empty or masked, retain existing key without overwriting
                 Map<String, String> response = new HashMap<>();
-                response.put("message", "API key cleared successfully");
+                response.put("message", "Existing API key preserved");
                 return ResponseEntity.ok(response);
             }
 
-            configService.saveGeminiApiKey(apiKey, username);
+            configService.saveGeminiApiKey(apiKey.trim(), username);
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "API key saved successfully");
@@ -174,32 +177,56 @@ public class ConfigurationController {
 
     /**
      * AI Provider methods
+     * Sanitized to protect internal network topology and internal IPs (e.g. 72.62.130.152)
      */
     @GetMapping("/ai-provider")
     public ResponseEntity<Map<String, String>> getAIProvider() {
         Map<String, String> response = new HashMap<>();
         response.put("provider", configService.getAIProvider());
-        response.put("localEndpoint", configService.getLocalAIEndpoint());
+
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth != null && auth.isAuthenticated() && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRATOR") || a.getAuthority().equals("ADMINISTRATOR"));
+
+        String rawEndpoint = configService.getLocalAIEndpoint();
+        if (!isAdmin) {
+            // Non-administrators never see internal IPs or ports
+            response.put("localEndpoint", (rawEndpoint != null && !rawEndpoint.trim().isEmpty()) ? "[CONFIGURED_INTERNAL]" : "");
+        } else {
+            // Administrators see masked IP octets to verify host configuration without cleartext exposure
+            response.put("localEndpoint", maskEndpointForAdmin(rawEndpoint));
+        }
+
         response.put("localModel", configService.getLocalAIModel());
         return ResponseEntity.ok(response);
     }
 
     /**
      * Save AI provider configuration (admin only)
+     * Protects internal endpoints from being overwritten with masked representations
      */
     @PostMapping("/ai-provider")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveAIProvider(@RequestBody Map<String, String> request) {
         try {
             String provider = request.getOrDefault("provider", "GEMINI");
-            String localEndpoint = request.getOrDefault("localEndpoint", "http://localhost:11434");
+            String localEndpoint = request.get("localEndpoint");
             String localModel = request.getOrDefault("localModel", "llama3");
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
             configService.saveAIProvider(provider, username);
-            configService.saveLocalAIEndpoint(localEndpoint, username);
-            configService.saveLocalAIModel(localModel, username);
+
+            // If localEndpoint contains [CONFIGURED_INTERNAL] or asterisks, retain existing value in database
+            if (localEndpoint != null && !localEndpoint.trim().isEmpty()
+                    && !localEndpoint.contains("[CONFIGURED_INTERNAL]")
+                    && !localEndpoint.contains("***")) {
+                configService.saveLocalAIEndpoint(localEndpoint.trim(), username);
+            }
+
+            if (localModel != null && !localModel.trim().isEmpty()) {
+                configService.saveLocalAIModel(localModel.trim(), username);
+            }
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "AI provider configuration saved successfully");
@@ -209,5 +236,24 @@ public class ConfigurationController {
             error.put("error", "Failed to save AI provider configuration: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
+    }
+
+    private String maskApiKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            return "";
+        }
+        String trimmed = key.trim();
+        if (trimmed.length() <= 6) {
+            return "****";
+        }
+        return trimmed.substring(0, 6) + "...****";
+    }
+
+    private String maskEndpointForAdmin(String endpoint) {
+        if (endpoint == null || endpoint.trim().isEmpty()) {
+            return "";
+        }
+        // Mask IPv4 octets e.g. 72.62.130.152 -> 72.62.***.***
+        return endpoint.replaceAll("(\\b\\d{1,3}\\.\\d{1,3})\\.\\d{1,3}\\.\\d{1,3}\\b", "$1.***.***");
     }
 }

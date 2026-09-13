@@ -63,8 +63,24 @@ public class TwoFactorController {
 
     @PostMapping("/disable")
     public ResponseEntity<String> disableTwoFactor(Authentication authentication, @RequestBody TwoFactorVerifyRequest request) {
+        if (authentication == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Bloquear deshabilitación de 2FA usando token temporal de enrolamiento
+        if (authentication.getAuthorities().stream().anyMatch(a -> "ROLE_PRE_AUTH_2FA".equals(a.getAuthority()))) {
+            logger.warn("⛔ Intento de deshabilitar 2FA usando token restringido PRE_AUTH_2FA para {}", authentication.getName());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body("Operation not allowed with pre-auth token");
+        }
+
         User user = userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Bloquear deshabilitación de 2FA para roles con 2FA obligatorio
+        if (user.getRole() != null && UserController.HIGH_PRIVILEGE_ROLES.contains(user.getRole())) {
+            logger.warn("⛔ Intento bloqueado de deshabilitar 2FA obligatorio para rol de alto privilegio: {}", user.getUsername());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body("2FA is mandatory for high-privilege roles and cannot be disabled");
+        }
 
         boolean isValid = twoFactorService.isOtpValid(user.getTwoFactorSecret(), request.getCode());
         if (isValid) {
