@@ -256,63 +256,70 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
     updateTaskState(key, { status: 'RUNNING', error: null, result: null });
   }
 
-  // If using a local or router provider (Ollama, LMLink, OmniRoute), bypass the backend and hit the endpoint directly!
+  // If using a local or router provider (Ollama, LMLink, OmniRoute), try direct fetch if endpoint is valid
   if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
-    try {
-      console.log(`[AI] Interceptando llamada para IA: ${aiProvider} -> ${localEndpoint}`);
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      
-      if ((aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') && API_KEY) {
-        headers['Authorization'] = API_KEY.startsWith('Bearer ') ? API_KEY : `Bearer ${API_KEY}`;
+    const canAttemptDirect = Boolean(
+      localEndpoint &&
+      !localEndpoint.includes('***') &&
+      !localEndpoint.includes('[CONFIGURED_INTERNAL]')
+    );
+
+    if (canAttemptDirect) {
+      try {
+        console.log(`[AI] Intentando llamada directa a ${aiProvider} -> ${localEndpoint}`);
+        
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        
+        if ((aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') && API_KEY) {
+          headers['Authorization'] = API_KEY.startsWith('Bearer ') ? API_KEY : `Bearer ${API_KEY}`;
+        }
+
+        let messages = [];
+        if (systemInstruction) {
+          messages.push({ role: 'system', content: systemInstruction });
+        }
+        messages.push({ role: 'user', content: prompt });
+
+        const baseUrl = localEndpoint.replace(/\/+$/, '');
+        const completionsUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+
+        const response = await fetch(completionsUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: localModel,
+            messages,
+            temperature: 0.4
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error en ${aiProvider}: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const rawContent = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
+        
+        // Strip reasoning tokens (<think>...</think>, <thought>...</thought>) for deep reasoning models (e.g. DeepSeek-R1 / OmniRoute)
+        const content = stripReasoningTags(rawContent);
+
+        if (key) {
+          updateTaskState(key, { status: 'COMPLETED', result: content, queuePosition: 0 });
+        }
+
+        return content;
+      } catch (error: any) {
+        console.warn(`[AI] Error en conexión directa a ${aiProvider} (${localEndpoint}): ${error?.message || error}. Conmutando transparentemente a backend proxy...`);
+        // Do not throw here; allow fallback to backend queue
       }
-
-      let messages = [];
-      if (systemInstruction) {
-        messages.push({ role: 'system', content: systemInstruction });
-      }
-      messages.push({ role: 'user', content: prompt });
-
-      const baseUrl = localEndpoint.replace(/\/+$/, '');
-      const completionsUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
-
-      const response = await fetch(completionsUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: localModel,
-          messages,
-          temperature: 0.4
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error en ${aiProvider}: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const rawContent = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
-      
-      // Strip reasoning tokens (<think>...</think>, <thought>...</thought>) for deep reasoning models (e.g. DeepSeek-R1 / OmniRoute)
-      const content = stripReasoningTags(rawContent);
-
-      if (key) {
-        updateTaskState(key, { status: 'COMPLETED', result: content, queuePosition: 0 });
-      }
-
-      return content;
-    } catch (error: any) {
-      console.error(`[AI] Error ejecutando modelo ${aiProvider}:`, error);
-      if (key) {
-        updateTaskState(key, { status: 'FAILED', error: error.message });
-      }
-      throw error;
+    } else {
+      console.log(`[AI] Endpoint directo protegido o no resoluble en cliente (${localEndpoint}). Despachando consulta mediante backend proxy...`);
     }
   }
 
-  // GEMINI fallback: Go through the backend to use the server's credentials
+  // Backend dispatch (Gemini, OmniRoute, LMLink, or Ollama fallback through backend queue)
   const combinedPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
   const response = await apiClient.fetch(`${API_BASE_URL}/api/ai/generate`, {
     method: 'POST',

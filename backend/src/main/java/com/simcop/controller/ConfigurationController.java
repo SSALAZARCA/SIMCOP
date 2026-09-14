@@ -253,6 +253,10 @@ public class ConfigurationController {
         if (endpoint == null || endpoint.trim().isEmpty()) {
             return "";
         }
+        // Do not corrupt valid DNS hostnames like *.sslip.io or *.nip.io where IP octets are required for DNS resolution
+        if (endpoint.contains(".sslip.io") || endpoint.contains(".nip.io")) {
+            return endpoint;
+        }
         // Mask IPv4 octets e.g. 72.62.130.152 -> 72.62.***.***
         return endpoint.replaceAll("(\\b\\d{1,3}\\.\\d{1,3})\\.\\d{1,3}\\.\\d{1,3}\\b", "$1.***.***");
     }
