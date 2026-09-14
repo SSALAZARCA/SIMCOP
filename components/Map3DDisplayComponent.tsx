@@ -20,6 +20,7 @@ import {
   GeoLocation
 } from '../types';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiClient } from '../utils/apiClient';
 import { 
   generateUnitSIDC, 
   getThreatStyle, 
@@ -384,6 +385,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     });
 
     const viewer = new Cesium.Viewer(containerRef.current, {
+      baseLayer: false as any,
+      terrainProvider: new Cesium.EllipsoidTerrainProvider(),
       sceneMode: Cesium.SceneMode.SCENE3D,
       sceneModePicker: false,
       baseLayerPicker: false,
@@ -771,7 +774,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const lat = Cesium.Math.toDegrees(cameraPos.latitude);
           const lon = Cesium.Math.toDegrees(cameraPos.longitude);
           
-          const res = await fetch(`${API_BASE_URL}/api/weather/current?lat=${lat}&lon=${lon}`);
+          const res = await apiClient.fetch(`${API_BASE_URL}/api/weather/current?lat=${lat}&lon=${lon}`);
           if (!res.ok) return;
           const data = await res.json();
           const code = data.current?.weather_code;

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { userService } from '../services/userService';
+import { adminService } from '../services/adminService';
+import { apiClient } from '../utils/apiClient';
 import { User } from '../types';
 
 interface LoginViewComponentProps {
@@ -12,7 +14,9 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [twoFactorData, setTwoFactorData] = useState<{ qrCodeUri: string; manualSecret: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,23 +25,51 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
     setIsLoading(true);
     setError(null);
     try {
+      if (step === 3) {
+        if (!totpCode || totpCode.trim().length !== 6) {
+          setError('Ingrese el código de 6 dígitos de su app autenticadora.');
+          setIsLoading(false);
+          return;
+        }
+        await adminService.enable2fa(totpCode.trim());
+        const user = await userService.login({
+          username,
+          hashedPassword: password,
+          totpCode: totpCode.trim()
+        } as any);
+        onLogin(user);
+        return;
+      }
+
       // Intentar login real con el servicio
       const user = await userService.login({
         username,
-        hashedPassword: password, // El backend espera esto o password, userService se encarga
-        totpCode: step === 2 ? totpCode : undefined
+        hashedPassword: password,
+        totpCode: step === 2 ? totpCode.trim() : undefined
       } as any);
       
       onLogin(user);
     } catch (err: any) {
-      if (err.message === '2FA_REQUIRED') {
+      if (err.errorType === '2FA_SETUP_REQUIRED' || err.message === '2FA_SETUP_REQUIRED') {
+        if (err.tempToken) {
+          apiClient.setToken(err.tempToken);
+        }
+        try {
+          const setupData = await adminService.generate2fa();
+          setTwoFactorData(setupData);
+          setStep(3);
+          setTotpCode('');
+        } catch (setupErr: any) {
+          setError('Error al iniciar enrolamiento 2FA: ' + (setupErr.message || 'Desconocido'));
+        }
+      } else if (err.errorType === '2FA_REQUIRED' || err.message === '2FA_REQUIRED') {
         if (step === 1) {
           // Password is correct, now ask for 2FA code
           setStep(2);
         } else {
           setError('Este usuario tiene 2FA activado. Por favor ingrese el Código 2FA.');
         }
-      } else if (err.message === 'INVALID_2FA_CODE') {
+      } else if (err.errorType === 'INVALID_2FA_CODE' || err.message === 'INVALID_2FA_CODE') {
         setError('El Código 2FA es incorrecto o ha expirado.');
       } else {
         setError(err.message || 'Error de conexión. Intente nuevamente.');
@@ -109,7 +141,7 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
                 </div>
               </div>
             </>
-          ) : (
+          ) : step === 2 ? (
             <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
               <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-2xl">
                 <p className="text-blue-200 text-xs text-center font-medium">Autenticación de 2 Factores requerida para el operador <span className="font-bold text-white uppercase">{username}</span></p>
@@ -140,6 +172,68 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
                 ← Volver al login
               </button>
             </div>
+          ) : (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
+              <div className="p-4 bg-amber-900/20 border border-amber-500/30 rounded-2xl">
+                <p className="text-amber-200 text-xs text-center font-medium">
+                  Enrolamiento Obligatorio 2FA para el operador <span className="font-bold text-white uppercase">{username}</span>
+                </p>
+                <p className="text-[10px] text-amber-300/80 text-center mt-1">
+                  Por política de seguridad de mando, configure su autenticador antes de ingresar.
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 border border-white/10 rounded-2xl space-y-2">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Clave Secreta Manual:
+                </p>
+                <div className="flex items-center justify-between gap-2 bg-white/5 p-2 rounded-xl border border-white/5">
+                  <code className="text-xs font-mono text-cyan-400 break-all select-all font-bold">
+                    {twoFactorData?.manualSecret || 'Cargando clave...'}
+                  </code>
+                  {twoFactorData?.manualSecret && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (twoFactorData?.manualSecret) {
+                          navigator.clipboard.writeText(twoFactorData.manualSecret);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-[10px] text-blue-300 rounded-lg font-mono flex-shrink-0"
+                    >
+                      {copied ? '¡Copiado!' : 'Copiar'}
+                    </button>
+                  )}
+                </div>
+                <p className="text-[9px] text-gray-400">
+                  Agregue esta clave en Google Authenticator, Microsoft Authenticator o Authy.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Código de 6 Dígitos Generado</label>
+                <input
+                  type="text"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  maxLength={6}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all font-medium text-center tracking-[0.5em] text-xl"
+                  placeholder="------"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <button 
+                type="button" 
+                onClick={() => { setStep(1); setTotpCode(''); setError(null); apiClient.clearToken(); }}
+                className="text-xs text-blue-400 hover:text-blue-300 w-full text-center py-2 transition-colors"
+              >
+                ← Volver al login
+              </button>
+            </div>
           )}
 
           <button
@@ -154,7 +248,7 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
               </>
             ) : (
               <>
-                <span>Acceder a Plataforma</span>
+                <span>{step === 3 ? 'Activar 2FA y Acceder' : step === 2 ? 'Verificar Código 2FA' : 'Acceder a Plataforma'}</span>
                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
               </>
             )}

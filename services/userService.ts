@@ -38,8 +38,9 @@ export const userService = {
         });
         if (!response.ok) {
             let errorMsg = 'Login failed';
+            let errData: any = null;
             try {
-                const errData = await response.json();
+                errData = await response.json();
                 if (errData && errData.error) {
                     errorMsg = errData.error;
                 }
@@ -48,7 +49,13 @@ export const userService = {
                     errorMsg = 'Credenciales inválidas';
                 }
             }
-            throw new Error(errorMsg);
+            const err: any = new Error(errorMsg);
+            if (errData) {
+                err.errorType = errData.error;
+                err.tempToken = errData.tempToken;
+                err.details = errData;
+            }
+            throw err;
         }
         const loggedUser: User = await response.json();
         if (loggedUser.token) {

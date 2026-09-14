@@ -73,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/osint/webhook").permitAll()
+                        .requestMatchers("/api/weather/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         // 2FA endpoints are accessible by authenticated users including scoped ROLE_PRE_AUTH_2FA
                         .requestMatchers("/api/2fa/**").authenticated()
