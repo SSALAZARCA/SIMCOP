@@ -80,7 +80,7 @@ export const SidebarComponent: React.FC<SidebarProps> = ({ currentView, setCurre
   };
 
   return (
-    <aside className="w-64 glass-effect p-4 space-y-1.5 shadow-2xl h-full overflow-y-auto relative z-40 border-r border-white/5 custom-scrollbar">
+    <aside className="w-64 glass-effect p-4 pb-24 space-y-1.5 shadow-2xl h-full overflow-y-auto relative z-40 border-r border-white/5 custom-scrollbar">
       <div className="mb-6 px-2 py-1">
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-4">Navegación Operativa</p>
         <div className="h-[1px] w-full bg-gradient-to-r from-blue-500/50 to-transparent"></div>

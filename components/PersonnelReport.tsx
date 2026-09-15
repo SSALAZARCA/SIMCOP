@@ -129,42 +129,42 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
     };
 
     return (
-        <div className="bg-gray-100 min-h-screen text-gray-900 p-8 font-serif print:bg-white print:p-0">
+        <div className="bg-transparent min-h-screen text-gray-100 p-4 md:p-8 font-sans print:bg-white print:text-black print:p-0 print:font-serif">
             {/* Controls - Hide on Print */}
             <div className="max-w-4xl mx-auto mb-8 flex justify-end gap-4 print:hidden">
                 <button
                     onClick={handleDownloadCSV}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                    className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition font-sans text-sm font-semibold shadow-lg shadow-blue-900/30"
                 >
                     <Download size={18} /> Exportar Nómina (CSV)
                 </button>
                 <button
                     onClick={handlePrint}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition"
+                    className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 hover:text-white transition font-sans text-sm font-semibold border border-white/10"
                 >
                     <Printer size={18} /> Imprimir Informe
                 </button>
             </div>
 
             {/* Document Paper */}
-            <div className="max-w-4xl mx-auto bg-white shadow-lg p-12 print:shadow-none print:p-0">
+            <div className="max-w-4xl mx-auto bg-gray-900/90 border border-gray-700/80 rounded-2xl shadow-2xl p-6 md:p-12 print:bg-white print:border-none print:shadow-none print:p-0 print:rounded-none print:text-black">
 
                 {/* Header */}
-                <div className="text-center border-b-2 border-black pb-6 mb-8">
-                    <h1 className="text-3xl font-bold uppercase mb-2">Informe de Situación de Personal</h1>
-                    <h2 className="text-xl font-bold text-gray-700 uppercase">Estructura de Fuerza Completa</h2>
-                    <p className="mt-4 text-sm font-semibold text-blue-800 bg-blue-100 py-1 rounded inline-block px-3 border border-blue-300">
+                <div className="text-center border-b-2 border-gray-700 pb-6 mb-8 print:border-black">
+                    <h1 className="text-3xl font-bold uppercase mb-2 text-white print:text-black">Informe de Situación de Personal</h1>
+                    <h2 className="text-xl font-bold text-gray-300 uppercase print:text-gray-700">Estructura de Fuerza Completa</h2>
+                    <p className="mt-4 text-sm font-semibold text-blue-400 bg-blue-950/60 py-1 rounded inline-block px-3 border border-blue-800/80 print:text-blue-800 print:bg-blue-100 print:border-blue-300">
                         ✓ DATOS REALES SINCRONIZADOS CON SIGEP (S1/G1)
                     </p>
-                    <p className="mt-2 text-sm font-semibold">
+                    <p className="mt-2 text-sm font-semibold text-gray-300 print:text-black">
                         FECHA: {today.toLocaleDateString()} | HOR: {today.toLocaleTimeString()}
                     </p>
-                    <p className="text-xs uppercase mt-1 text-red-700 font-bold">Documento Confidencial</p>
+                    <p className="text-xs uppercase mt-1 text-red-400 font-bold print:text-red-700">Documento Confidencial</p>
                 </div>
 
                 {/* Executive Summary */}
                 <div className="mb-8">
-                    <h3 className="text-lg font-bold uppercase border-b border-gray-400 mb-4 pb-1">1. Resumen Ejecutivo (Total Fuerza)</h3>
+                    <h3 className="text-lg font-bold uppercase border-b border-gray-700 mb-4 pb-1 text-white print:border-gray-400 print:text-black">1. Resumen Ejecutivo (Total Fuerza)</h3>
                     <div className="grid grid-cols-2 gap-8">
                         <div>
                             <p className="mb-2"><strong>Unidades Mayores:</strong> {hierarchy.filter(i => i.depth === 0).length}</p>
@@ -172,12 +172,12 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
                             <p className="mb-2"><strong>Pie de Fuerza Total:</strong> {grandTotals.actual}</p>
                             <p className="mb-2"><strong>Autorizado (TOE):</strong> {grandTotals.auth}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 border border-gray-200">
-                            <p className="text-center font-bold text-gray-600 mb-1">DISPOSICIÓN DE COMBATE</p>
-                            <div className="text-center text-4xl font-bold mb-2">
+                        <div className="bg-gray-800/80 p-4 border border-gray-700 rounded-xl print:bg-gray-50 print:border-gray-200 print:rounded-none">
+                            <p className="text-center font-bold text-gray-400 mb-1 print:text-gray-600">DISPOSICIÓN DE COMBATE</p>
+                            <div className="text-center text-4xl font-bold mb-2 text-white print:text-black">
                                 {readinessPercent.toFixed(1)}%
                             </div>
-                            <div className="w-full bg-gray-300 h-4 rounded-full overflow-hidden">
+                            <div className="w-full bg-gray-700 h-4 rounded-full overflow-hidden print:bg-gray-300">
                                 <div
                                     className={`h-full ${readinessPercent >= 90 ? 'bg-green-600' : readinessPercent >= 70 ? 'bg-yellow-500' : 'bg-red-600'}`}
                                     style={{ width: `${readinessPercent}%` }}
@@ -189,9 +189,9 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
 
                 {/* Unit Details Tree */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse border border-gray-400">
+                    <table className="w-full text-sm border-collapse border border-gray-700 print:border-gray-400">
                         <thead>
-                            <tr className="bg-gray-800 text-white">
+                            <tr className="bg-gray-800 text-blue-400 print:text-white">
                                 <th className="p-2 text-left">Unidad</th>
                                 <th className="p-2 text-center w-24">Tipo</th>
                                 <th className="p-2 text-center w-32">Fuerza Real</th>
@@ -210,24 +210,24 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
                                 const paddingLeft = `${(depth * 20) + 8}px`;
 
                                 return (
-                                    <tr key={unit.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${depth === 0 ? 'font-bold bg-gray-100' : ''} border-b border-gray-200`}>
-                                        <td className="p-2 border-r border-gray-300" style={{ paddingLeft }}>
+                                    <tr key={unit.id} className={`${idx % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/40'} ${depth === 0 ? 'font-bold bg-gray-800/60' : ''} border-b border-gray-800 hover:bg-gray-800/40 print:odd:bg-white print:even:bg-gray-50 print:border-gray-200`}>
+                                        <td className="p-2 border-r border-gray-700 print:border-gray-300" style={{ paddingLeft }}>
                                             <div className="flex items-center">
                                                 {depth > 0 && <span className="text-gray-400 mr-2">└</span>}
                                                 {unit.name}
                                             </div>
                                         </td>
-                                        <td className="p-2 text-center text-xs uppercase border-r border-gray-300">{unit.type}</td>
-                                        <td className="p-2 text-center border-r border-gray-300 font-medium">
+                                        <td className="p-2 text-center text-xs uppercase border-r border-gray-700 print:border-gray-300">{unit.type}</td>
+                                        <td className="p-2 text-center border-r border-gray-700 font-medium print:border-gray-300">
                                             {actualTotal}
                                         </td>
-                                        <td className="p-2 text-center border-r border-gray-300 text-gray-500">
+                                        <td className="p-2 text-center border-r border-gray-700 text-gray-400 print:text-gray-500 print:border-gray-300">
                                             {authTotal}
                                         </td>
                                         <td className="p-2 text-center font-bold">
-                                            {pct >= 90 ? <span className="text-green-700">LISTO ({pct.toFixed(0)}%)</span> :
-                                                pct >= 70 ? <span className="text-yellow-600">ALERTA ({pct.toFixed(0)}%)</span> :
-                                                    <span className="text-red-700">CRÍTICO ({pct.toFixed(0)}%)</span>}
+                                            {pct >= 90 ? <span className="text-emerald-400 print:text-green-700">LISTO ({pct.toFixed(0)}%)</span> :
+                                                pct >= 70 ? <span className="text-amber-400 print:text-yellow-600">ALERTA ({pct.toFixed(0)}%)</span> :
+                                                    <span className="text-rose-400 print:text-red-700">CRÍTICO ({pct.toFixed(0)}%)</span>}
                                         </td>
                                     </tr>
                                 )
@@ -236,7 +236,7 @@ export const PersonnelReport: React.FC<PersonnelReportProps> = ({ units }) => {
                     </table>
                 </div>
 
-                <div className="mt-12 pt-8 border-t-2 border-black flex justify-between text-xs font-bold uppercase">
+                <div className="mt-12 pt-8 border-t-2 border-gray-700 print:border-black flex justify-between text-xs font-bold uppercase text-gray-300 print:text-black">
                     <div>
                         <p>_______________________</p>
                         <p>Oficial de Personal (B1/G1)</p>

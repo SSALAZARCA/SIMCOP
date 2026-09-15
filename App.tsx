@@ -1231,11 +1231,11 @@ const App: React.FC = () => {
         )}
         {isMobile && isMobileNavOpen && (
           <div
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md transition-all animate-in fade-in"
+            className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-md transition-all animate-in fade-in"
             onClick={() => setIsMobileNavOpen(false)}
           >
             <div
-              className="fixed top-0 left-0 h-full z-[70] shadow-2xl animate-in slide-in-from-left duration-300"
+              className="fixed top-0 left-0 h-full z-[80] shadow-2xl animate-in slide-in-from-left duration-300"
               onClick={e => e.stopPropagation()}
             >
               <SidebarComponent

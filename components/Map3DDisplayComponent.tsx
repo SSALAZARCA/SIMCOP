@@ -398,7 +398,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       animation: false,
       selectionIndicator: false,
       shadows: false,
-      shouldAnimate: true
+      shouldAnimate: true,
+      requestRenderMode: true,
+      maximumRenderTimeChange: 0.5
     });
 
     // Cargar relieve 3D geométrico
@@ -443,6 +445,19 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }
 
     viewerRef.current = viewer;
+
+    // R3 Optimización: Pausar renderizado cuando el tab está oculto (Page Visibility API)
+    const handleVisibilityChange = () => {
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        if (document.hidden) {
+          viewerRef.current.useDefaultRenderLoop = false;
+        } else {
+          viewerRef.current.useDefaultRenderLoop = true;
+          viewerRef.current.scene.requestRender();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Setup screen event handlers
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
@@ -701,6 +716,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       handler.destroy();
       viewer.destroy();
     };

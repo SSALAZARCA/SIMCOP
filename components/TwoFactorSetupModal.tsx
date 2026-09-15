@@ -76,8 +76,8 @@ export const TwoFactorSetupModal: React.FC<Props> = ({ onClose, currentUser, onS
   };
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md relative animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar relative animate-in fade-in zoom-in-95">
         {!forceSetup && (
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
             <XMarkIcon className="w-6 h-6" />

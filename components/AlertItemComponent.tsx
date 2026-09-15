@@ -144,13 +144,13 @@ const _AlertItemComponent: React.FC<AlertItemProps> = ({
             <div className="flex flex-col gap-1.5">
               <button
                 onClick={() => canApproveNovelty ? approvePlatoonNovelty(alertItem.id, currentUser!.id) : approveAmmoReport(alertItem.id, currentUser!.id)}
-                className="px-4 py-1.5 text-[10px] font-black bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all uppercase tracking-widest shadow-lg shadow-blue-900/20"
+                className="min-h-[44px] min-w-[44px] px-4 py-2 text-xs font-black bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all uppercase tracking-widest shadow-lg shadow-blue-900/20 flex items-center justify-center"
               >
                 APROBAR
               </button>
               <button
                 onClick={() => handleReject(canApproveNovelty ? 'novelty' : 'ammo')}
-                className="px-4 py-1.5 text-[10px] font-black bg-red-900/40 text-red-200 border border-red-800/30 rounded-lg hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest"
+                className="min-h-[44px] min-w-[44px] px-4 py-2 text-xs font-black bg-red-900/40 text-red-200 border border-red-800/30 rounded-lg hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest flex items-center justify-center"
               >
                 RECHAZAR
               </button>
@@ -158,7 +158,7 @@ const _AlertItemComponent: React.FC<AlertItemProps> = ({
           ) : (
             <button
               onClick={() => acknowledgeAlert(alertItem.id)}
-              className="group px-4 py-2 text-[10px] font-black bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg transition-all uppercase tracking-[0.15em] hover:text-white flex items-center gap-2"
+              className="group min-h-[44px] min-w-[44px] px-4 py-2.5 text-xs font-black bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg transition-all uppercase tracking-[0.15em] hover:text-white flex items-center justify-center gap-2"
             >
               CONFIRMAR
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full group-hover:animate-ping"></span>

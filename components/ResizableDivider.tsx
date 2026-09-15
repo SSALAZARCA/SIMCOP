@@ -28,10 +28,39 @@ export const ResizableDivider: React.FC<ResizableDividerProps> = ({ onDrag, clas
     document.body.style.cursor = 'col-resize';
   }, [onDrag]);
 
+  const handleTouchStart = useCallback((touchStartEvent: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartEvent.touches.length !== 1) return;
+    touchStartEvent.preventDefault();
+    document.body.style.userSelect = 'none';
+
+    let lastClientX = touchStartEvent.touches[0].clientX;
+
+    const handleTouchMove = (touchMoveEvent: TouchEvent) => {
+      if (touchMoveEvent.touches.length !== 1) return;
+      touchMoveEvent.preventDefault();
+      const currentClientX = touchMoveEvent.touches[0].clientX;
+      const deltaX = currentClientX - lastClientX;
+      lastClientX = currentClientX;
+      onDrag(deltaX);
+    };
+
+    const handleTouchEnd = () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
+  }, [onDrag]);
+
   return (
     <div
-      className={`bg-gray-700 hover:bg-blue-600 w-2 cursor-col-resize select-none shrink-0 ${className || ''}`}
+      className={`bg-gray-700 hover:bg-blue-600 w-2 cursor-col-resize select-none shrink-0 relative after:absolute after:-left-3 after:-right-3 after:top-0 after:bottom-0 after:z-10 ${className || ''}`}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
       title="Arrastrar para redimensionar"
       aria-label="Redimensionar panel"
       style={{ touchAction: 'none' }} // Prevent scrolling on touch devices when dragging

@@ -37,11 +37,11 @@ export const PersonnelView: React.FC<PersonnelViewProps> = ({ units }) => {
             </div>
 
             {/* Tabs */}
-            <div className="bg-gray-800 border-b border-gray-700 px-4">
-                <div className="flex space-x-4">
+            <div className="bg-gray-800 border-b border-gray-700 px-2 sm:px-4 overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="flex space-x-2 sm:space-x-4 min-w-max pb-0.5">
                     <button
                         onClick={() => setActiveTab('catalog')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'catalog'
+                        className={`whitespace-nowrap flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'catalog'
                             ? 'border-teal-400 text-teal-400'
                             : 'border-transparent text-gray-400 hover:text-gray-300'
                             }`}
@@ -50,7 +50,7 @@ export const PersonnelView: React.FC<PersonnelViewProps> = ({ units }) => {
                     </button>
                     <button
                         onClick={() => setActiveTab('status')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'status'
+                        className={`whitespace-nowrap flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'status'
                             ? 'border-teal-400 text-teal-400'
                             : 'border-transparent text-gray-400 hover:text-gray-300'
                             }`}
@@ -59,7 +59,7 @@ export const PersonnelView: React.FC<PersonnelViewProps> = ({ units }) => {
                     </button>
                     <button
                         onClick={() => setActiveTab('reports')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'reports'
+                        className={`whitespace-nowrap flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'reports'
                             ? 'border-teal-400 text-teal-400'
                             : 'border-transparent text-gray-400 hover:text-gray-300'
                             }`}

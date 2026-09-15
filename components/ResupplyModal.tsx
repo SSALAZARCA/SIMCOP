@@ -17,8 +17,8 @@ export const ResupplyModal: React.FC<ResupplyModalProps> = ({ isOpen, onClose, o
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-gray-950/90 backdrop-blur-md flex items-center justify-center z-[5000] p-4">
-            <div className="bg-gray-900 border border-white/10 rounded-[32px] p-8 md:p-10 w-full max-w-lg shadow-[0_0_80px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-gray-950/90 backdrop-blur-md flex items-center justify-center z-[5000] p-4 overflow-y-auto">
+            <div className="bg-gray-900 border border-white/10 rounded-[32px] p-6 md:p-10 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar shadow-[0_0_80px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300">
                 <div className="flex items-center gap-4 mb-8">
                     <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center">
                         <Truck className="w-7 h-7 text-blue-400" />

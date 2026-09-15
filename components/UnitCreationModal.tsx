@@ -234,7 +234,7 @@ export const UnitCreationModal: React.FC<UnitCreationModalProps> = ({
     <div className="fixed inset-0 bg-gray-950/95 flex items-start justify-center z-[5000] p-4 overflow-y-auto backdrop-blur-md custom-scrollbar"
       style={{ isolation: 'isolate' }}
       aria-modal="true" role="dialog" aria-labelledby="createTacticalUnitModalTitle">
-      <div className="bg-gray-900 my-8 p-8 md:p-14 rounded-[48px] shadow-2xl w-full max-w-5xl border border-white/10 relative">
+      <div className="bg-gray-900 my-8 p-6 sm:p-8 md:p-14 rounded-3xl md:rounded-[48px] max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar shadow-2xl w-full max-w-5xl border border-white/10 relative">
         <h2 id="createTacticalUnitModalTitle" className="text-4xl md:text-5xl font-black text-white mb-10 uppercase tracking-tighter border-b border-white/10 pb-8 flex items-center gap-4">
           <div className="w-3 h-12 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)]"></div>
           Registrar Nueva Unidad Táctica

@@ -48,7 +48,7 @@ type ActiveTab = 'pieces' | 'observers' | 'cdt' | 'telegram';
 const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${active
+    className={`whitespace-nowrap flex-shrink-0 min-h-[44px] px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors flex items-center justify-center ${active
       ? 'bg-gray-800 text-white border-b-2 border-blue-500'
       : 'bg-gray-700 text-gray-400 hover:bg-gray-750 hover:text-gray-200'
       }`}
@@ -216,7 +216,7 @@ export const ArtilleryViewComponent: React.FC<ArtilleryViewProps> = ({
           </h2>
         </div>
 
-        <div className="flex items-end space-x-1 border-b border-gray-700">
+        <div className="flex items-end space-x-1 border-b border-gray-700 overflow-x-auto no-scrollbar scroll-smooth pb-0.5 min-w-0">
           {isCdtUser && (
             <TabButton active={activeTab === 'cdt'} onClick={() => setActiveTab('cdt')}>CDT (Centro Director de Tiro)</TabButton>
           )}
@@ -237,7 +237,7 @@ export const ArtilleryViewComponent: React.FC<ArtilleryViewProps> = ({
               <div className="w-full md:w-2/5 pr-0 md:pr-2">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-semibold text-gray-300">Piezas Disponibles</h3>
-                  <button onClick={() => setShowCreatePieceModal(true)} className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs flex items-center"><PlusCircleIcon className="w-4 h-4 mr-1" /> Añadir Pieza</button>
+                  <button onClick={() => setShowCreatePieceModal(true)} className="min-h-[44px] px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center shadow-md"><PlusCircleIcon className="w-4 h-4 mr-1" /> Añadir Pieza</button>
                 </div>
                 <div className="space-y-2">
                   {artilleryPieces.map(p => <ArtilleryPieceCard key={p.id} piece={p} isSelected={selectedPiece?.id === p.id} onSelect={() => handleSelectPiece(p)} />)}
@@ -253,7 +253,7 @@ export const ArtilleryViewComponent: React.FC<ArtilleryViewProps> = ({
               <div className="w-full md:w-2/5 pr-0 md:pr-2">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-semibold text-gray-300">Observadores</h3>
-                  <button onClick={() => setShowCreateObserverModal(true)} className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs flex items-center"><PlusCircleIcon className="w-4 h-4 mr-1" /> Añadir OA</button>
+                  <button onClick={() => setShowCreateObserverModal(true)} className="min-h-[44px] px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center shadow-md"><PlusCircleIcon className="w-4 h-4 mr-1" /> Añadir OA</button>
                 </div>
                 <div className="space-y-2">
                   {forwardObservers.map(o => <ForwardObserverCard key={o.id} observer={o} isSelected={selectedObserver?.id === o.id} onSelect={() => handleSelectObserver(o)} />)}
@@ -279,12 +279,12 @@ export const ArtilleryViewComponent: React.FC<ArtilleryViewProps> = ({
                           <span>Solicitante: {allUsers.find(u => u.id === mission.requesterId)?.displayName || allUnits.find(u => u.id === mission.requesterId)?.name || 'Desconocido'}</span>
                           <div className="flex space-x-2">
                             {mission.assignedArtilleryId && mission.status === 'pending' && (
-                              <button onClick={() => handleRejectMission(mission.id)} className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded shadow-md">Rechazar</button>
+                              <button onClick={() => handleRejectMission(mission.id)} className="min-h-[44px] min-w-[44px] px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-md flex items-center justify-center">Rechazar</button>
                             )}
                             {mission.status === 'pending' ? (
-                              <button onClick={() => handleLaunchCdt(mission)} className="px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded shadow-md">Procesar Misión</button>
+                              <button onClick={() => handleLaunchCdt(mission)} className="min-h-[44px] px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg shadow-md flex items-center justify-center">Procesar Misión</button>
                             ) : (
-                              <span className="px-2 py-1 bg-red-800 text-red-300 text-xs rounded shadow-md">No Procesable</span>
+                              <span className="min-h-[44px] px-3 py-2 bg-red-800 text-red-300 text-xs font-semibold rounded-lg shadow-md flex items-center justify-center">No Procesable</span>
                             )}
                           </div>
                         </div>

@@ -11,6 +11,9 @@ interface UnitCardProps {
   isSelected: boolean;
 }
 
+// NATO doctrine: Friendly (blue force) units are ALWAYS NATO Blue.
+// Red (#EF4444) is EXCLUSIVELY for hostile/enemy forces.
+// ENGAGED status is shown with an amber/orange combat alert badge — never red on friendly units.
 const getStatusStyles = (status: UnitStatus): string => {
   switch (status) {
     case UnitStatus.OPERATIONAL:
@@ -19,7 +22,8 @@ const getStatusStyles = (status: UnitStatus): string => {
     case UnitStatus.STATIC:
       return 'text-blue-400 border-blue-500/30 bg-blue-500/10 glow-blue';
     case UnitStatus.ENGAGED:
-      return 'text-red-400 border-red-500/30 bg-red-500/10 glow-red animate-pulse';
+      // NATO compliant: friendly unit in contact uses amber combat alert, NOT red (hostile color)
+      return 'text-amber-400 border-amber-500/40 bg-amber-500/10 glow-orange animate-pulse';
     case UnitStatus.AAR_PENDING:
       return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10 glow-yellow';
     case UnitStatus.ON_LEAVE_RETRAINING:

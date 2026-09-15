@@ -14,7 +14,7 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNavComponent: React.FC<MobileBottomNavProps> = ({ currentView, setCurrentView, items }) => {
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-[100] glass-effect border-t border-white/5 pb-safe animate-in slide-in-from-bottom duration-500 md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-[70] glass-effect border-t border-white/5 pb-safe animate-in slide-in-from-bottom duration-500 md:hidden">
             <div className="flex justify-around items-center h-16 px-1">
                 {items.map((item) => {
                     const isActive = currentView === item.view;

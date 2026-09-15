@@ -183,14 +183,14 @@ export const SpecialtyCatalogManager: React.FC = () => {
                                     <td className="px-6 py-4 text-right space-x-2">
                                         <button
                                             onClick={() => openModal(specialty)}
-                                            className="text-blue-400 hover:text-blue-300 transition-colors"
+                                            className="text-blue-400 hover:text-blue-300 transition-colors p-2.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-lg hover:bg-white/5"
                                             title="Editar"
                                         >
                                             <Edit className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(specialty.id)}
-                                            className="text-red-400 hover:text-red-300 transition-colors"
+                                            className="text-red-400 hover:text-red-300 transition-colors p-2.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-lg hover:bg-white/5"
                                             title="Eliminar"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -205,13 +205,13 @@ export const SpecialtyCatalogManager: React.FC = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar border border-gray-700">
                         <div className="flex justify-between items-center p-4 border-b border-gray-700">
                             <h3 className="text-lg font-semibold text-white">
                                 {isEditing ? 'Editar Especialidad' : 'Nueva Especialidad'}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -261,13 +261,13 @@ export const SpecialtyCatalogManager: React.FC = () => {
                         <div className="p-4 border-t border-gray-700 flex justify-end space-x-3">
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
+                                className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors flex items-center justify-center"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleSave}
-                                className="px-4 py-2 text-sm font-medium bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors flex items-center"
+                                className="px-4 py-2 min-h-[44px] text-sm font-medium bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors flex items-center justify-center"
                             >
                                 <Save className="w-4 h-4 mr-2" />
                                 Guardar
