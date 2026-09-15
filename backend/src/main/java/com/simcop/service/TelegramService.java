@@ -126,4 +126,63 @@ public class TelegramService {
                     sendMessageWithToken(user.getTelegramChatId(), message, token);
                 });
     }
+
+    /**
+     * Despacho prioritario de alertas de Ciberdefensa Activa (ACD) al Superadministrador.
+     */
+    public boolean sendCyberIntrusionAlert(com.simcop.model.Alert alert) {
+        if (alert == null) {
+            return false;
+        }
+        logger.info("🛡️ Despachando alerta prioritaria de ciberintrusión a Telegram: {}", alert.getId());
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("🚨 *[SIMCOP - CIBERDEFENSA ACTIVA]* 🚨\n\n");
+        msg.append("*TIPO:* `CYBER_INTRUSION_DETECTED`\n");
+        msg.append("*SEVERIDAD:* 🔴 *CRÍTICA*\n");
+        msg.append("*HORA:* `").append(new java.util.Date(alert.getTimestamp())).append("`\n\n");
+        msg.append("*MENSAJE:* ").append(alert.getMessage() != null ? alert.getMessage() : "Alerta de intrusión").append("\n\n");
+        if (alert.getData() != null && !alert.getData().trim().isEmpty()) {
+            msg.append("*FORENSE / DETALLES:* \n`").append(alert.getData()).append("`\n\n");
+        }
+        msg.append("⚠️ _Acción defensiva: IP atacante aislada y contramedida ejecutada en tiempo real._");
+
+        String token = getBotTokenComms();
+        if (token == null || token.trim().isEmpty()) {
+            token = getBotTokenArtillery();
+        }
+
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("No hay bot token de Telegram configurado para despacho de alerta cibernética.");
+            return false;
+        }
+
+        try {
+            final String botToken = token;
+            final String text = msg.toString();
+
+            var superAdmins = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null &&
+                            ("santiago.salazar".equalsIgnoreCase(u.getUsername()) || u.getRole() == com.simcop.model.UserRole.ADMINISTRATOR) &&
+                            u.getTelegramChatId() != null && !u.getTelegramChatId().trim().isEmpty())
+                    .collect(java.util.stream.Collectors.toList());
+
+            if (superAdmins.isEmpty()) {
+                logger.warn("⚠️ Ningún Superadministrador tiene configurado telegramChatId en el sistema.");
+                return false;
+            }
+
+            boolean anySuccess = false;
+            for (var admin : superAdmins) {
+                logger.info("Enviando alerta ACD a Superadmin: {} (ChatID: {})", admin.getUsername(), admin.getTelegramChatId());
+                boolean sent = sendMessageWithToken(admin.getTelegramChatId(), text, botToken);
+                if (sent) anySuccess = true;
+            }
+
+            return anySuccess;
+        } catch (Exception e) {
+            logger.error("Error al despachar alerta ACD a Telegram: {}", e.getMessage());
+            return false;
+        }
+    }
 }

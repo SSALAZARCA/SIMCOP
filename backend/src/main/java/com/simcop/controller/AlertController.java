@@ -23,7 +23,27 @@ public class AlertController {
 
     @GetMapping
     public List<Alert> getAllAlerts() {
-        return repository.findAll();
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+
+        boolean isSuperAdmin = false;
+        if (auth != null && auth.isAuthenticated()
+                && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+            String name = auth.getName();
+            boolean hasAdminRole = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRATOR") || a.getAuthority().equals("ADMINISTRATOR"));
+            isSuperAdmin = "santiago.salazar".equalsIgnoreCase(name) || "admin".equalsIgnoreCase(name) || hasAdminRole;
+        }
+
+        List<Alert> allAlerts = repository.findAll();
+        if (isSuperAdmin) {
+            return allAlerts;
+        }
+
+        // Excluir estrictamente alertas de ciberdefensa para cualquier rol no-superadministrador
+        return allAlerts.stream()
+                .filter(a -> a.getType() != com.simcop.model.AlertType.CYBER_INTRUSION_DETECTED)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @PostMapping

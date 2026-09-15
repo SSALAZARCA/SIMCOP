@@ -20,6 +20,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired(required = false)
+    private com.simcop.service.SessionTrackingService sessionTrackingService;
+
+    @Autowired(required = false)
+    private com.simcop.service.ImpossibleTravelService impossibleTravelService;
+
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     @Override
@@ -67,6 +73,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtUtil.validateToken(jwt, username)) {
+                // A. Verificación de revocación de token por ACD
+                if (sessionTrackingService != null && sessionTrackingService.isTokenRevoked(jwt, username)) {
+                    logger.warn("🚨 [ACD_REVOCATION] Petición rechazada: token revocado para {}", username);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"error\": \"Session revoked due to anomalous security event\"}");
+                    return;
+                }
+
+                // B. Verificación de anomalía de viaje imposible
+                String clientIp = com.simcop.util.ClientIpResolver.getClientIp(request);
+                if (impossibleTravelService != null && impossibleTravelService.checkTravelAnomaly(username, clientIp, jwt)) {
+                    logger.warn("🚨 [ACD_IMPOSSIBLE_TRAVEL] Anomalía detectada para {} desde IP {}", username, clientIp);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"error\": \"Impossible travel detected. Session revoked.\"}");
+                    return;
+                }
+
                 String role = jwtUtil.extractRole(jwt);
                 logger.debug("DEBUG JWT: Token validated for {} with role {}", username, role);
                 
@@ -80,7 +107,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } else {
                 logger.warn("DEBUG JWT: Token validation FAILED for user: {}", username);
             }
-        } else if (authHeader != null && authHeader.startsWith("Bearer ") && username == null) {
+        }
+ else if (authHeader != null && authHeader.startsWith("Bearer ") && username == null) {
              logger.warn("DEBUG JWT: Bearer token present but username extraction failed.");
         }
 

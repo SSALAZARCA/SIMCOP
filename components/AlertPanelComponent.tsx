@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Alert, User } from '../types';
+import { AlertType, UserRole } from '../types';
 import { AlertItemComponent } from './AlertItemComponent';
 
 interface AlertPanelProps {
@@ -27,8 +28,18 @@ export const AlertPanelComponent: React.FC<AlertPanelProps> = ({
   rejectAmmoReport,
   rejectPlatoonNovelty,
 }) => {
+  const isSuperAdmin = currentUser &&
+    (currentUser.role === UserRole.ADMINISTRATOR || currentUser.username === 'santiago.salazar');
+
   const filteredAlerts = alerts
     .filter(alert => filterAcknowledged ? !alert.acknowledged : true)
+    .filter(alert => {
+      const isCyber = alert.type === AlertType.CYBER_INTRUSION_DETECTED || (alert.type as any) === 'CYBER_INTRUSION_DETECTED';
+      if (isCyber) {
+        return Boolean(isSuperAdmin);
+      }
+      return true;
+    })
     .sort((a, b) => b.timestamp - a.timestamp);
 
   const displayAlerts = maxItems ? filteredAlerts.slice(0, maxItems) : filteredAlerts;

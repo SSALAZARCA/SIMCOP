@@ -1,5 +1,8 @@
 package com.simcop.config;
 
+import com.simcop.security.CanaryEndpointFilter;
+import com.simcop.security.IpBlacklistFilter;
+import com.simcop.security.RaspFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,18 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
+
+    @Autowired
+    private IpBlacklistFilter ipBlacklistFilter;
+
+    @Autowired
+    private CanaryEndpointFilter canaryEndpointFilter;
+
+    @Autowired
+    private RaspFilter raspFilter;
+
+    @Autowired
+    private com.simcop.security.DlpThrottlingFilter dlpThrottlingFilter;
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthFilter;
@@ -89,7 +104,11 @@ public class SecurityConfig {
                         })
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(ipBlacklistFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(canaryEndpointFilter, IpBlacklistFilter.class)
+                .addFilterAfter(raspFilter, CanaryEndpointFilter.class)
+                .addFilterAfter(dlpThrottlingFilter, RaspFilter.class)
+                .addFilterAfter(jwtAuthFilter, com.simcop.security.DlpThrottlingFilter.class);
         return http.build();
     }
 

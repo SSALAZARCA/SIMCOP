@@ -2,6 +2,7 @@ import React from 'react';
 import type { Alert, User } from '../types';
 import { AlertSeverity, AlertType, UserRole } from '../types';
 import { BellAlertIcon } from './icons/BellAlertIcon';
+import { ShieldExclamationIcon } from './icons/ShieldExclamationIcon';
 import { decimalToDMS } from '../utils/coordinateUtils';
 
 interface AlertItemProps {
@@ -57,19 +58,72 @@ const _AlertItemComponent: React.FC<AlertItemProps> = ({
     }
   };
 
+  const isCyberAlert = alertItem.type === AlertType.CYBER_INTRUSION_DETECTED || (alertItem.type as any) === 'CYBER_INTRUSION_DETECTED';
+
+  let parsedData: { ip?: string; vector?: string; event?: string; action?: string; details?: string } | null = null;
+  if (isCyberAlert && alertItem.data) {
+    try {
+      parsedData = typeof alertItem.data === 'string' ? JSON.parse(alertItem.data) : alertItem.data;
+    } catch {
+      parsedData = null;
+    }
+  }
+
+  const containerStyle = isCyberAlert
+    ? 'border-red-600/80 bg-red-950/40 text-red-400 glow-red ring-1 ring-red-500/50 shadow-lg shadow-red-950/50'
+    : getSeverityStyles(alertItem.severity);
+
   return (
-    <div className={`p-4 rounded-xl border soft-transition flex items-start justify-between relative overflow-hidden ${getSeverityStyles(alertItem.severity)} ${alertItem.acknowledged ? 'opacity-40 grayscale' : 'glass-effect animate-in slide-in-from-right-4'}`}>
-      <div className="flex items-start gap-4">
-        <div className={`p-2 rounded-lg bg-black/20 border border-white/5 ${alertItem.acknowledged ? '' : 'animate-pulse'}`}>
-          <BellAlertIcon className="w-5 h-5 flex-shrink-0" />
+    <div className={`p-4 rounded-xl border soft-transition flex items-start justify-between relative overflow-hidden ${containerStyle} ${alertItem.acknowledged ? 'opacity-40 grayscale' : 'glass-effect animate-in slide-in-from-right-4'}`}>
+      <div className="flex items-start gap-4 flex-1">
+        <div className={`p-2 rounded-lg bg-black/30 border border-white/10 ${alertItem.acknowledged ? '' : 'animate-pulse'}`}>
+          {isCyberAlert ? (
+            <ShieldExclamationIcon className="w-5 h-5 flex-shrink-0 text-red-400" />
+          ) : (
+            <BellAlertIcon className="w-5 h-5 flex-shrink-0" />
+          )}
         </div>
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">{alertItem.type}</h4>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            {isCyberAlert ? (
+              <span className="px-2 py-0.5 rounded bg-red-600/30 text-red-400 border border-red-500/50 text-[9px] font-black uppercase tracking-widest shadow-sm">
+                [ACD // CIBERDEFENSA]
+              </span>
+            ) : (
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">{alertItem.type}</h4>
+            )}
             <span className="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span>
             <span className="text-[10px] font-bold opacity-70 monospace-tech">{alertTime}</span>
           </div>
           <p className="text-xs font-medium text-gray-100 mb-2 leading-snug">{alertItem.message}</p>
+
+          {isCyberAlert && parsedData && (
+            <div className="mt-2 mb-2 p-2.5 rounded-lg bg-black/60 border border-red-500/40 text-[9px] space-y-1 font-mono">
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {parsedData.ip && (
+                  <span className="text-gray-300">
+                    <span className="text-red-400 font-bold">IP ORIGEN:</span> <span className="text-white font-bold">{parsedData.ip}</span>
+                  </span>
+                )}
+                {(parsedData.vector || parsedData.event) && (
+                  <span className="text-gray-300">
+                    <span className="text-red-400 font-bold">VECTOR:</span> <span className="text-amber-300 font-bold">{parsedData.vector || parsedData.event}</span>
+                  </span>
+                )}
+                {parsedData.action && (
+                  <span className="text-gray-300">
+                    <span className="text-red-400 font-bold">ACCIÓN:</span> <span className="text-emerald-400 font-bold">{parsedData.action}</span>
+                  </span>
+                )}
+              </div>
+              {parsedData.details && (
+                <div className="text-gray-400 text-[8px] truncate">
+                  <span className="text-red-400 font-bold">DETALLE:</span> {parsedData.details}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
             {alertItem.location && (
               <span className="flex items-center">

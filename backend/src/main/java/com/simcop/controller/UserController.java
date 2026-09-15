@@ -1,8 +1,11 @@
 package com.simcop.controller;
 
+import com.simcop.model.AdminAuditLog;
 import com.simcop.model.User;
 import com.simcop.model.UserRole;
+import com.simcop.repository.AdminAuditLogRepository;
 import com.simcop.repository.UserRepository;
+import com.simcop.security.DeceptionCatalog;
 import com.simcop.service.LoginRateLimiterService;
 import com.simcop.util.ClientIpResolver;
 import com.simcop.util.JwtUtil;
@@ -49,6 +52,18 @@ public class UserController {
 
     @Autowired
     private LoginRateLimiterService rateLimiterService;
+
+    @Autowired(required = false)
+    private AdminAuditLogRepository auditLogRepository;
+
+    @Autowired(required = false)
+    private com.simcop.service.ActiveCyberDefenseService activeCyberDefenseService;
+
+    @Autowired(required = false)
+    private com.simcop.service.SessionTrackingService sessionTrackingService;
+
+    @Autowired(required = false)
+    private com.simcop.service.GeoIpService geoIpService;
 
     @GetMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('EJERCITO') or hasAnyRole('COMANDANTE_EJERCITO', 'COMANDANTE_DIVISION', 'COMANDANTE_BRIGADA', 'COMANDANTE_BATALLON', 'COMANDANTE_COMPANIA')")
@@ -113,6 +128,25 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User loginRequest, HttpServletRequest request) {
+        if (loginRequest != null && DeceptionCatalog.isHoneyUser(loginRequest.getUsername())) {
+            String clientIp = ClientIpResolver.getClientIp(request);
+            if (auditLogRepository != null) {
+                auditLogRepository.save(new AdminAuditLog(System.currentTimeMillis(), "HONEY_USER_DECEPTION", "INTRUSION_ATTEMPT", "LOGIN", "IP " + clientIp + " attempted honey-user login: " + loginRequest.getUsername()));
+            }
+            if (activeCyberDefenseService != null) {
+                activeCyberDefenseService.recordIntrusionAlert(
+                        "HONEY_USER_LOGIN_ATTEMPT",
+                        clientIp,
+                        loginRequest.getUsername(),
+                        "Honey-user credential stuffing attempt on decoy account: " + loginRequest.getUsername(),
+                        "IP_ISOLATED_24H"
+                );
+            } else {
+                rateLimiterService.blacklistIp(clientIp, 24 * 3600 * 1000L, "HONEY_USER_LOGIN_ATTEMPT: " + loginRequest.getUsername());
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+        }
+
         String clientIp = ClientIpResolver.getClientIp(request);
         String username = (loginRequest != null) ? loginRequest.getUsername() : null;
         logger.info("🔑 Intento de login para usuario: {} desde IP: {}", username, clientIp);
@@ -199,6 +233,15 @@ public class UserController {
         String token = jwtUtil.generateToken(u.getUsername(), role);
         u.setToken(token);
         rateLimiterService.recordSuccessfulLogin(clientIp, u.getUsername());
+
+        // Registrar sesión activa para ACD y detección de viaje imposible
+        if (sessionTrackingService != null) {
+            com.simcop.model.embeddable.GeoLocation loc = (geoIpService != null)
+                    ? geoIpService.resolveIp(clientIp)
+                    : com.simcop.service.GeoIpService.BOGOTA_HQ;
+            sessionTrackingService.recordUserSession(u.getUsername(), token, clientIp, loc, System.currentTimeMillis());
+        }
+
         logger.info("✅ Login exitoso para: {}", u.getUsername());
         return ResponseEntity.ok(u);
     }

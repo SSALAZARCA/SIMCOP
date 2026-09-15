@@ -46,7 +46,8 @@ public enum AlertType {
     PLATOON_NOVELTY_REJECTED("Novedad de Pelotón Rechazada"),
     LOGISTICS_REQUEST_PENDING("Requerimiento Logístico Pendiente"),
     LOGISTICS_REQUEST_FULFILLED("Requerimiento Logístico Satisfecho"),
-    BMA_HOTSPOT_THREAT("Amenaza BMA: Unidad en Punto Crítico");
+    BMA_HOTSPOT_THREAT("Amenaza BMA: Unidad en Punto Crítico"),
+    CYBER_INTRUSION_DETECTED("Intrusión Cibernética Detectada");
 
     private final String label;
 

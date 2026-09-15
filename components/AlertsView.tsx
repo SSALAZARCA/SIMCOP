@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Alert, User } from '../types';
-import { AlertSeverity } from '../types';
+import { AlertSeverity, AlertType, UserRole } from '../types';
 import { AlertPanelComponent } from './AlertPanelComponent';
 
 interface AlertsViewProps {
@@ -25,12 +25,22 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   const [showAcknowledged, setShowAcknowledged] = useState(false);
   const [filterSeverity, setFilterSeverity] = useState<AlertSeverity | 'ALL'>('ALL');
 
+  const isSuperAdmin = currentUser &&
+    (currentUser.role === UserRole.ADMINISTRATOR || currentUser.username === 'santiago.salazar');
+
   const filteredAlerts = useMemo(() => {
     return alerts
       .filter(alert => showAcknowledged ? true : !alert.acknowledged)
       .filter(alert => filterSeverity === 'ALL' ? true : alert.severity === filterSeverity)
+      .filter(alert => {
+        const isCyber = alert.type === AlertType.CYBER_INTRUSION_DETECTED || (alert.type as any) === 'CYBER_INTRUSION_DETECTED';
+        if (isCyber) {
+          return Boolean(isSuperAdmin);
+        }
+        return true;
+      })
       .sort((a,b) => b.timestamp - a.timestamp);
-  }, [alerts, showAcknowledged, filterSeverity]);
+  }, [alerts, showAcknowledged, filterSeverity, isSuperAdmin]);
 
   return (
     <div className="flex flex-col space-y-4">
