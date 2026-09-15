@@ -1223,11 +1223,13 @@ const App: React.FC = () => {
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(17,24,39,1)_0%,rgba(13,17,23,1)_100%)]"></div>
 
         {!isMobile && (
-          <SidebarComponent
-            currentView={currentView}
-            setCurrentView={handleSetView}
-            currentUser={currentUser}
-          />
+          <div className="w-64 flex-shrink-0 h-full">
+            <SidebarComponent
+              currentView={currentView}
+              setCurrentView={handleSetView}
+              currentUser={currentUser}
+            />
+          </div>
         )}
         {isMobile && isMobileNavOpen && (
           <div
@@ -1235,7 +1237,7 @@ const App: React.FC = () => {
             onClick={() => setIsMobileNavOpen(false)}
           >
             <div
-              className="fixed top-0 left-0 h-full z-[80] shadow-2xl animate-in slide-in-from-left duration-300"
+              className="fixed top-0 left-0 h-full w-72 z-[80] shadow-2xl animate-in slide-in-from-left duration-300 overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               <SidebarComponent
