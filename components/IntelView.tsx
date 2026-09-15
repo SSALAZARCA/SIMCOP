@@ -270,9 +270,9 @@ export const IntelView: React.FC<IntelViewProps> = ({
                                     })
                                     .catch(e => alert("Error al actualizar OSINT."));
                             }}
-                            className="px-3 py-1.5 md:px-4 md:py-2 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 bg-cyan-700/80 hover:bg-cyan-600 border border-cyan-500/50 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm hover:shadow-cyan-700/30 text-cyan-100"
                         >
-                            Procesar OSINT (IA)
+                            🧠 Procesar OSINT (IA)
                         </button>
                     )}
                     {setOsintLayerActive && (
@@ -439,20 +439,22 @@ export const IntelView: React.FC<IntelViewProps> = ({
             )}
 
             <div className="flex flex-col md:flex-row flex-1 space-y-4 md:space-y-0 md:space-x-4">
-                <div className="w-full md:w-2/5 pr-0 md:pr-2 flex flex-col space-y-3">
+                <div className="w-full md:w-1/2 pr-0 md:pr-2 flex flex-col space-y-3">
                     {/* TABS */}
-                    <div className="flex bg-gray-800 p-1 rounded-md shadow">
+                    <div className="flex gap-1 bg-gray-800/80 p-1 rounded-lg shadow border border-white/5">
                         <button 
-                            className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${activeTab === 'oficial' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-md transition-all whitespace-nowrap ${activeTab === 'oficial' ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
                             onClick={() => setActiveTab('oficial')}
                         >
-                            Informes Oficiales ({intelReports.length})
+                            📋 Informes Oficiales
+                            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'oficial' ? 'bg-white/20' : 'bg-gray-700'}`}>{intelReports.length}</span>
                         </button>
                         <button 
-                            className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${activeTab === 'osint' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-md transition-all whitespace-nowrap ${activeTab === 'osint' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-900/40' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
                             onClick={() => setActiveTab('osint')}
                         >
-                            Noticias OSINT ({osintEvents.length})
+                            🌐 Noticias OSINT
+                            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'osint' ? 'bg-white/20' : 'bg-gray-700'}`}>{osintEvents.length}</span>
                         </button>
                     </div>
 
