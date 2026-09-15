@@ -1,6 +1,7 @@
 
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 // FIX: Import `Type` for function declaration schema.
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenaiBlob, Type } from "@google/genai";
 import { HeaderComponent } from './components/HeaderComponent';
@@ -1231,9 +1232,9 @@ const App: React.FC = () => {
             />
           </div>
         )}
-        {isMobile && isMobileNavOpen && (
+        {isMobile && isMobileNavOpen && ReactDOM.createPortal(
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-md transition-all animate-in fade-in"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md animate-in fade-in"
             style={{ zIndex: 9998 }}
             onClick={() => setIsMobileNavOpen(false)}
           >
@@ -1248,7 +1249,8 @@ const App: React.FC = () => {
                 currentUser={currentUser}
               />
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {isMobile ? (
