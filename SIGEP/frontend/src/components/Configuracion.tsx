@@ -70,8 +70,8 @@ export default function Configuracion({ role }: { role: string }) {
       })
       .catch(console.error);
 
-    // Cargar Unidades de SIMCOP para el selector
-    axios.get(`${SIMCOP_API_URL}/units`)
+    // Cargar Unidades via proxy M2M de SIGEP (autenticado hacia SIMCOP)
+    axios.get(`${SIGEP_API_URL}/simcop/units`)
       .then(res => {
         const allUnits = res.data;
         if (role === 'ROLE_ADMINISTRATOR' || role === 'ROLE_EJERCITO' || role === 'ROLE_COMANDANTE_EJERCITO' || user?.assignedUnitId === 'NATIONAL') {

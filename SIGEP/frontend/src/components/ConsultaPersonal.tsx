@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, FileText, Activity, MapPin, Upload, Download, CheckCircle, AlertTriangle, Cross, Users, BookOpen } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import axios from 'axios';
-import { SIMCOP_API_URL, SIGEP_API_URL } from '../apiConfig';
+import { SIGEP_API_URL } from '../apiConfig';
 import FichaDigital from './FichaDigital';
 import LibroNovedades from './LibroNovedades';
 
@@ -25,11 +25,11 @@ export default function ConsultaPersonal({ role, unitId }: { role: string; unitI
     name: '', rank: 'CT', mosCode: '', branch: '', healthStatus: 'APTO', cursosCombate: ''
   });
 
-  // 1. Cargar Unidades desde SIMCOP
+  // 1. Cargar Unidades desde SIGEP (proxy M2M hacia SIMCOP — autenticado)
   useEffect(() => {
     const fetchUnits = async () => {
       try {
-        const res = await axios.get(`${SIMCOP_API_URL}/units`); // SIN TOKEN PARA SIMCOP
+        const res = await axios.get(`${SIGEP_API_URL}/simcop/units`);
         const allUnits = res.data;
         
         if (user?.role === 'ROLE_ADMINISTRATOR' || user?.role === 'ROLE_EJERCITO' || user?.role === 'ROLE_COMANDANTE_EJERCITO' || user?.assignedUnitId === 'NATIONAL') {
@@ -51,7 +51,7 @@ export default function ConsultaPersonal({ role, unitId }: { role: string; unitI
           if (tree.length > 0) setSelectedUnitId(tree[0].id);
         }
       } catch (e) {
-        console.error("Error fetching units from SIMCOP", e);
+        console.error("Error fetching units from SIGEP proxy", e);
       }
     };
     fetchUnits();

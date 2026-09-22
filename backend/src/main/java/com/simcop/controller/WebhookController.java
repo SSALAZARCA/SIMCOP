@@ -7,6 +7,7 @@ import com.simcop.repository.SoldierRepository;
 import com.simcop.service.SoldierService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +30,11 @@ public class WebhookController {
     @Autowired
     private SoldierService soldierService;
 
+    @Transactional
     @PostMapping("/personnel/transfer-completed")
     public ResponseEntity<String> handleTransferCompleted(@RequestBody Map<String, Object> payload) {
         logger.info("Recibido Webhook de SIGEP: Traslado Completado");
-        
+
         try {
             Map<String, Object> eventPayload = (Map<String, Object>) payload.get("payload");
             if (eventPayload == null) {
@@ -44,38 +46,27 @@ public class WebhookController {
 
             logger.info("Procesando traslado del Soldado [{}] hacia la Unidad [{}]", soldierId, targetUnitId);
 
+            // Buscar la unidad destino — falla rápido si no existe (rollback garantizado)
+            MilitaryUnit targetUnit = unitRepository.findById(targetUnitId)
+                    .orElseThrow(() -> new IllegalArgumentException("Unidad destino no encontrada: " + targetUnitId));
+
             Optional<Soldier> soldierOpt = soldierRepository.findById(soldierId);
             if (soldierOpt.isPresent()) {
-                // El soldado existe en SIMCOP, actualizamos su unidad
+                // Actualización directa y atómica — sin borrado físico
                 Soldier soldier = soldierOpt.get();
-                
-                // Disminuir contador de unidad original si tenía una
-                if (soldier.getUnit() != null) {
-                    soldierService.deleteSoldier(soldierId); // Delete will decrement properly
-                    
-                    // Re-create the soldier in the new unit to ensure counters increment properly
-                    soldier.setId(soldierId); // keep same ID
-                    soldierService.createSoldier(soldier, targetUnitId);
-                } else {
-                    // Update normally
-                    Optional<MilitaryUnit> newUnit = unitRepository.findById(targetUnitId);
-                    if(newUnit.isPresent()){
-                         soldier.setUnit(newUnit.get());
-                         soldierRepository.save(soldier);
-                    }
-                }
-                
-                logger.info("Traslado sincronizado en SIMCOP exitosamente.");
+                soldier.setUnit(targetUnit);
+                soldierRepository.save(soldier);
+                logger.info("Traslado sincronizado en SIMCOP exitosamente (update atómico).");
             } else {
+                // El soldado no existe en SIMCOP aún — crearlo desde el payload
                 logger.warn("Soldado [{}] no encontrado en SIMCOP. Registrándolo de cero desde SIGEP.", soldierId);
-                // Si no existe, lo creamos de cero usando los datos del payload
                 Soldier newSoldier = new Soldier();
                 newSoldier.setId(soldierId);
                 newSoldier.setFullName((String) eventPayload.get("name"));
                 newSoldier.setRank((String) eventPayload.get("rank"));
                 newSoldier.setMoceCode((String) eventPayload.get("mos_code"));
                 newSoldier.setStatus("ACTIVE");
-                
+
                 soldierService.createSoldier(newSoldier, targetUnitId);
             }
 

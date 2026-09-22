@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -54,6 +55,9 @@ public class DlpThrottlingFilter extends OncePerRequestFilter {
     @Autowired(required = false)
     private JwtUtil jwtUtil;
 
+    @Value("${simcop.service.token:simcop-tactical-m2m-secure-token-2026}")
+    private String m2mServiceToken;
+
     public DlpThrottlingFilter() {
     }
 
@@ -80,6 +84,14 @@ public class DlpThrottlingFilter extends OncePerRequestFilter {
 
         // Check if request targets sensitive DLP-protected endpoints
         if (!isSensitiveEndpoint(uri)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Exención M2M: las llamadas de servicio a servicio con token válido no se throttlean
+        String serviceToken = request.getHeader("X-Service-Token");
+        if (serviceToken != null && serviceToken.equals(m2mServiceToken)) {
+            logger.debug("[DLP_M2M_EXEMPT] Solicitud M2M autenticada exenta de rate-limit en: {}", uri);
             filterChain.doFilter(request, response);
             return;
         }

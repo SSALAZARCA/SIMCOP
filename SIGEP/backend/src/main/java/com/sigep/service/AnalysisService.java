@@ -194,7 +194,6 @@ public class AnalysisService {
         TransferViabilityResult result = new TransferViabilityResult();
         result.setViable(true);
         result.setBlockedByToe(false);
-        result.setBlockedByOperationalStatus(false);
         result.setMessage("El traslado es viable.");
         result.setSuggestedReplacements(new ArrayList<>());
         
@@ -217,22 +216,6 @@ public class AnalysisService {
                 result.setBlockedByToe(true);
                 result.setMessage("BLOQUEO TOE: Al extraer este soldado, la unidad " + sourceUnitId + " quedará en déficit de la especialidad " + mos + " (Requiere " + mosToe.getRequired() + ", Quedarían " + (mosToe.getActual() - 1) + "). Pasa a revisión del G1.");
             }
-        }
-        
-        // 2. Estado Operacional en SIMCOP (Informativo - No veta el movimiento administrativo)
-        try {
-            String statusUrl = getSimcopBaseUrl() + "/units/" + sourceUnitId + "/tactical-status";
-            HttpEntity<Void> requestEntity = new HttpEntity<>(createM2MHeaders());
-            ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, requestEntity, String.class);
-            String status = response.getBody();
-            if (status != null) {
-                String upperStatus = status.trim().toUpperCase();
-                if (upperStatus.contains("COMBATE") || upperStatus.contains("ENGAGED")) {
-                    result.setOperationalNote("AVISO TÁCTICO: La unidad " + sourceUnitId + " se encuentra actualmente en contacto armado (COMBATE / ENGAGED). El movimiento administrativo queda avalado y se perfeccionará al término de la misión bajo coordinación del oficial de personal (S1/G1).");
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("No se pudo consultar estado táctico de SIMCOP para unidad " + sourceUnitId + ": " + e.getMessage());
         }
 
         // 3. Validar Sanidad Militar / Condición Psicofísica

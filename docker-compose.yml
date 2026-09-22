@@ -49,6 +49,7 @@ services:
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop_secure_webhook_secret_2026}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
     depends_on:
       mysql:
         condition: service_healthy
