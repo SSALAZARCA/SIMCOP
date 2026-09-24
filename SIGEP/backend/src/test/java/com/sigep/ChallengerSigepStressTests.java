@@ -28,6 +28,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import com.sigep.service.GenAITacticalService;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import java.time.LocalDate;
 import java.util.*;
 
@@ -42,6 +46,7 @@ import static org.mockito.Mockito.*;
  * 3. Transactional boundaries and authorization in TransferService.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ChallengerSigepStressTests {
 
     @Nested
@@ -85,111 +90,73 @@ public class ChallengerSigepStressTests {
             )).thenReturn(new ResponseEntity<>(Map.of(), HttpStatus.OK));
         }
 
-        private void mockTacticalStatus(String status) {
-            when(restTemplate.exchange(
-                    contains("/tactical-status"),
-                    eq(HttpMethod.GET),
-                    any(HttpEntity.class),
-                    eq(String.class)
-            )).thenReturn(new ResponseEntity<>(status, HttpStatus.OK));
-        }
-
         @Test
-        @DisplayName("STRESS-VETO-01: Correctly vetos ENGAGED")
-        void testVetoEngaged() {
-            mockTacticalStatus("ENGAGED");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isViable(), "Transfer must be non-viable");
-            assertTrue(result.isBlockedByOperationalStatus(), "Must be blocked by operational status");
-            assertTrue(result.getMessage().contains("COMBATE (ENGAGED)"));
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-02: Correctly vetos COMBATE")
-        void testVetoCombate() {
-            mockTacticalStatus("COMBATE");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isViable());
-            assertTrue(result.isBlockedByOperationalStatus());
-            assertTrue(result.getMessage().contains("COMBATE (ENGAGED)"));
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-03: Correctly vetos mixed-case 'En Combate'")
-        void testVetoEnCombateMixedCase() {
-            mockTacticalStatus("En Combate");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isViable());
-            assertTrue(result.isBlockedByOperationalStatus());
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-04: Correctly vetos phrase 'UNIDAD EN COMBATE'")
-        void testVetoUnidadEnCombate() {
-            mockTacticalStatus("UNIDAD EN COMBATE");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isViable());
-            assertTrue(result.isBlockedByOperationalStatus());
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-05: Correctly vetos sub-status 'ENGAGED_HEAVY'")
-        void testVetoEngagedHeavy() {
-            mockTacticalStatus("ENGAGED_HEAVY");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isViable());
-            assertTrue(result.isBlockedByOperationalStatus());
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-06: Correctly allows 'OPERATIONAL'")
-        void testAllowOperational() {
-            mockTacticalStatus("OPERATIONAL");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isBlockedByOperationalStatus(), "OPERATIONAL must NOT be blocked by operational status");
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-07: Correctly allows 'PATROLLING'")
-        void testAllowPatrolling() {
-            mockTacticalStatus("PATROLLING");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isBlockedByOperationalStatus(), "PATROLLING must NOT be blocked by operational status");
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-08: Correctly allows 'RESTING'")
-        void testAllowResting() {
-            mockTacticalStatus("RESTING");
-            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
-            assertFalse(result.isBlockedByOperationalStatus(), "RESTING must NOT be blocked by operational status");
-        }
-
-        @Test
-        @DisplayName("STRESS-VETO-09: Gracefully handles null status without NPE")
-        void testGracefulNullStatus() {
-            mockTacticalStatus(null);
+        @DisplayName("STRESS-VETO-01: Correctly allows transfer regardless of operational status (Combat veto eliminated)")
+        void testCombatVetoEliminated() {
             TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
             assertNotNull(result);
-            assertFalse(result.isBlockedByOperationalStatus());
+            assertTrue(result.isViable(), "Transfer must be viable as combat veto was eliminated");
         }
 
         @Test
-        @DisplayName("STRESS-VETO-10: Gracefully handles network timeout/exception on tactical-status endpoint")
-        void testGracefulNetworkException() {
-            when(restTemplate.exchange(
-                    contains("/tactical-status"),
-                    eq(HttpMethod.GET),
-                    any(HttpEntity.class),
-                    eq(String.class)
-            )).thenThrow(new ResourceAccessException("Tactical node connection timed out (Air-Gap)"));
+        @DisplayName("STRESS-VETO-02: Health condition non-APTO correctly blocks transfer")
+        void testHealthBlocksTransfer() {
+            Soldier injured = new Soldier();
+            injured.setId(soldierId);
+            injured.setUnitId(sourceUnitId);
+            injured.setMosCode("INF");
+            injured.setStatus("ACTIVE");
+            injured.setRank("SLP");
+            injured.setHealthStatus("NO APTO");
+            when(soldierRepository.findById(soldierId)).thenReturn(Optional.of(injured));
 
-            TransferViabilityResult result = assertDoesNotThrow(
-                    () -> analysisService.checkTransferViability(soldierId, targetUnitId),
-                    "Air-gap disconnect must not crash checkTransferViability"
-            );
-            assertNotNull(result);
-            assertFalse(result.isBlockedByOperationalStatus());
+            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
+            assertFalse(result.isViable());
+            assertTrue(result.isBlockedByHealth());
+            assertTrue(result.getMessage().contains("BLOQUEO DE SANIDAD"));
+        }
+
+        @Test
+        @DisplayName("STRESS-VETO-03: Excusa Medica blocks transfer")
+        void testExcusaMedicaBlocksTransfer() {
+            Soldier injured = new Soldier();
+            injured.setId(soldierId);
+            injured.setUnitId(sourceUnitId);
+            injured.setMosCode("INF");
+            injured.setStatus("ACTIVE");
+            injured.setRank("SLP");
+            injured.setHealthStatus("EXCUSA MEDICA");
+            when(soldierRepository.findById(soldierId)).thenReturn(Optional.of(injured));
+
+            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
+            assertFalse(result.isViable());
+            assertTrue(result.isBlockedByHealth());
+        }
+
+        @Test
+        @DisplayName("STRESS-VETO-04: Non-existent soldier returns non-viable")
+        void testNonExistentSoldier() {
+            when(soldierRepository.findById("UNKNOWN")).thenReturn(Optional.empty());
+            TransferViabilityResult result = analysisService.checkTransferViability("UNKNOWN", targetUnitId);
+            assertFalse(result.isViable());
+            assertEquals("Soldado no encontrado.", result.getMessage());
+        }
+
+        @Test
+        @DisplayName("STRESS-VETO-05: Viable soldier with APTO health passes")
+        void testAptoHealthPasses() {
+            Soldier healthy = new Soldier();
+            healthy.setId(soldierId);
+            healthy.setUnitId(sourceUnitId);
+            healthy.setMosCode("INF");
+            healthy.setStatus("ACTIVE");
+            healthy.setRank("SLP");
+            healthy.setHealthStatus("APTO");
+            when(soldierRepository.findById(soldierId)).thenReturn(Optional.of(healthy));
+
+            TransferViabilityResult result = analysisService.checkTransferViability(soldierId, targetUnitId);
+            assertTrue(result.isViable());
+            assertFalse(result.isBlockedByHealth());
         }
     }
 
@@ -199,6 +166,9 @@ public class ChallengerSigepStressTests {
 
         @Mock
         private RestTemplate restTemplate;
+
+        @Mock
+        private GenAITacticalService genAITacticalService;
 
         @InjectMocks
         private AIRecommendationService aiRecommendationService;

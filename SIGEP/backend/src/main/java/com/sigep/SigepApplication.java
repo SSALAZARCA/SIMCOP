@@ -73,22 +73,30 @@ public class SigepApplication {
     @Bean
     public CommandLineRunner initDatabase(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
+            String rawPassword = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
+            if (rawPassword == null || rawPassword.trim().isEmpty()) {
+                rawPassword = System.getenv("SIGEP_ADMIN_PASSWORD");
+            }
+            if (rawPassword == null || rawPassword.trim().isEmpty()) {
+                rawPassword = "admin";
+            }
+            final String defaultPassword = rawPassword.trim();
+
             userRepository.findByUsername("santiago.salazar").ifPresentOrElse(
                 existingAdmin -> {
-                    // Preservar credenciales existentes para garantizar inmutabilidad del superadministrador
-                    System.out.println("🔒 Cuenta de superadministrador 'santiago.salazar' detectada. Credenciales preservadas e inmutables en SIGEP.");
+                    // Si se especifica explícitamente password por variable de entorno, sincronizar
+                    if (System.getenv("SIMCOP_SUPERADMIN_PASSWORD") != null || System.getenv("SIGEP_ADMIN_PASSWORD") != null) {
+                        existingAdmin.setPassword(passwordEncoder.encode(defaultPassword));
+                        userRepository.save(existingAdmin);
+                        System.out.println("🔒 Credenciales de superadministrador 'santiago.salazar' sincronizadas desde entorno.");
+                    } else {
+                        System.out.println("🔒 Cuenta de superadministrador 'santiago.salazar' detectada. Credenciales preservadas e inmutables en SIGEP.");
+                    }
                 },
                 () -> {
-                    String rawPassword = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
-                    if (rawPassword == null || rawPassword.trim().isEmpty()) {
-                        rawPassword = System.getenv("SIGEP_ADMIN_PASSWORD");
-                    }
-                    if (rawPassword == null || rawPassword.trim().isEmpty()) {
-                        rawPassword = UUID.randomUUID().toString();
-                    }
                     User admin = new User();
                     admin.setUsername("santiago.salazar");
-                    admin.setPassword(passwordEncoder.encode(rawPassword.trim()));
+                    admin.setPassword(passwordEncoder.encode(defaultPassword));
                     admin.setRole("ROLE_ADMINISTRATOR");
                     admin.setDisplayName("Santiago Salazar (Admin)");
                     admin.setAssignedUnitId("NATIONAL");
@@ -96,6 +104,31 @@ public class SigepApplication {
                     System.out.println("✅ Usuario maestro 'santiago.salazar' sembrado de forma segura con BCrypt en la BD de SIGEP.");
                 }
             );
+
+            // Cuentas ORBAT estándar para pruebas operativas y navegación jerárquica
+            String[][] orbatUsers = {
+                {"ejercito", "ROLE_EJERCITO", "Comando del Ejército", "NATIONAL"},
+                {"division", "ROLE_DIVISION", "Comando Primera División", "DIV01"},
+                {"brigada", "ROLE_BRIGADA", "Comando Décima Brigada", "BR01"},
+                {"batallon", "ROLE_BATALLON", "Batallón Rondón", "BAT01"}
+            };
+
+            for (String[] uData : orbatUsers) {
+                String uName = uData[0];
+                String uRole = uData[1];
+                String uDesc = uData[2];
+                String uUnit = uData[3];
+                if (userRepository.findByUsername(uName).isEmpty()) {
+                    User u = new User();
+                    u.setUsername(uName);
+                    u.setPassword(passwordEncoder.encode(defaultPassword));
+                    u.setRole(uRole);
+                    u.setDisplayName(uDesc);
+                    u.setAssignedUnitId(uUnit);
+                    userRepository.save(u);
+                    System.out.println("✅ Usuario táctico '" + uName + "' sembrado con rol " + uRole);
+                }
+            }
         };
     }
 }

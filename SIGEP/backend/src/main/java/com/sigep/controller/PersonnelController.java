@@ -41,7 +41,32 @@ public class PersonnelController {
         }
         if (soldier.getStatus() == null) soldier.setStatus("ACTIVE");
         if (soldier.getAssignmentDate() == null) soldier.setAssignmentDate(java.time.LocalDate.now());
+        if (soldier.getHealthStatus() == null) soldier.setHealthStatus("APTO");
         return ResponseEntity.ok(soldierRepository.save(soldier));
+    }
+
+    @Transactional
+    @PostMapping("/batch")
+    public ResponseEntity<List<Soldier>> createBatch(@RequestBody List<Soldier> soldiers) {
+        List<Soldier> saved = soldiers.stream().map(s -> {
+            if (s.getId() == null || s.getId().trim().isEmpty()) {
+                s.setId(UUID.randomUUID().toString());
+            }
+            if (s.getStatus() == null || s.getStatus().trim().isEmpty()) {
+                s.setStatus("ACTIVE");
+            }
+            if (s.getAssignmentDate() == null) {
+                s.setAssignmentDate(java.time.LocalDate.now());
+            }
+            if (s.getHealthStatus() == null || s.getHealthStatus().trim().isEmpty()) {
+                s.setHealthStatus("APTO");
+            }
+            if (s.getTimeInPosition() == null) {
+                s.setTimeInPosition(0);
+            }
+            return soldierRepository.save(s);
+        }).toList();
+        return ResponseEntity.ok(saved);
     }
     
     @Transactional

@@ -1,108 +1,144 @@
 import React, { useState } from 'react';
 import './index.css';
 import { useAuth } from './AuthContext';
+import { UnitProvider, useUnit } from './UnitContext';
+import type { NavigationTab } from './types/sigep';
 import Login from './components/Login';
-import AnalysisDashboard from './pages/AnalysisDashboard';
+import TacticalNavbar from './components/TacticalNavbar';
+import Sidebar from './components/Sidebar';
+import AnalysisDashboard from './components/AnalysisDashboard';
 import Recomendaciones from './components/Recomendaciones';
 import Informes from './components/Informes';
-import TrasladoOficiales from './components/TrasladoOficiales';
-import TrasladoSuboficiales from './components/TrasladoSuboficiales';
-import TrasladoSoldados from './components/TrasladoSoldados';
-import Configuracion from './components/Configuracion';
 import ConsultaPersonal from './components/ConsultaPersonal';
-import { LayoutDashboard, AlertTriangle, FileBarChart, Shield, Users, Target, LogOut, Settings, Search } from 'lucide-react';
+import ConsolaTraslados from './components/ConsolaTraslados';
+import Configuracion from './components/Configuracion';
+import CargaMasivaPersonal from './components/CargaMasivaPersonal';
 
-function App() {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('analisis');
+
+/**
+ * Inner Authenticated Layout:
+ * Consumes UnitContext for reactive unit scoping and tactical navigation.
+ */
+function AuthenticatedApp() {
+  const { user } = useAuth();
+  const { selectedUnitId } = useUnit();
+  const [activeTab, setActiveTab] = useState<NavigationTab>('analisis');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  if (!user) return null;
+
+  // Reactively propagate selected unit or fallback to assigned unit
+  const effectiveUnitId = selectedUnitId || user.unitId;
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1117] text-gray-100 font-sans">
+      
+      {/* 1. Persistent Tactical Topbar */}
+      <TacticalNavbar 
+        onToggleMobileDrawer={() => setIsMobileDrawerOpen(prev => !prev)}
+        isMobileDrawerOpen={isMobileDrawerOpen}
+        onOpenCargaMasiva={() => setActiveTab('carga-masiva')}
+      />
+
+      {/* 2. Main Layout Container: Sidebar + Content Canvas */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* Responsive Military Sidebar */}
+        <Sidebar 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isMobileDrawerOpen={isMobileDrawerOpen}
+          setIsMobileDrawerOpen={setIsMobileDrawerOpen}
+        />
+
+        {/* Central Tactical Content Canvas */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-6 relative bg-gradient-to-br from-slate-950 via-[#0d1117] to-slate-900">
+          {activeTab === 'analisis' && (
+            <AnalysisDashboard unitId={effectiveUnitId} />
+          )}
+
+          {activeTab === 'recomendaciones' && (
+            <Recomendaciones unitId={effectiveUnitId} role={user.role} />
+          )}
+
+          {activeTab === 'informes' && (
+            <Informes unitId={effectiveUnitId} role={user.role} />
+          )}
+
+          {activeTab === 'consulta-personal' && (
+            <ConsultaPersonal unitId={effectiveUnitId} role={user.role} />
+          )}
+
+          {activeTab === 'carga-masiva' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold font-mono text-cyan-300 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                    Carga Masiva de Personal Militar
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Módulo de ingestión masiva de efectivos para {effectiveUnitId} mediante planillas Excel (.xlsx, .xls), CSV o listados rápidos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('consulta-personal')}
+                  className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-cyan-300 transition-colors"
+                >
+                  Ver Expedientes Registrados →
+                </button>
+              </div>
+              <CargaMasivaPersonal
+                unitId={effectiveUnitId}
+                onSuccess={() => setActiveTab('consulta-personal')}
+                onCancel={() => setActiveTab('consulta-personal')}
+              />
+            </div>
+          )}
+
+          {activeTab === 'traslados' && (
+            <ConsolaTraslados unitId={effectiveUnitId} role={user.role} initialCategory="TODOS" />
+          )}
+
+          {/* Backward compatibility routes for legacy tab keys */}
+          {activeTab === 'oficiales' && (
+            <ConsolaTraslados unitId={effectiveUnitId} role={user.role} initialCategory="OFICIAL" />
+          )}
+
+          {activeTab === 'suboficiales' && (
+            <ConsolaTraslados unitId={effectiveUnitId} role={user.role} initialCategory="SUBOFICIAL" />
+          )}
+
+          {activeTab === 'soldados' && (
+            <ConsolaTraslados unitId={effectiveUnitId} role={user.role} initialCategory="SOLDADO" />
+          )}
+
+          {activeTab === 'configuracion' && (
+            <Configuracion role={user.role} />
+          )}
+        </main>
+
+      </div>
+
+    </div>
+  );
+}
+
+/**
+ * Root Application Component
+ */
+export function App() {
+  const { user } = useAuth();
 
   if (!user) {
     return <Login />;
   }
 
-  // Identificador visual de la unidad (Ej. GESTOR_BAEEV4 -> BAEEV4)
-  const unidadTexto = user.unitId === 'NATIONAL' ? 'Nacional' : user.unitId;
-
   return (
-    <div className="app-container">
-      
-      {/* Sidebar Clonado de SIMCOP */}
-      <aside className="sidebar">
-        <div style={{ padding: '2rem 1.5rem', borderBottom: '1px solid var(--glass-border)' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '2px', fontFamily: 'Orbitron' }}>
-            SIGEP <span style={{ color: 'var(--accent-cyan)' }}>LIVE</span>
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.5rem', textTransform: 'uppercase' }}>
-            Nivel: {unidadTexto} ({user.role.replace('ROLE_', '')})
-          </p>
-        </div>
-
-        <nav style={{ flex: 1, padding: '1rem 0', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-          <div style={{ padding: '0.5rem 1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '1rem' }}>
-            Operaciones J1/G1/S1
-          </div>
-          
-          <button className={`nav-item ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <LayoutDashboard size={18} /> Módulo de Análisis
-          </button>
-          
-          <button className={`nav-item ${activeTab === 'recomendaciones' ? 'active' : ''}`} onClick={() => setActiveTab('recomendaciones')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <AlertTriangle size={18} /> Recomendaciones
-          </button>
-
-          <button className={`nav-item ${activeTab === 'informes' ? 'active' : ''}`} onClick={() => setActiveTab('informes')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <FileBarChart size={18} /> Informes y Parte Diario
-          </button>
-
-          <button className={`nav-item ${activeTab === 'consulta-personal' ? 'active' : ''}`} onClick={() => setActiveTab('consulta-personal')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <Search size={18} /> Gestión de Personal (Hoja de Vida)
-          </button>
-
-          <div style={{ padding: '0.5rem 1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '1.5rem' }}>
-            Workflow de Traslados
-          </div>
-
-          <button className={`nav-item ${activeTab === 'oficiales' ? 'active' : ''}`} onClick={() => setActiveTab('oficiales')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <Shield size={18} /> Oficiales
-          </button>
-
-          <button className={`nav-item ${activeTab === 'suboficiales' ? 'active' : ''}`} onClick={() => setActiveTab('suboficiales')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <Users size={18} /> Suboficiales
-          </button>
-
-          <button className={`nav-item ${activeTab === 'soldados' ? 'active' : ''}`} onClick={() => setActiveTab('soldados')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-            <Target size={18} /> Soldados
-          </button>
-
-          {(user.role === 'ROLE_EJERCITO' || user.role === 'ROLE_ADMINISTRATOR' || user.role.includes('ROLE_COMANDANTE_')) && (
-            <div style={{ marginTop: 'auto' }}>
-              <button className={`nav-item ${activeTab === 'configuracion' ? 'active' : ''}`} onClick={() => setActiveTab('configuracion')} style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left' }}>
-                <Settings size={18} /> Configuración
-              </button>
-            </div>
-          )}
-        </nav>
-
-        <div style={{ padding: '1rem', borderTop: '1px solid var(--glass-border)' }}>
-          <button onClick={logout} className="nav-item" style={{ width: '100%', background: 'transparent', border: 'none', textAlign: 'left', color: 'var(--alert-danger)' }}>
-            <LogOut size={18} /> Cerrar Sesión
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="main-content" style={{ padding: '2rem' }}>
-        {activeTab === 'analisis' && <AnalysisDashboard />}
-        {activeTab === 'recomendaciones' && <Recomendaciones unitId={user.unitId} role={user.role} />}
-        {activeTab === 'informes' && <Informes unitId={user.unitId} role={user.role} />}
-        {activeTab === 'consulta-personal' && <ConsultaPersonal unitId={user.unitId} role={user.role} />}
-        {activeTab === 'oficiales' && <TrasladoOficiales unitId={user.unitId} role={user.role} />}
-        {activeTab === 'suboficiales' && <TrasladoSuboficiales unitId={user.unitId} role={user.role} />}
-        {activeTab === 'soldados' && <TrasladoSoldados unitId={user.unitId} role={user.role} />}
-        {activeTab === 'configuracion' && <Configuracion role={user.role} />}
-      </main>
-
-    </div>
+    <UnitProvider>
+      <AuthenticatedApp />
+    </UnitProvider>
   );
 }
 
