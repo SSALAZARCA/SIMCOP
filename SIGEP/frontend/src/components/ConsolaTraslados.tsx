@@ -381,7 +381,7 @@ export default function ConsolaTraslados({
     rank?: string,
     mosCode?: string
   ): Promise<boolean> => {
-    const cleanBaseUrl = SIMCOP_API_URL.replace(/\/api\/?$/, '');
+    const cleanBaseUrl = SIMCOP_API_URL.replace(/\/api$/, '').replace(/\/$/, '');
     const webhookUrl = `${cleanBaseUrl}/api/webhooks/personnel/transfer-completed`;
 
     const payload = {

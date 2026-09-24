@@ -371,8 +371,8 @@ function RankInsignia({ rank }: { rank: string }) {
   const isTeniente = r === 'TE' || (r.includes('TENIENTE') && !r.includes('SUBTENIENTE'));
 
   // Suboficiales: chevrons count
-  const isHighNco = ['SMCC', 'SMC', 'SM', 'SP'].includes(r) || r.includes('MAYOR') || r.includes('PRIMERO');
-  const isMidNco = ['SV', 'SS', 'CP'].includes(r) || r.includes('VICEPRIMERO') || r.includes('SEGUNDO');
+  const isHighNco = ['SMCC', 'SMC', 'SM', 'SP'].includes(r) || ((r.includes('MAYOR') || (r.includes('PRIMERO') && !r.includes('VICEPRIMERO'))) && !r.includes('CABO'));
+  const isMidNco = ['SV', 'SS', 'CP'].includes(r) || r.includes('VICEPRIMERO') || r.includes('SEGUNDO') || (r.includes('CABO') && r.includes('PRIMERO'));
 
   return (
     <div className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 shadow-lg ring-1 ${badgeClasses} ${badgeRing} w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 transition-transform duration-200`}>

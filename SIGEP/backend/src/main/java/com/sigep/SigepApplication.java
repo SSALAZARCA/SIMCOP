@@ -108,9 +108,13 @@ public class SigepApplication {
             // Cuentas ORBAT estándar para pruebas operativas y navegación jerárquica
             String[][] orbatUsers = {
                 {"ejercito", "ROLE_EJERCITO", "Comando del Ejército", "NATIONAL"},
-                {"division", "ROLE_DIVISION", "Comando Primera División", "DIV01"},
-                {"brigada", "ROLE_BRIGADA", "Comando Décima Brigada", "BR01"},
-                {"batallon", "ROLE_BATALLON", "Batallón Rondón", "BAT01"}
+                {"division", "ROLE_COMANDANTE_DIVISION", "Comando Primera División", "DIV1"},
+                {"brigada", "ROLE_COMANDANTE_BRIGADA", "Comando Primera Brigada Blindada", "BR1"},
+                {"batallon", "ROLE_COMANDANTE_BATALLON", "Batallón de Operaciones Terrestres N. 4", "BAEEV4"},
+                // Octava División (Estructura doctrinal SIMCOP)
+                {"division8", "ROLE_COMANDANTE_DIVISION", "Comando Octava División", "8-DIV"},
+                {"brigada16", "ROLE_COMANDANTE_BRIGADA", "Comando Décima Sexta Brigada", "16-BRIG"},
+                {"batallon44", "ROLE_COMANDANTE_BATALLON", "Batallón de Infantería No. 44", "BI-44"}
             };
 
             for (String[] uData : orbatUsers) {
@@ -118,16 +122,25 @@ public class SigepApplication {
                 String uRole = uData[1];
                 String uDesc = uData[2];
                 String uUnit = uData[3];
-                if (userRepository.findByUsername(uName).isEmpty()) {
-                    User u = new User();
-                    u.setUsername(uName);
-                    u.setPassword(passwordEncoder.encode(defaultPassword));
-                    u.setRole(uRole);
-                    u.setDisplayName(uDesc);
-                    u.setAssignedUnitId(uUnit);
-                    userRepository.save(u);
-                    System.out.println("✅ Usuario táctico '" + uName + "' sembrado con rol " + uRole);
-                }
+                userRepository.findByUsername(uName).ifPresentOrElse(
+                    existing -> {
+                        existing.setAssignedUnitId(uUnit);
+                        existing.setRole(uRole);
+                        existing.setDisplayName(uDesc);
+                        userRepository.save(existing);
+                        System.out.println("🔄 Usuario táctico '" + uName + "' sincronizado con unidad " + uUnit);
+                    },
+                    () -> {
+                        User u = new User();
+                        u.setUsername(uName);
+                        u.setPassword(passwordEncoder.encode(defaultPassword));
+                        u.setRole(uRole);
+                        u.setDisplayName(uDesc);
+                        u.setAssignedUnitId(uUnit);
+                        userRepository.save(u);
+                        System.out.println("✅ Usuario táctico '" + uName + "' sembrado con unidad " + uUnit);
+                    }
+                );
             }
         };
     }

@@ -34,18 +34,26 @@ public class TransferController {
         return ResponseEntity.ok(saved);
     }
 
+    @Autowired
+    private com.sigep.security.UnitSecurityService unitSecurityService;
+
     @GetMapping
     public ResponseEntity<List<Transfer>> getTransfers(@RequestParam(required = false) String rankCategory) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String unitId = (String) auth.getDetails();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String role = auth.getAuthorities().isEmpty() ? "" : auth.getAuthorities().iterator().next().getAuthority();
 
         List<Transfer> transfers;
-        if ("ROLE_EJERCITO".equals(role)) {
+        if (unitSecurityService.isNationalScope(role, unitId)) {
             transfers = rankCategory != null ? transferRepository.findByRankCategory(rankCategory) : transferRepository.findAll();
         } else {
-            // Filtrar por unidad del usuario (ya sea como origen o como destino)
-            transfers = transferRepository.findByOriginUnitIdOrDestinationUnitId(unitId, unitId);
+            // Filtrar por unidades accesibles en el árbol jerárquico del usuario (su unidad y todas sus subordinadas)
+            java.util.Set<String> accessibleUnits = unitSecurityService.getAccessibleUnitIds(role, unitId);
+            transfers = transferRepository.findAll().stream()
+                    .filter(t -> (t.getOriginUnitId() != null && (accessibleUnits.contains(t.getOriginUnitId()) || accessibleUnits.contains(unitSecurityService.normalizeUnitId(t.getOriginUnitId())))) ||
+                                 (t.getDestinationUnitId() != null && (accessibleUnits.contains(t.getDestinationUnitId()) || accessibleUnits.contains(unitSecurityService.normalizeUnitId(t.getDestinationUnitId())))))
+                    .collect(Collectors.toList());
+
             if (rankCategory != null) {
                 transfers = transfers.stream().filter(t -> rankCategory.equals(t.getRankCategory())).collect(Collectors.toList());
             }

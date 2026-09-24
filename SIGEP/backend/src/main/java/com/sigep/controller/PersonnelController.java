@@ -22,16 +22,41 @@ public class PersonnelController {
     @Autowired
     private NovedadRepository novedadRepository;
 
+    @Autowired
+    private com.sigep.security.UnitSecurityService unitSecurityService;
+
     @GetMapping
-    public List<Soldier> getAll() {
-        return soldierRepository.findAll();
+    public List<Soldier> getAll(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return soldierRepository.findAll();
+        }
+        String role = authentication.getAuthorities().isEmpty() ? "" : 
+                authentication.getAuthorities().iterator().next().getAuthority();
+        String assignedUnitId = authentication.getDetails() instanceof String ? 
+                (String) authentication.getDetails() : null;
+
+        if (unitSecurityService.isNationalScope(role, assignedUnitId)) {
+            return soldierRepository.findAll();
+        }
+
+        java.util.Set<String> accessibleUnits = unitSecurityService.getAccessibleUnitIds(role, assignedUnitId);
+        return soldierRepository.findAll().stream()
+                .filter(s -> s.getUnitId() != null && 
+                        (accessibleUnits.contains(s.getUnitId()) || 
+                         accessibleUnits.contains(unitSecurityService.normalizeUnitId(s.getUnitId()))))
+                .toList();
     }
     
     @GetMapping("/unit/{unitId}")
-    public List<Soldier> getByUnit(@PathVariable String unitId) {
-        return soldierRepository.findAll().stream()
-            .filter(s -> unitId.equals(s.getUnitId()))
+    public ResponseEntity<List<Soldier>> getByUnit(@PathVariable String unitId, org.springframework.security.core.Authentication authentication) {
+        if (authentication != null && !unitSecurityService.isUnitAuthorized(authentication, unitId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
+        String normalizedTarget = unitSecurityService.normalizeUnitId(unitId);
+        List<Soldier> unitSoldiers = soldierRepository.findAll().stream()
+            .filter(s -> unitId.equals(s.getUnitId()) || (normalizedTarget != null && normalizedTarget.equals(unitSecurityService.normalizeUnitId(s.getUnitId()))))
             .toList();
+        return ResponseEntity.ok(unitSoldiers);
     }
 
     @PostMapping

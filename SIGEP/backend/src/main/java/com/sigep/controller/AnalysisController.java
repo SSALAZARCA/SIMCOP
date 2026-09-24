@@ -18,18 +18,30 @@ public class AnalysisController {
     @Autowired
     private AnalysisService analysisService;
 
+    @Autowired
+    private com.sigep.security.UnitSecurityService unitSecurityService;
+
     @GetMapping("/toe-balance/{unitId}")
-    public ResponseEntity<List<ToeBalanceDTO>> getToeBalance(@PathVariable String unitId) {
+    public ResponseEntity<List<ToeBalanceDTO>> getToeBalance(@PathVariable String unitId, org.springframework.security.core.Authentication auth) {
+        if (auth != null && !unitSecurityService.isUnitAuthorized(auth, unitId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(analysisService.getToeBalance(unitId));
     }
 
     @GetMapping("/availability/{unitId}")
-    public ResponseEntity<AvailabilityDTO> getAvailability(@PathVariable String unitId) {
+    public ResponseEntity<AvailabilityDTO> getAvailability(@PathVariable String unitId, org.springframework.security.core.Authentication auth) {
+        if (auth != null && !unitSecurityService.isUnitAuthorized(auth, unitId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(analysisService.getAvailability(unitId));
     }
 
     @GetMapping("/critical-rotation/{unitId}")
-    public ResponseEntity<List<Soldier>> getCriticalRotation(@PathVariable String unitId) {
+    public ResponseEntity<List<Soldier>> getCriticalRotation(@PathVariable String unitId, org.springframework.security.core.Authentication auth) {
+        if (auth != null && !unitSecurityService.isUnitAuthorized(auth, unitId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(analysisService.getCriticalRotation(unitId));
     }
 
