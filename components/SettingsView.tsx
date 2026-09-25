@@ -21,62 +21,34 @@ const SettingsView: React.FC = () => {
             try {
                 setLoading(true);
 
-                // 1. Instant hydration from persistent local storage
-                try {
-                    if (typeof window !== 'undefined' && window.localStorage) {
-                        const cachedProvider = localStorage.getItem('simcop_ai_provider');
-                        const cachedEndpoint = localStorage.getItem('simcop_ai_endpoint');
-                        const cachedModel = localStorage.getItem('simcop_ai_model');
-                        const cachedKey = localStorage.getItem('simcop_ai_key');
-                        if (cachedProvider) {
-                            setAiProvider(cachedProvider as any);
-                        }
-                        if (cachedEndpoint) {
-                            setLocalEndpoint(cachedEndpoint);
-                        }
-                        if (cachedModel) {
-                            setLocalModel(cachedModel);
-                        }
-                        if (cachedKey) {
-                            setSavedKey(cachedKey);
-                        }
-                    }
-                } catch (e) {}
+                // Load Gemini key
+                const apiKey = await configService.getGeminiApiKey();
+                if (apiKey) {
+                    setSavedKey(apiKey);
+                    setGeminiApiKey(apiKey);
+                }
 
-                // 2. Load and synchronize with backend database
-                try {
-                    const apiKey = await configService.getGeminiApiKey();
-                    if (apiKey) {
-                        setSavedKey(apiKey);
+                // Load AI Provider Config
+                const aiConfig = await configService.getAIProviderConfig();
+                if (aiConfig) {
+                    const prov = (aiConfig.provider || 'GEMINI') as any;
+                    setAiProvider(prov);
+                    if (aiConfig.localEndpoint) {
+                        setLocalEndpoint(aiConfig.localEndpoint);
+                    } else {
+                        if (prov === 'OMNIROUTE') setLocalEndpoint('https://api.omniroute.ai/v1');
+                        else if (prov === 'LOCAL_LMLink') setLocalEndpoint('http://localhost:1234');
+                        else if (prov === 'NATIVE_SIMCOP') setLocalEndpoint('/ai_api');
+                        else setLocalEndpoint('http://localhost:11434');
                     }
-
-                    const aiConfig = await configService.getAIProviderConfig();
-                    if (aiConfig) {
-                        const prov = (aiConfig.provider || 'GEMINI') as any;
-                        setAiProvider(prov);
-                        if (aiConfig.localEndpoint && !aiConfig.localEndpoint.includes('***') && !aiConfig.localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
-                            setLocalEndpoint(aiConfig.localEndpoint);
-                        } else if (!localEndpoint || localEndpoint.includes('***') || localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
-                            if (prov === 'OMNIROUTE') setLocalEndpoint('https://api.omniroute.ai/v1');
-                            else if (prov === 'LOCAL_LMLink') setLocalEndpoint('http://localhost:1234');
-                            else if (prov === 'NATIVE_SIMCOP') setLocalEndpoint('/ai_api');
-                            else setLocalEndpoint('http://localhost:11434');
-                        }
-                        if (aiConfig.localModel) {
-                            setLocalModel(aiConfig.localModel);
-                        }
-
-                        // Persist synced backend state to localStorage
-                        try {
-                            if (typeof window !== 'undefined' && window.localStorage) {
-                                localStorage.setItem('simcop_ai_provider', prov);
-                                if (aiConfig.localEndpoint) localStorage.setItem('simcop_ai_endpoint', aiConfig.localEndpoint);
-                                if (aiConfig.localModel) localStorage.setItem('simcop_ai_model', aiConfig.localModel);
-                            }
-                        } catch (e) {}
+                    if (aiConfig.localModel) {
+                        setLocalModel(aiConfig.localModel);
+                    } else {
+                        if (prov === 'OMNIROUTE') setLocalModel('omni-default');
+                        else if (prov === 'LOCAL_LMLink') setLocalModel('gemma4-damasco');
+                        else if (prov === 'NATIVE_SIMCOP') setLocalModel('simcop_nlp_weights_quantized_int8.pth');
+                        else setLocalModel('llama3');
                     }
-                } catch (syncErr) {
-                    console.warn('[Settings] Backend sync unavailable, using persistent offline config:', syncErr);
                 }
             } catch (error) {
                 console.error('Error loading config:', error);
@@ -92,15 +64,15 @@ const SettingsView: React.FC = () => {
     const handleSave = async () => {
         // Validation based on provider
         if (aiProvider === 'GEMINI') {
-            if (geminiApiKey.trim()) {
-                if (!geminiApiKey.startsWith('AIza') && !geminiApiKey.includes('****')) {
-                    setErrorMessage('La API key de Gemini debe comenzar con "AIza"');
-                    setSaveStatus('error');
-                    setTimeout(() => setSaveStatus('idle'), 3000);
-                    return;
-                }
-            } else if (!savedKey) {
+            if (!geminiApiKey.trim() && !savedKey) {
                 setErrorMessage('Debes ingresar una API key de Gemini para este proveedor');
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+                return;
+            }
+
+            if (geminiApiKey.trim() && !geminiApiKey.startsWith('AIza') && !geminiApiKey.includes('****')) {
+                setErrorMessage('La API key de Gemini debe comenzar con "AIza"');
                 setSaveStatus('error');
                 setTimeout(() => setSaveStatus('idle'), 3000);
                 return;
@@ -114,6 +86,12 @@ const SettingsView: React.FC = () => {
             }
             if (!localModel.trim()) {
                 setErrorMessage('El modelo de OmniRoute no puede estar vacío');
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+                return;
+            }
+            if (!geminiApiKey.trim() && !savedKey) {
+                setErrorMessage('Debes ingresar una API key / Token para OmniRoute');
                 setSaveStatus('error');
                 setTimeout(() => setSaveStatus('idle'), 3000);
                 return;
@@ -135,41 +113,19 @@ const SettingsView: React.FC = () => {
 
         try {
             setLoading(true);
-            console.log('🔑 Guardando configuración persistente de IA...', { aiProvider, localEndpoint, localModel });
+            console.log('🔑 Guardando configuración de IA...');
 
-            // 1. Guardar inmediatamente en localStorage (garantiza persistencia entre recargas)
-            let activeKey = savedKey;
-            if (geminiApiKey && geminiApiKey.trim() && !geminiApiKey.includes('****')) {
-                activeKey = geminiApiKey.trim();
-                setSavedKey(activeKey);
-                setGeminiApiKey('');
+            // Save API key if Gemini, OmniRoute, or LMLink is selected
+            if (aiProvider === 'GEMINI' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
+                if (geminiApiKey && geminiApiKey.trim()) {
+                    await configService.saveGeminiApiKey(geminiApiKey.trim());
+                    setSavedKey(geminiApiKey.trim());
+                }
             }
 
-            try {
-                if (typeof window !== 'undefined' && window.localStorage) {
-                    localStorage.setItem('simcop_ai_provider', aiProvider);
-                    localStorage.setItem('simcop_ai_endpoint', localEndpoint);
-                    localStorage.setItem('simcop_ai_model', localModel);
-                    if (activeKey && !activeKey.includes('****')) {
-                        localStorage.setItem('simcop_ai_key', activeKey);
-                    }
-                }
-            } catch (e) {}
-
-            // 2. Persistir en la base de datos del backend
-            try {
-                await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel);
-                if (aiProvider === 'GEMINI' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
-                    if (activeKey && !activeKey.includes('****')) {
-                        await configService.saveGeminiApiKey(activeKey);
-                    }
-                }
-            } catch (backendErr: any) {
-                console.warn('[Settings] Advertencia de sincronización con backend:', backendErr);
-            }
-
-            // 3. Activar inmediatamente en la sesión de ejecución
-            updateRuntimeAIConfig(aiProvider, localEndpoint, localModel, activeKey);
+            // Save AI Provider Config (provider, localEndpoint, localModel)
+            await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel);
+            updateRuntimeAIConfig(aiProvider, localEndpoint, localModel, geminiApiKey);
             await initializeApiKey();
 
             setSaveStatus('success');
@@ -177,12 +133,12 @@ const SettingsView: React.FC = () => {
 
             setTimeout(() => {
                 setSaveStatus('idle');
-            }, 4000);
+            }, 3000);
         } catch (error: any) {
-            console.error('❌ Error al guardar configuración de IA:', error);
+            console.error('Error al guardar configuración de IA:', error);
             setErrorMessage(error.message || 'Error al guardar la configuración');
             setSaveStatus('error');
-            setTimeout(() => setSaveStatus('idle'), 5000);
+            setTimeout(() => setSaveStatus('idle'), 3000);
         } finally {
             setLoading(false);
         }
@@ -469,7 +425,7 @@ const SettingsView: React.FC = () => {
                                     type={showKey ? 'text' : 'password'}
                                     value={geminiApiKey}
                                     onChange={(e) => setGeminiApiKey(e.target.value)}
-                                    placeholder="AIzaSy..."
+                                    placeholder={savedKey ? '●●●●●●●● (Clave guardada en el servidor - Escribe solo si deseas cambiarla)' : 'AIzaSy...'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -609,7 +565,7 @@ const SettingsView: React.FC = () => {
                                         type={showKey ? 'text' : 'password'}
                                         value={geminiApiKey}
                                         onChange={(e) => setGeminiApiKey(e.target.value)}
-                                        placeholder={aiProvider === 'OMNIROUTE' ? 'sk-or-...' : 'Ingresa la contraseña / Token de acceso'}
+                                        placeholder={savedKey ? '●●●●●●●● (Clave guardada en el servidor - Escribe solo si deseas cambiarla)' : (aiProvider === 'OMNIROUTE' ? 'sk-or-...' : 'Ingresa la contraseña / Token de acceso')}
                                         disabled={loading}
                                         style={{
                                             width: '100%',

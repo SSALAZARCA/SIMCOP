@@ -11,10 +11,11 @@ export const getApiBaseUrl = () => {
         const protocol = window.location.protocol;
         const port = window.location.port;
 
-        // Handle production domain automatically if VITE_API_BASE_URL is missing
+        // In production (simcop.site, Coolify, or any custom domain), Nginx reverse-proxies /api/
+        // directly to http://backend:8080/api/.
+        // Returning '' (relative path) ensures all API requests go to the same origin without CORS or 403 errors.
         if (host === 'simcop.site' || host.endsWith('.simcop.site')) {
-            // Force HTTPS for production subdomains
-            return `https://api.simcop.site`;
+            return '';
         }
 
         // Si estamos en localhost bajo Nginx (puerto 80 o standard) o en Docker o Vite
@@ -24,14 +25,14 @@ export const getApiBaseUrl = () => {
                 // Vite dev server proxy handles /api and /ai_api seamlessly
                 return '';
             }
-            if (port === '80' || port === '') return `${protocol}//${host}`;
+            if (port === '80' || port === '') return '';
         }
 
-        // Default fallback: usar el host actual con su origen
-        return `${protocol}//${host}${port ? `:${port}` : ''}`;
+        // Default fallback: relative URL '' so Nginx/server proxies /api correctly
+        return '';
     }
 
-    return 'http://localhost';
+    return '';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

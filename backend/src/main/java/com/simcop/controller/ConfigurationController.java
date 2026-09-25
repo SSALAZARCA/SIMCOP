@@ -54,7 +54,6 @@ public class ConfigurationController {
 
     /**
      * Save Gemini / AI API key (admin only)
-     * Guards against overwriting real secret if masked key or empty string is submitted
      */
     @PostMapping("/gemini-api-key")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
@@ -64,8 +63,15 @@ public class ConfigurationController {
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
-            if (apiKey == null || apiKey.trim().isEmpty() || apiKey.contains("****") || apiKey.contains("***")) {
-                // If empty or masked, retain existing key without overwriting
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                configService.deleteGeminiApiKey();
+                Map<String, String> response = new HashMap<>();
+                response.put("message", "API key cleared successfully");
+                return ResponseEntity.ok(response);
+            }
+
+            if (apiKey.contains("****") || apiKey.contains("***")) {
+                // If masked representation submitted, retain existing key without overwriting
                 Map<String, String> response = new HashMap<>();
                 response.put("message", "Existing API key preserved");
                 return ResponseEntity.ok(response);
@@ -203,38 +209,23 @@ public class ConfigurationController {
 
     /**
      * Save AI provider configuration (admin only)
-     * Protects internal endpoints from being overwritten with masked representations
      */
     @PostMapping("/ai-provider")
     @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveAIProvider(@RequestBody Map<String, String> request) {
         try {
             String provider = request.getOrDefault("provider", "GEMINI");
-            String localEndpoint = request.get("localEndpoint");
+            String localEndpoint = request.getOrDefault("localEndpoint", "http://localhost:11434");
             String localModel = request.getOrDefault("localModel", "llama3");
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
             configService.saveAIProvider(provider, username);
-
-            // Default endpoints if omitted based on provider
-            if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "OMNIROUTE".equalsIgnoreCase(provider)) {
-                localEndpoint = "https://api.omniroute.ai/v1";
-            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "LOCAL_OLLAMA".equalsIgnoreCase(provider)) {
-                localEndpoint = "http://localhost:11434";
-            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "LOCAL_LMLINK".equalsIgnoreCase(provider)) {
-                localEndpoint = "http://localhost:1234";
-            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "NATIVE_SIMCOP".equalsIgnoreCase(provider)) {
-                localEndpoint = "/ai_api";
-            }
-
-            // If localEndpoint contains [CONFIGURED_INTERNAL] or asterisks, retain existing value in database
             if (localEndpoint != null && !localEndpoint.trim().isEmpty()
                     && !localEndpoint.contains("[CONFIGURED_INTERNAL]")
                     && !localEndpoint.contains("***")) {
                 configService.saveLocalAIEndpoint(localEndpoint.trim(), username);
             }
-
             if (localModel != null && !localModel.trim().isEmpty()) {
                 configService.saveLocalAIModel(localModel.trim(), username);
             }

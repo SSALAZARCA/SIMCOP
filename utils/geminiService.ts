@@ -268,9 +268,9 @@ export const initializeApiKey = async (): Promise<void> => {
         if (providerData.provider) {
           aiProvider = providerData.provider;
         }
-        if (providerData.localEndpoint && !providerData.localEndpoint.includes('***') && !providerData.localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
+        if (providerData.localEndpoint) {
           localEndpoint = providerData.localEndpoint;
-        } else if (!localEndpoint || localEndpoint.includes('***') || localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
+        } else {
           if (aiProvider === 'OMNIROUTE') localEndpoint = 'https://api.omniroute.ai/v1';
           else if (aiProvider === 'LOCAL_LMLink') localEndpoint = 'http://localhost:1234';
           else if (aiProvider === 'NATIVE_SIMCOP') localEndpoint = '/ai_api';
