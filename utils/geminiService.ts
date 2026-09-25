@@ -173,6 +173,45 @@ export const stripReasoningTags = (rawResponse: string | null | undefined): stri
   return result.trim();
 };
 
+// Export runtime configuration helpers to allow instant live updates without full-page reloads
+export const updateRuntimeAIConfig = (
+  provider: string,
+  endpoint?: string,
+  model?: string,
+  apiKey?: string
+): void => {
+  aiProvider = provider;
+  if (endpoint !== undefined && endpoint.trim()) {
+    localEndpoint = endpoint.trim();
+  }
+  if (model !== undefined && model.trim()) {
+    localModel = model.trim();
+  }
+  if (apiKey !== undefined && apiKey.trim() && !apiKey.includes('****')) {
+    API_KEY = apiKey.trim();
+  }
+
+  if (aiProvider === 'GEMINI' && API_KEY && !API_KEY.includes('****')) {
+    try {
+      ai = new GoogleGenAI({ apiKey: API_KEY });
+    } catch (e) {
+      console.warn('[AI] Error instantiating GoogleGenAI with new key:', e);
+      ai = null;
+    }
+  } else if (aiProvider !== 'GEMINI') {
+    ai = null;
+  }
+  console.log(`[AI] Live runtime provider updated: ${aiProvider} (Model: ${localModel}, Endpoint: ${localEndpoint})`);
+};
+
+export const getCurrentAIProvider = (): string => aiProvider;
+export const getCurrentAIConfig = () => ({
+  provider: aiProvider,
+  localEndpoint,
+  localModel,
+  hasApiKey: Boolean(API_KEY)
+});
+
 // Initialize API key and provider from backend
 export const initializeApiKey = async (): Promise<void> => {
   try {
@@ -213,7 +252,16 @@ export const initializeApiKey = async (): Promise<void> => {
       API_KEY = data.apiKey;
       if (API_KEY) {
         console.log('[AI] ✅ API key / Token cargado');
-        ai = new GoogleGenAI({ apiKey: API_KEY });
+        if (aiProvider === 'GEMINI' && !API_KEY.includes('****')) {
+          try {
+            ai = new GoogleGenAI({ apiKey: API_KEY });
+          } catch (genAiErr) {
+            console.warn('[AI] Error instantiating GoogleGenAI:', genAiErr);
+            ai = null;
+          }
+        } else {
+          ai = null;
+        }
       } else {
         console.warn('[AI] ⚠️ No se encontró API key');
         ai = null;

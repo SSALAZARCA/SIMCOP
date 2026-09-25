@@ -12,6 +12,18 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3010,
       host: '0.0.0.0',
+      proxy: {
+        '/api': {
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/ai_api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        }
+      }
     },
     plugins: [react(), cesium()],
     define: {

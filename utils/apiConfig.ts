@@ -17,10 +17,13 @@ export const getApiBaseUrl = () => {
             return `https://api.simcop.site`;
         }
 
-        // Si estamos en localhost bajo Nginx (puerto 80 o standard) o en Docker
+        // Si estamos en localhost bajo Nginx (puerto 80 o standard) o en Docker o Vite
         if (host === 'localhost' || host === '127.0.0.1') {
             if (port === '5006') return `${protocol}//${host}:5005`;
-            if (port === '3000' || port === '5173') return `${protocol}//${host}:8085`;
+            if (port === '3010' || port === '5173' || port === '3000') {
+                // Vite dev server proxy handles /api and /ai_api seamlessly
+                return '';
+            }
             if (port === '80' || port === '') return `${protocol}//${host}`;
         }
 

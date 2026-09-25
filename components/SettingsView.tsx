@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Key, Save, CheckCircle, AlertCircle, Loader, Cpu, Server } from 'lucide-react';
 import { configService } from '../services/configService';
-import { initializeApiKey } from '../utils/geminiService';
+import { initializeApiKey, updateRuntimeAIConfig } from '../utils/geminiService';
 import NativeAITelemetry from './NativeAITelemetry';
 
 const SettingsView: React.FC = () => {
@@ -21,11 +21,11 @@ const SettingsView: React.FC = () => {
             try {
                 setLoading(true);
                 
-                // Load Gemini key
+                // Load Gemini / AI key status
                 const apiKey = await configService.getGeminiApiKey();
                 if (apiKey) {
                     setSavedKey(apiKey);
-                    setGeminiApiKey(apiKey);
+                    // Do not pre-fill input with masked asterisks to avoid overwriting or validation conflicts
                 }
 
                 // Load AI Provider Config
@@ -61,15 +61,15 @@ const SettingsView: React.FC = () => {
     const handleSave = async () => {
         // Validation based on provider
         if (aiProvider === 'GEMINI') {
-            if (!geminiApiKey.trim()) {
-                setErrorMessage('La API key de Gemini no puede estar vacía');
-                setSaveStatus('error');
-                setTimeout(() => setSaveStatus('idle'), 3000);
-                return;
-            }
-
-            if (!geminiApiKey.startsWith('AIza')) {
-                setErrorMessage('La API key de Gemini debe comenzar con "AIza"');
+            if (geminiApiKey.trim()) {
+                if (!geminiApiKey.startsWith('AIza') && !geminiApiKey.includes('****')) {
+                    setErrorMessage('La API key de Gemini debe comenzar con "AIza"');
+                    setSaveStatus('error');
+                    setTimeout(() => setSaveStatus('idle'), 3000);
+                    return;
+                }
+            } else if (!savedKey) {
+                setErrorMessage('Debes ingresar una API key de Gemini para este proveedor');
                 setSaveStatus('error');
                 setTimeout(() => setSaveStatus('idle'), 3000);
                 return;
@@ -104,27 +104,33 @@ const SettingsView: React.FC = () => {
 
         try {
             setLoading(true);
-            console.log('🔑 Guardando configuración de IA...');
+            console.log('🔑 Guardando configuración de IA...', { aiProvider, localEndpoint, localModel });
 
-            // Save API key if Gemini, OmniRoute, or LMLink is selected
+            // 1. Guardar primero la configuración del proveedor en backend
+            await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel);
+
+            // 2. Guardar clave/token en backend si se introdujo una nueva (que no contenga máscara)
+            let activeKey = savedKey;
             if (aiProvider === 'GEMINI' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
-                if (geminiApiKey && geminiApiKey.trim()) {
-                    await configService.saveGeminiApiKey(geminiApiKey);
-                    await initializeApiKey();
-                    setSavedKey(geminiApiKey);
+                if (geminiApiKey && geminiApiKey.trim() && !geminiApiKey.includes('****')) {
+                    await configService.saveGeminiApiKey(geminiApiKey.trim());
+                    activeKey = geminiApiKey.trim();
+                    setSavedKey(activeKey);
+                    setGeminiApiKey('');
                 }
             }
 
-            // Save AI Provider Config (provider, localEndpoint, localModel)
-            await configService.saveAIProviderConfig(aiProvider, localEndpoint, localModel);
+            // 3. Actualizar la configuración activa en memoria inmediatamente
+            updateRuntimeAIConfig(aiProvider, localEndpoint, localModel, activeKey);
+            await initializeApiKey();
 
             setSaveStatus('success');
             setErrorMessage('');
 
-            // Success reload
+            // Mantener sesión activa sin recargar la página (evita cerrar sesión por token en memoria)
             setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+                setSaveStatus('idle');
+            }, 4000);
         } catch (error: any) {
             console.error('❌ Error al guardar configuración de IA:', error);
             setErrorMessage(error.message || 'Error al guardar la configuración');
@@ -142,18 +148,20 @@ const SettingsView: React.FC = () => {
             await configService.deleteGeminiApiKey();
             // Reset provider to Gemini default
             await configService.saveAIProviderConfig('GEMINI', 'http://localhost:11434', 'llama3');
+            updateRuntimeAIConfig('GEMINI', 'http://localhost:11434', 'llama3', '');
+            await initializeApiKey();
             
             setGeminiApiKey('');
             setSavedKey('');
             setAiProvider('GEMINI');
             setLocalEndpoint('http://localhost:11434');
             setLocalModel('llama3');
-            setSaveStatus('idle');
+            setSaveStatus('success');
             setErrorMessage('');
 
             setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+                setSaveStatus('idle');
+            }, 3000);
         } catch (error: any) {
             console.error('Error al resetear configuración:', error);
             setErrorMessage(error.message || 'Error al resetear configuración');
@@ -622,7 +630,7 @@ const SettingsView: React.FC = () => {
                         border: '1px solid #047857',
                     }}>
                         <CheckCircle size={20} />
-                        <span>Configuración guardada exitosamente. Recargando aplicación...</span>
+                        <span>Configuración de IA guardada y activada exitosamente en tiempo real.</span>
                     </div>
                 )}
 

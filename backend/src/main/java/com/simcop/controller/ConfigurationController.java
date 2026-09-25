@@ -38,7 +38,7 @@ public class ConfigurationController {
      * Get Gemini API key (admin only) - masked to prevent cleartext secret leakage
      */
     @GetMapping("/gemini-api-key")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, Object>> getGeminiApiKey() {
         return configService.getGeminiApiKey()
                 .map(apiKey -> {
@@ -53,11 +53,11 @@ public class ConfigurationController {
     }
 
     /**
-     * Save Gemini API key (admin only)
+     * Save Gemini / AI API key (admin only)
      * Guards against overwriting real secret if masked key or empty string is submitted
      */
     @PostMapping("/gemini-api-key")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveGeminiApiKey(@RequestBody Map<String, String> request) {
         try {
             String apiKey = request.get("apiKey");
@@ -92,7 +92,7 @@ public class ConfigurationController {
      * Delete Gemini API key (admin only)
      */
     @DeleteMapping("/gemini-api-key")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> deleteGeminiApiKey() {
         try {
             configService.deleteGeminiApiKey();
@@ -206,7 +206,7 @@ public class ConfigurationController {
      * Protects internal endpoints from being overwritten with masked representations
      */
     @PostMapping("/ai-provider")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<Map<String, String>> saveAIProvider(@RequestBody Map<String, String> request) {
         try {
             String provider = request.getOrDefault("provider", "GEMINI");
@@ -216,6 +216,17 @@ public class ConfigurationController {
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
             configService.saveAIProvider(provider, username);
+
+            // Default endpoints if omitted based on provider
+            if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "OMNIROUTE".equalsIgnoreCase(provider)) {
+                localEndpoint = "https://api.omniroute.ai/v1";
+            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "LOCAL_OLLAMA".equalsIgnoreCase(provider)) {
+                localEndpoint = "http://localhost:11434";
+            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "LOCAL_LMLINK".equalsIgnoreCase(provider)) {
+                localEndpoint = "http://localhost:1234";
+            } else if ((localEndpoint == null || localEndpoint.trim().isEmpty()) && "NATIVE_SIMCOP".equalsIgnoreCase(provider)) {
+                localEndpoint = "/ai_api";
+            }
 
             // If localEndpoint contains [CONFIGURED_INTERNAL] or asterisks, retain existing value in database
             if (localEndpoint != null && !localEndpoint.trim().isEmpty()
@@ -253,8 +264,8 @@ public class ConfigurationController {
         if (endpoint == null || endpoint.trim().isEmpty()) {
             return "";
         }
-        // Do not corrupt valid DNS hostnames like *.sslip.io or *.nip.io where IP octets are required for DNS resolution
-        if (endpoint.contains(".sslip.io") || endpoint.contains(".nip.io")) {
+        // Do not corrupt valid DNS hostnames or local development loopback addresses
+        if (endpoint.contains(".sslip.io") || endpoint.contains(".nip.io") || endpoint.contains("127.0.0.1") || endpoint.contains("localhost")) {
             return endpoint;
         }
         // Mask IPv4 octets e.g. 72.62.130.152 -> 72.62.***.***
