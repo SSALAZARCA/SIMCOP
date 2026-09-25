@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-09-25T21:30:42.485Z",
+  "timestamp": "2026-09-25T21:35:34.541Z",
   "totalTests": 274,
   "passed": 274,
   "failed": 0,
   "skipped": 0,
-  "durationMs": 601,
+  "durationMs": 610,
   "tiers": [
     {
       "name": "Tier 1: Feature Nominal Coverage (F01-F21)",
@@ -21,12 +21,12 @@
                 {
                   "name": "F01-T1: Superadmin identity definition and protection rules",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F01-T2: Verification that DataInitializer and configs do not hardcode superadmin password",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F01-T3: Superadmin deletion guard simulation returns 403 Forbidden",
@@ -61,12 +61,12 @@
                 {
                   "name": "F02-T2: Safe loading fallback simulation on invalid/null-byte model file",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F02-T3: A* tactical route navigation calculation executes without neural weights",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F02-T4: System KPIs contract validation",
@@ -106,7 +106,7 @@
                 {
                   "name": "F03-T4: WeatherService configuration checks for environment variable without hardcoded fallback",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F03-T5: OSINT payload normalization structure validation",
@@ -126,7 +126,7 @@
                 {
                   "name": "F04-T1: AES-256-GCM encryption and decryption roundtrip preserves exact plaintext",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F04-T2: AES-256-GCM generates distinct ciphertexts for identical plaintext due to random IVs",
@@ -141,7 +141,7 @@
                 {
                   "name": "F04-T4: JWT token creation and claim integrity verification",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F04-T5: Base64 pseudo-encryption rejection in favor of authenticated encryption",
@@ -216,7 +216,7 @@
                 {
                   "name": "F06-T5: Unique sanitized storage name generation",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 }
               ]
             }
@@ -411,7 +411,7 @@
                 {
                   "name": "F12-T2: HTTP request dispatches to /v1/chat/completions with Authorization Bearer header",
                   "status": "PASSED",
-                  "durationMs": 22
+                  "durationMs": 23
                 },
                 {
                   "name": "F12-T3: Backend parser extracts choices[0].message.content correctly",
@@ -426,7 +426,7 @@
                 {
                   "name": "F12-T5: Unauthorized API key to OmniRoute returns 401 and handles error gracefully",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 2
                 }
               ]
             }
@@ -461,7 +461,7 @@
                 {
                   "name": "F13-T5: High volume task submission maintains strict memory bounds",
                   "status": "PASSED",
-                  "durationMs": 3
+                  "durationMs": 2
                 }
               ]
             }
@@ -491,7 +491,7 @@
                 {
                   "name": "F14-T4: Background task completes asynchronously and updates event collection",
                   "status": "PASSED",
-                  "durationMs": 56
+                  "durationMs": 64
                 },
                 {
                   "name": "F14-T5: Parallel multi-source ingestion handles RSS and open web streams concurrently",
@@ -521,12 +521,12 @@
                 {
                   "name": "F15-T3: Python api_server.py does not combine allow_origins=[\"*\"] with allow_credentials=True",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F15-T4: X-Frame-Options and X-Content-Type-Options are enforced",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F15-T5: HSTS header is configured for transport security",
@@ -561,7 +561,7 @@
                 {
                   "name": "F16-T4: User.java contains unique column annotation for username",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F16-T5: User creation with new unique username returns 201 Created",
@@ -586,7 +586,7 @@
                 {
                   "name": "F17-T2: Setting 750 points prunes oldest 250 points, keeping latest 500 (FIFO)",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F17-T3: Adding 501st point dynamically shifts oldest point out",
@@ -601,7 +601,7 @@
                 {
                   "name": "F17-T5: GeoJSON LineString serialization maintains point geometry within limit",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 }
               ]
             }
@@ -621,7 +621,7 @@
                 {
                   "name": "F18-T2: Exception logging captures error details cleanly without raw stack dump in stdout",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F18-T3: Passwords and 2FA secrets are automatically redacted in log metadata",
@@ -666,7 +666,7 @@
                 {
                   "name": "F19-T4: geminiService.ts handles OmniRoute response types without as any casting on core return values",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F19-T5: Ballistics mathematical calculation utility is strictly typed",
@@ -686,7 +686,7 @@
                 {
                   "name": "F20-T1: Audit for Microsoft Word lock/temporary files (~$*.doc) in repository",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F20-T2: Audit for orphan archive files (*.zip) in project root",
@@ -706,7 +706,7 @@
                 {
                   "name": "F20-T5: .dockerignore exists and prevents leaking node_modules and .env files",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 }
               ]
             }
@@ -736,7 +736,7 @@
                 {
                   "name": "F21-T4: Opaque-box testing integrity: verifying assertions fail on invalid actual output",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F21-T5: Structured E2E report model format validation",
@@ -814,7 +814,7 @@
                 {
                   "name": "F02-BND-T4: High-frequency model loading requests do not exhaust system file descriptors",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F02-BND-T5: Non-standard CPU architecture device mapping is handled safely",
@@ -889,7 +889,7 @@
                 {
                   "name": "F04-BND-T5: Algorithm \"none\" exploit token is rejected explicitly",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 }
               ]
             }
@@ -919,7 +919,7 @@
                 {
                   "name": "F05-BND-T4: Malformed JWT strings with invalid segment counts throw format errors",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F05-BND-T5: Empty authorization header values are cleanly rejected with 401",
@@ -1009,7 +1009,7 @@
                 {
                   "name": "F08-BND-T1: SQL injection payloads in table parameter are blocked by strict regex whitelist",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F08-BND-T2: Wildcard * and special characters are rejected",
@@ -1029,7 +1029,7 @@
                 {
                   "name": "F08-BND-T5: Pagination limit is clamped to safe boundary (max 500)",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 }
               ]
             }
@@ -1114,7 +1114,7 @@
                 {
                   "name": "F11-BND-T1: Nested reasoning tags are cleanly stripped",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F11-BND-T2: Incomplete unclosed reasoning tag at EOF is handled without truncating valid prefix JSON if any",
@@ -1149,17 +1149,17 @@
                 {
                   "name": "F12-BND-T1: HTTP 429 Rate Limit from OmniRoute is handled with queue retry status",
                   "status": "PASSED",
-                  "durationMs": 2
+                  "durationMs": 3
                 },
                 {
                   "name": "F12-BND-T2: HTTP 500 Server Error from OmniRoute is caught without crashing backend",
                   "status": "PASSED",
-                  "durationMs": 2
+                  "durationMs": 1
                 },
                 {
                   "name": "F12-BND-T3: HTML 504 Gateway error is gracefully handled without JSON parse crash",
                   "status": "PASSED",
-                  "durationMs": 2
+                  "durationMs": 1
                 },
                 {
                   "name": "F12-BND-T4: Large 100KB response payload is buffered and parsed safely",
@@ -1184,7 +1184,7 @@
                 {
                   "name": "F13-BND-T1: 50 concurrent tasks are handled gracefully through pool queue",
                   "status": "PASSED",
-                  "durationMs": 199
+                  "durationMs": 203
                 },
                 {
                   "name": "F13-BND-T2: Task submission exceeding queue capacity throws TaskRejectedException",
@@ -1339,7 +1339,7 @@
                 {
                   "name": "F17-BND-T4: High-frequency telemetry stream of 1,000 pings never exceeds 500 points",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F17-BND-T5: Consecutive duplicate pings are deduplicated without consuming history slots",
@@ -1379,7 +1379,7 @@
                 {
                   "name": "F18-BND-T5: Deeply nested objects with null values are sanitized cleanly",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 }
               ]
             }
@@ -1429,7 +1429,7 @@
                 {
                   "name": "F20-BND-T1: Audit for unencrypted private key files (*.key, *.pem, *.p12, *.pfx)",
                   "status": "PASSED",
-                  "durationMs": 59
+                  "durationMs": 52
                 },
                 {
                   "name": "F20-BND-T2: Audit for local developer environment overrides (.env.local, .env.production.local)",
@@ -1439,7 +1439,7 @@
                 {
                   "name": "F20-BND-T3: Dockerfile uses reproducible build strategies",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "F20-BND-T4: package-lock.json exists and matches package.json dependencies",
@@ -1563,7 +1563,7 @@
                 {
                   "name": "F22-T5: MEDEVAC threshold logic (heridos_wia > 0 triggers requiere_medevac)",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 }
               ]
             },
@@ -1573,7 +1573,7 @@
                 {
                   "name": "F22-T6: Word count constraint (<= 150 words)",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "F22-T7: Presence and syntax of the 4 doctrinal bullets",
@@ -1636,7 +1636,7 @@
                 {
                   "name": "Pairwise-7.2: Unstructured combat AAR text extracts into standard 6-field Q5 report",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "Pairwise-7.3: Casualties and ammunition figures map seamlessly from AAR to logistics impact",
@@ -1661,7 +1661,7 @@
                 {
                   "name": "Pairwise-8.2: Truncation of users table is permanently blocked even with valid 2FA TOTP",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "Pairwise-8.3: Truncating non-critical table requires valid 2FA TOTP authentication",
@@ -1766,7 +1766,7 @@
                 {
                   "name": "Pairwise-4.2: Parsed placemarks convert to Cesium 3D entities with military SIDC metadata",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "Pairwise-4.3: Path traversal attempt in overlay upload is neutralized",
@@ -1791,7 +1791,7 @@
                 {
                   "name": "Pairwise-2.2: Both background OSINT worker and OmniRoute queue resolve independently",
                   "status": "PASSED",
-                  "durationMs": 44
+                  "durationMs": 49
                 },
                 {
                   "name": "Pairwise-2.3: Interleaved requests from multiple operators handle concurrency safely",
@@ -1821,7 +1821,7 @@
                 {
                   "name": "Pairwise-6.3: Exported GeoJSON LineString accurately reflects the capped 500 track vertices",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 }
               ]
             }
@@ -1841,7 +1841,7 @@
                 {
                   "name": "Pairwise-1.2: Superadmin retrieves and decrypts stored configuration securely",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "Pairwise-1.3: Non-administrator user attempting to save or read configuration is blocked with 403",
@@ -1861,12 +1861,12 @@
                 {
                   "name": "Pairwise-10.1: Full registration, login, and authenticated request lifecycle succeeds",
                   "status": "PASSED",
-                  "durationMs": 0
+                  "durationMs": 1
                 },
                 {
                   "name": "Pairwise-10.2: Attempt to register identical username is blocked by pre-validation",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "Pairwise-10.3: Bad password during login returns 401 Bad Credentials without leaking hash",
@@ -1939,7 +1939,7 @@
                 {
                   "name": "Phase 4: Automatic Broadcast of Flash Q5 to Higher Command Telegram Channel",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "Phase 5: Immutable Black Box Log Registration for Legal and Historical Integrity",
@@ -1964,12 +1964,12 @@
                 {
                   "name": "Phase 2: Configure OmniRoute AI Provider with AES-256-GCM Storage",
                   "status": "PASSED",
-                  "durationMs": 1
+                  "durationMs": 0
                 },
                 {
                   "name": "Phase 3: Trigger Non-blocking Asynchronous OSINT Refresh",
                   "status": "PASSED",
-                  "durationMs": 39
+                  "durationMs": 40
                 },
                 {
                   "name": "Phase 4: Plan Tactical Course of Action (COA) with OmniRoute NLP & SMEPC OPORD",

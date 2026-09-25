@@ -5,6 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SIMCOP - Plataforma de Mando y Análisis</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <!-- Meta tags to disable problematic browser features that conflict with standard scripts -->
   <meta name="google" content="notranslate">
   <meta name="msapplication-tap-highlight" content="no">
@@ -14,6 +17,11 @@
   <script>
     if (typeof global === 'undefined') {
       window.global = window;
+    }
+    if (typeof caches !== 'undefined' && caches.keys) {
+      caches.keys().then(function(keys) {
+        keys.forEach(function(key) { caches.delete(key); });
+      }).catch(function() {});
     }
     // Diagnostic logging for startup
     console.log("🚀 SIMCOP Index initialized");
