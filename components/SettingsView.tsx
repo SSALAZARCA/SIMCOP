@@ -692,11 +692,14 @@ const SettingsView: React.FC = () => {
                                 <input 
                                     type="text" 
                                     readOnly 
-                                    value="https://api.simcop.site/api/osint/webhook" 
+                                    value={typeof window !== 'undefined' ? `${window.location.origin}/api/osint/webhook` : 'https://simcop.site/api/osint/webhook'} 
                                     style={{ flex: 1, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#38bdf8', padding: '0.5rem', borderRadius: '4px', fontSize: '0.875rem' }}
                                 />
                                 <button 
-                                    onClick={() => navigator.clipboard.writeText('https://api.simcop.site/api/osint/webhook')}
+                                    onClick={() => {
+                                        const url = typeof window !== 'undefined' ? `${window.location.origin}/api/osint/webhook` : 'https://simcop.site/api/osint/webhook';
+                                        navigator.clipboard.writeText(url);
+                                    }}
                                     style={{ backgroundColor: '#334155', border: 'none', color: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
                                 >
                                     Copiar

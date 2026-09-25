@@ -63,15 +63,8 @@ public class ConfigurationController {
             org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) ? auth.getName() : "system";
 
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                configService.deleteGeminiApiKey();
-                Map<String, String> response = new HashMap<>();
-                response.put("message", "API key cleared successfully");
-                return ResponseEntity.ok(response);
-            }
-
-            if (apiKey.contains("****") || apiKey.contains("***")) {
-                // If masked representation submitted, retain existing key without overwriting
+            if (apiKey == null || apiKey.trim().isEmpty() || apiKey.contains("****") || apiKey.contains("***")) {
+                // If masked representation or empty payload submitted, retain existing key without overwriting
                 Map<String, String> response = new HashMap<>();
                 response.put("message", "Existing API key preserved");
                 return ResponseEntity.ok(response);

@@ -1,22 +1,29 @@
 export const getApiBaseUrl = () => {
-    // VITE_API_BASE_URL is the preferred way via environment variables (Docker/Deploy)
+    // 1. If running in browser and hostname is simcop.site (or any subdomain like www.simcop.site),
+    // always use relative paths ('') so requests go through Nginx reverse proxy (/api/ -> backend:8080).
+    if (typeof window !== 'undefined') {
+        const host = window.location.hostname;
+        if (host === 'simcop.site' || host.endsWith('.simcop.site')) {
+            return '';
+        }
+    }
+
+    // 2. VITE_API_BASE_URL is evaluated for external/custom setups
     const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
     if (envBaseUrl && envBaseUrl.trim() !== "") {
-        return envBaseUrl;
+        const trimmed = envBaseUrl.trim();
+        // If the env var mistakenly points to api.simcop.site, ignore it and return ''
+        if (trimmed.includes("api.simcop.site")) {
+            return '';
+        }
+        return trimmed;
     }
 
     if (typeof window !== 'undefined') {
         const host = window.location.hostname;
         const protocol = window.location.protocol;
         const port = window.location.port;
-
-        // In production (simcop.site, Coolify, or any custom domain), Nginx reverse-proxies /api/
-        // directly to http://backend:8080/api/.
-        // Returning '' (relative path) ensures all API requests go to the same origin without CORS or 403 errors.
-        if (host === 'simcop.site' || host.endsWith('.simcop.site')) {
-            return '';
-        }
 
         // Si estamos en localhost bajo Nginx (puerto 80 o standard) o en Docker o Vite
         if (host === 'localhost' || host === '127.0.0.1') {

@@ -4,12 +4,17 @@ import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { UAVTelemetryDTO } from '../types';
 
+import { API_BASE_URL } from '../utils/apiConfig';
+
 export const useUAVWebSocket = (onTelemetryUpdate: (telemetry: UAVTelemetryDTO[]) => void) => {
     const stompClientRef = useRef<Client | null>(null);
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+        let baseUrl = API_BASE_URL;
+        if (!baseUrl || baseUrl.includes('api.simcop.site')) {
+            baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        }
         const socketUrl = `${baseUrl}/ws`;
         const socket = new SockJS(socketUrl);
         const client = new Client({
