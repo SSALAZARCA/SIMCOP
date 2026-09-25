@@ -56,7 +56,7 @@ public class ConfigurationService {
             AppConfiguration config = existing.get();
             config.setConfigValue(encryptedValue);
             config.setUpdatedBy(username);
-            configRepository.save(config);
+            configRepository.saveAndFlush(config);
         } else {
             // Create new
             AppConfiguration config = new AppConfiguration(
@@ -64,7 +64,7 @@ public class ConfigurationService {
                     encryptedValue,
                     "Google Gemini API Key for AI features",
                     username);
-            configRepository.save(config);
+            configRepository.saveAndFlush(config);
         }
     }
 
@@ -74,7 +74,10 @@ public class ConfigurationService {
     @Transactional
     public void deleteGeminiApiKey() {
         configRepository.findByConfigKey(GEMINI_API_KEY_CONFIG)
-                .ifPresent(config -> configRepository.delete(config));
+                .ifPresent(config -> {
+                    configRepository.delete(config);
+                    configRepository.flush();
+                });
     }
 
     /**
@@ -95,13 +98,28 @@ public class ConfigurationService {
      * Local AI Endpoint methods
      */
     public String getLocalAIEndpoint() {
+        String provider = getAIProvider();
+        Optional<AppConfiguration> providerSpecific = configRepository.findByConfigKey("AI_ENDPOINT_" + provider);
+        if (providerSpecific.isPresent() && !providerSpecific.get().getConfigValue().trim().isEmpty()) {
+            return providerSpecific.get().getConfigValue().trim();
+        }
         return configRepository.findByConfigKey(LOCAL_AI_ENDPOINT_CONFIG)
                 .map(AppConfiguration::getConfigValue)
-                .orElse("http://localhost:11434");
+                .filter(v -> !v.trim().isEmpty())
+                .orElseGet(() -> {
+                    if ("OMNIROUTE".equalsIgnoreCase(provider)) return "https://api.omniroute.ai/v1";
+                    if ("LOCAL_LMLINK".equalsIgnoreCase(provider)) return "http://localhost:1234";
+                    if ("NATIVE_SIMCOP".equalsIgnoreCase(provider)) return "/ai_api";
+                    return "http://localhost:11434";
+                });
     }
 
     @Transactional
     public void saveLocalAIEndpoint(String endpoint, String username) {
+        String provider = getAIProvider();
+        if (endpoint != null && !endpoint.trim().isEmpty()) {
+            saveConfigValue("AI_ENDPOINT_" + provider, endpoint.trim(), username, "AI Endpoint for " + provider);
+        }
         saveConfigValue(LOCAL_AI_ENDPOINT_CONFIG, endpoint, username, "Local AI Endpoint (e.g. http://localhost:11434)");
     }
 
@@ -109,13 +127,28 @@ public class ConfigurationService {
      * Local AI Model methods
      */
     public String getLocalAIModel() {
+        String provider = getAIProvider();
+        Optional<AppConfiguration> providerSpecific = configRepository.findByConfigKey("AI_MODEL_" + provider);
+        if (providerSpecific.isPresent() && !providerSpecific.get().getConfigValue().trim().isEmpty()) {
+            return providerSpecific.get().getConfigValue().trim();
+        }
         return configRepository.findByConfigKey(LOCAL_AI_MODEL_CONFIG)
                 .map(AppConfiguration::getConfigValue)
-                .orElse("llama3");
+                .filter(v -> !v.trim().isEmpty())
+                .orElseGet(() -> {
+                    if ("OMNIROUTE".equalsIgnoreCase(provider)) return "omni-default";
+                    if ("LOCAL_LMLINK".equalsIgnoreCase(provider)) return "gemma4-damasco";
+                    if ("NATIVE_SIMCOP".equalsIgnoreCase(provider)) return "simcop_nlp_weights_quantized_int8.pth";
+                    return "llama3";
+                });
     }
 
     @Transactional
     public void saveLocalAIModel(String model, String username) {
+        String provider = getAIProvider();
+        if (model != null && !model.trim().isEmpty()) {
+            saveConfigValue("AI_MODEL_" + provider, model.trim(), username, "AI Model for " + provider);
+        }
         saveConfigValue(LOCAL_AI_MODEL_CONFIG, model, username, "Local AI Model name (e.g. llama3)");
     }
 
@@ -184,10 +217,10 @@ public class ConfigurationService {
             AppConfiguration config = existing.get();
             config.setConfigValue(value);
             config.setUpdatedBy(username);
-            configRepository.save(config);
+            configRepository.saveAndFlush(config);
         } else {
             AppConfiguration config = new AppConfiguration(key, value, description, username);
-            configRepository.save(config);
+            configRepository.saveAndFlush(config);
         }
     }
 

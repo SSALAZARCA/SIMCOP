@@ -7,12 +7,45 @@ import { useState, useEffect } from 'react';
 
 import { apiClient } from './apiClient';
 
-// Get API key from backend API
-let API_KEY: string | undefined = undefined;
+// Initial configuration loaded from browser persistent storage for instant hydration
+const getStoredAIConfig = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const p = localStorage.getItem('simcop_ai_provider');
+      const e = localStorage.getItem('simcop_ai_endpoint');
+      const m = localStorage.getItem('simcop_ai_model');
+      const k = localStorage.getItem('simcop_ai_key');
+      const defaultEndpoint = (p === 'OMNIROUTE') ? 'https://api.omniroute.ai/v1' :
+                              (p === 'LOCAL_LMLink') ? 'http://localhost:1234' :
+                              (p === 'NATIVE_SIMCOP') ? '/ai_api' : 'http://localhost:11434';
+      const defaultModel = (p === 'OMNIROUTE') ? 'omni-default' :
+                           (p === 'LOCAL_LMLink') ? 'gemma4-damasco' :
+                           (p === 'NATIVE_SIMCOP') ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3';
+      return {
+        provider: p || 'GEMINI',
+        endpoint: e || defaultEndpoint,
+        model: m || defaultModel,
+        key: k || undefined
+      };
+    }
+  } catch (err) {}
+  return { provider: 'GEMINI', endpoint: 'http://localhost:11434', model: 'llama3', key: undefined };
+};
+
+const initialAIConfig = getStoredAIConfig();
+let API_KEY: string | undefined = initialAIConfig.key;
 let ai: GoogleGenAI | null = null;
-let aiProvider: string = 'GEMINI';
-let localEndpoint: string = 'http://localhost:1234';
-let localModel: string = 'llama3';
+let aiProvider: string = initialAIConfig.provider;
+let localEndpoint: string = initialAIConfig.endpoint;
+let localModel: string = initialAIConfig.model;
+
+if (aiProvider === 'GEMINI' && API_KEY && !API_KEY.includes('****')) {
+  try {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+  } catch (err) {
+    ai = null;
+  }
+}
 
 // Runtime cache to persist AI query results across component unmounts
 export const aiCache = {
@@ -191,6 +224,18 @@ export const updateRuntimeAIConfig = (
     API_KEY = apiKey.trim();
   }
 
+  // Persist immediately to localStorage
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('simcop_ai_provider', aiProvider);
+      localStorage.setItem('simcop_ai_endpoint', localEndpoint);
+      localStorage.setItem('simcop_ai_model', localModel);
+      if (API_KEY && !API_KEY.includes('****')) {
+        localStorage.setItem('simcop_ai_key', API_KEY);
+      }
+    }
+  } catch (e) {}
+
   if (aiProvider === 'GEMINI' && API_KEY && !API_KEY.includes('****')) {
     try {
       ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -212,66 +257,80 @@ export const getCurrentAIConfig = () => ({
   hasApiKey: Boolean(API_KEY)
 });
 
-// Initialize API key and provider from backend
+// Initialize API key and provider from backend with localStorage fallback
 export const initializeApiKey = async (): Promise<void> => {
   try {
-    // Load AI Provider first
+    // 1. Load AI Provider from backend
     try {
       const providerResp = await apiClient.fetch(`${API_BASE_URL}/api/config/ai-provider`);
       if (providerResp.ok) {
         const providerData = await providerResp.json();
-        aiProvider = providerData.provider || 'GEMINI';
-        if (aiProvider === 'OMNIROUTE') {
-          localEndpoint = providerData.localEndpoint || 'https://api.omniroute.ai/v1';
-          localModel = providerData.localModel || 'omni-default';
-        } else if (aiProvider === 'LOCAL_LMLink') {
-          localEndpoint = providerData.localEndpoint || 'http://localhost:1234';
-          localModel = providerData.localModel || 'gemma4-damasco';
-        } else if (aiProvider === 'NATIVE_SIMCOP') {
-          localEndpoint = providerData.localEndpoint || '/ai_api';
-          localModel = providerData.localModel || 'simcop_nlp_weights_quantized_int8.pth';
-        } else {
-          localEndpoint = providerData.localEndpoint || 'http://localhost:11434';
-          localModel = providerData.localModel || 'llama3';
+        if (providerData.provider) {
+          aiProvider = providerData.provider;
         }
-        console.log(`[AI] Provider loaded: ${aiProvider}`);
+        if (providerData.localEndpoint && !providerData.localEndpoint.includes('***') && !providerData.localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
+          localEndpoint = providerData.localEndpoint;
+        } else if (!localEndpoint || localEndpoint.includes('***') || localEndpoint.includes('[CONFIGURED_INTERNAL]')) {
+          if (aiProvider === 'OMNIROUTE') localEndpoint = 'https://api.omniroute.ai/v1';
+          else if (aiProvider === 'LOCAL_LMLink') localEndpoint = 'http://localhost:1234';
+          else if (aiProvider === 'NATIVE_SIMCOP') localEndpoint = '/ai_api';
+          else localEndpoint = 'http://localhost:11434';
+        }
+        if (providerData.localModel) {
+          localModel = providerData.localModel;
+        }
+
+        // Persist backend synchronization to localStorage
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('simcop_ai_provider', aiProvider);
+            localStorage.setItem('simcop_ai_endpoint', localEndpoint);
+            localStorage.setItem('simcop_ai_model', localModel);
+          }
+        } catch (e) {}
+        console.log(`[AI] Provider synchronized from backend: ${aiProvider} (${localEndpoint}, ${localModel})`);
       }
     } catch (e) {
-      console.warn('[AI] Could not load AI provider config, defaulting to GEMINI');
+      console.warn('[AI] Backend provider sync unreachable, preserving local configuration');
     }
 
-    const response = await apiClient.fetch(`${API_BASE_URL}/api/config/gemini-api-key`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // 2. Load API key if unmasked, never overwrite valid key with asterisks
+    try {
+      const response = await apiClient.fetch(`${API_BASE_URL}/api/config/gemini-api-key`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      API_KEY = data.apiKey;
-      if (API_KEY) {
-        console.log('[AI] ✅ API key / Token cargado');
-        if (aiProvider === 'GEMINI' && !API_KEY.includes('****')) {
+      if (response.ok) {
+        const data = await response.json();
+        if (data.apiKey && !data.apiKey.includes('****')) {
+          API_KEY = data.apiKey;
           try {
-            ai = new GoogleGenAI({ apiKey: API_KEY });
-          } catch (genAiErr) {
-            console.warn('[AI] Error instantiating GoogleGenAI:', genAiErr);
+            if (typeof window !== 'undefined' && window.localStorage) {
+              localStorage.setItem('simcop_ai_key', API_KEY);
+            }
+          } catch (e) {}
+        }
+        if (API_KEY) {
+          console.log('[AI] ✅ API key / Token cargado');
+          if (aiProvider === 'GEMINI' && !API_KEY.includes('****')) {
+            try {
+              ai = new GoogleGenAI({ apiKey: API_KEY });
+            } catch (genAiErr) {
+              console.warn('[AI] Error instantiating GoogleGenAI:', genAiErr);
+              ai = null;
+            }
+          } else {
             ai = null;
           }
-        } else {
-          ai = null;
         }
-      } else {
-        console.warn('[AI] ⚠️ No se encontró API key');
-        ai = null;
       }
-    } else {
-      ai = null;
-      console.error('[AI] Error al cargar API Key:', response.status);
+    } catch (keyErr) {
+      // 403 Forbidden for non-admin is expected; keep local cached key if available
     }
   } catch (error) {
-    ai = null;
     console.error('[AI] Excepción al inicializar API Key:', error);
   }
 };
@@ -306,10 +365,13 @@ const generateContentViaBackend = async (prompt: string, key?: string, systemIns
 
   // If using a local or router provider (Ollama, LMLink, OmniRoute), try direct fetch if endpoint is valid
   if (aiProvider === 'LOCAL_OLLAMA' || aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE') {
+    const isAuthRequired = aiProvider === 'LOCAL_LMLink' || aiProvider === 'OMNIROUTE';
+    const hasValidKey = Boolean(API_KEY && !API_KEY.includes('****'));
     const canAttemptDirect = Boolean(
       localEndpoint &&
       !localEndpoint.includes('***') &&
-      !localEndpoint.includes('[CONFIGURED_INTERNAL]')
+      !localEndpoint.includes('[CONFIGURED_INTERNAL]') &&
+      (!isAuthRequired || hasValidKey)
     );
 
     if (canAttemptDirect) {

@@ -89,6 +89,7 @@ const TacticalMapFallback: React.FC = () => (
 // }
 
 import { configService } from './services/configService';
+import { initializeApiKey } from './utils/geminiService';
 
 
 const App: React.FC = () => {
@@ -148,15 +149,15 @@ const App: React.FC = () => {
     }
   }, [currentUser, refreshData]);
 
-  // Fetch API Key from backend on mount (for voice features)
-  // Security Audit: Wait for authentication before fetching
+  // Fetch API Key & synchronize AI configuration from backend on login
   useEffect(() => {
     if (!currentUser) return;
     
     const initAi = async () => {
       try {
+        await initializeApiKey();
         const apiKey = await configService.getGeminiApiKey();
-        if (apiKey) {
+        if (apiKey && !apiKey.includes('****')) {
           setAiClient(new GoogleGenAI({ apiKey }));
         }
       } catch (error: any) {
