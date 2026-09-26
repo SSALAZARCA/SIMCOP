@@ -42,7 +42,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${DATABASE_PASSWORD:-password}
       - SPRING_DATASOURCE_DRIVER=${SPRING_DATASOURCE_DRIVER:-com.mysql.cj.jdbc.Driver}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
-      - SPRING_JPA_DIALECT=${SPRING_JPA_DIALECT:-org.hibernate.dialect.MySQL8Dialect}
+      - SPRING_JPA_DIALECT=${SPRING_JPA_DIALECT:-org.hibernate.dialect.MySQLDialect}
       - SPRING_FLYWAY_ENABLED=${SPRING_FLYWAY_ENABLED:-false}
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-}
@@ -85,11 +85,11 @@ services:
     networks:
       - simcop_internal
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DATABASE_PASSWORD:-password}"]
-      interval: 10s
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 25s
+      retries: 20
+      start_period: 15s
 
   # ============================================================
   # 5. SIGEP BACKEND (Spring Boot REST API - Internal)
