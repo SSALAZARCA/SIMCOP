@@ -19,7 +19,7 @@ services:
       - "80"
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
       ai_engine:
         condition: service_started
     networks:
@@ -57,9 +57,10 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
       interval: 10s
       timeout: 10s
-      retries: 20
-      start_period: 90s
+      retries: 30
+      start_period: 120s
     networks:
+      - coolify
       - simcop_internal
 
   # ============================================================
@@ -75,6 +76,7 @@ services:
     environment:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site,https://sigep.site}
     networks:
+      - coolify
       - simcop_internal
 
   # ============================================================
@@ -89,13 +91,14 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
+      - coolify
       - simcop_internal
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 15s
+      retries: 30
+      start_period: 30s
 
   # ============================================================
   # 5. SIGEP BACKEND (Spring Boot REST API - Internal)
@@ -126,6 +129,7 @@ services:
       backend:
         condition: service_started
     networks:
+      - coolify
       - simcop_internal
 
   # ============================================================
@@ -158,4 +162,3 @@ networks:
 volumes:
   mysql_data:
   sigep_data:
-
