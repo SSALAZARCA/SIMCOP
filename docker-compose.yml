@@ -27,7 +27,9 @@ services:
       - simcop_internal
 
   # ============================================================
-  # 2. BACKEND (Spring Boot REST API - Internal)
+  # 2. BACKEND (Spring Boot REST API - Internal only)
+  # NO en red 'coolify' — solo interna para evitar que Traefik
+  # intente crear rutas HTTPS para este servicio.
   # ============================================================
   backend:
     build:
@@ -60,11 +62,10 @@ services:
       retries: 30
       start_period: 120s
     networks:
-      - coolify
       - simcop_internal
 
   # ============================================================
-  # 3. AI ENGINE (FastAPI / PyTorch - Internal)
+  # 3. AI ENGINE (FastAPI / PyTorch - Internal only)
   # ============================================================
   ai_engine:
     build:
@@ -76,11 +77,10 @@ services:
     environment:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site,https://sigep.site}
     networks:
-      - coolify
       - simcop_internal
 
   # ============================================================
-  # 4. DATABASE (MySQL 8.0 - Internal)
+  # 4. DATABASE (MySQL 8.0 - Internal only)
   # ============================================================
   mysql:
     image: mysql:8.0
@@ -91,7 +91,6 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - coolify
       - simcop_internal
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
@@ -101,7 +100,7 @@ services:
       start_period: 30s
 
   # ============================================================
-  # 5. SIGEP BACKEND (Spring Boot REST API - Internal)
+  # 5. SIGEP BACKEND (Spring Boot REST API - Internal only)
   # ============================================================
   sigep_backend:
     build:
@@ -129,7 +128,6 @@ services:
       backend:
         condition: service_started
     networks:
-      - coolify
       - simcop_internal
 
   # ============================================================
