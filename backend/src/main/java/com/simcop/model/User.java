@@ -31,7 +31,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserRole role;
 
-    @ElementCollection
+    @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name = "user_permissions", joinColumns = @JoinColumn(name = "user_id"))
     private List<String> permissions = new ArrayList<>(); // Storing ViewType as Strings
 
