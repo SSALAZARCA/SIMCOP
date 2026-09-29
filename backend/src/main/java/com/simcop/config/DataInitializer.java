@@ -47,60 +47,65 @@ public class DataInitializer implements CommandLineRunner {
     );
 
     @Override
-    public void run(String... args) throws Exception {
-        ensureDataDirectoryExists();
-        logger.info("Verificando e inicializando datos de seguridad táctica...");
-        healDatabaseSchema();
+    public void run(String... args) {
+        try {
+            ensureDataDirectoryExists();
+            logger.info("Verificando e inicializando datos de seguridad táctica...");
+            healDatabaseSchema();
 
-        // Resolver contraseña administrativa inicial desde entorno o generar valor seguro
-        String envSuperAdminPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
-        if (envSuperAdminPass == null || envSuperAdminPass.trim().isEmpty()) {
-            envSuperAdminPass = System.getenv("SIMCOP_ADMIN_PASSWORD");
-        }
-        String initialSecurePassword;
-        if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()) {
-            initialSecurePassword = envSuperAdminPass.trim();
-        } else if (defaultAdminPassword != null && !defaultAdminPassword.trim().isEmpty() && !"change-me-immediately".equals(defaultAdminPassword.trim()) && !BANNED_DEFAULT_PASSWORDS.contains(defaultAdminPassword.trim().toLowerCase())) {
-            initialSecurePassword = defaultAdminPassword.trim();
-        } else {
-            // Generar contraseña segura aleatoria si no fue configurada en variables de entorno
-            initialSecurePassword = java.util.UUID.randomUUID().toString();
-            logger.info("ℹ️ Generada contraseña administrativa aleatoria segura para el arranque inicial.");
-        }
+            // Resolver contraseña administrativa inicial desde entorno o generar valor seguro
+            String envSuperAdminPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
+            if (envSuperAdminPass == null || envSuperAdminPass.trim().isEmpty()) {
+                envSuperAdminPass = System.getenv("SIMCOP_ADMIN_PASSWORD");
+            }
+            String initialSecurePassword;
+            if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()) {
+                initialSecurePassword = envSuperAdminPass.trim();
+            } else if (defaultAdminPassword != null && !defaultAdminPassword.trim().isEmpty() && !"change-me-immediately".equals(defaultAdminPassword.trim()) && !BANNED_DEFAULT_PASSWORDS.contains(defaultAdminPassword.trim().toLowerCase())) {
+                initialSecurePassword = defaultAdminPassword.trim();
+            } else {
+                // Generar contraseña segura aleatoria si no fue configurada en variables de entorno
+                initialSecurePassword = java.util.UUID.randomUUID().toString();
+                logger.info("ℹ️ Generada contraseña administrativa aleatoria segura para el arranque inicial.");
+            }
 
-        // Asegurar cuenta SuperAdmin santiago.salazar sin sobreescribir si ya existe
-        if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
-            User ss = new User();
-            ss.setUsername("santiago.salazar");
-            ss.setDisplayName("Santiago Salazar (SuperAdmin)");
-            ss.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
-            ss.setRole(UserRole.ADMINISTRATOR);
-            ss.setTwoFactorEnabled(false);
-            ss.setPermissions(new java.util.ArrayList<>());
-            userRepository.save(ss);
-            logger.info("Cuenta SuperAdmin santiago.salazar inicializada con credenciales seguras.");
-        } else {
-            logger.info("Cuenta SuperAdmin santiago.salazar detectada en base de datos. Preservando credenciales inmutables.");
-        }
+            // Asegurar cuenta SuperAdmin santiago.salazar sin sobreescribir si ya existe
+            if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
+                User ss = new User();
+                ss.setUsername("santiago.salazar");
+                ss.setDisplayName("Santiago Salazar (SuperAdmin)");
+                ss.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
+                ss.setRole(UserRole.ADMINISTRATOR);
+                ss.setTwoFactorEnabled(false);
+                ss.setPermissions(new java.util.ArrayList<>());
+                userRepository.save(ss);
+                logger.info("Cuenta SuperAdmin santiago.salazar inicializada con credenciales seguras.");
+            } else {
+                logger.info("Cuenta SuperAdmin santiago.salazar detectada en base de datos. Preservando credenciales inmutables.");
+            }
 
-        // Asegurar cuenta administrativa de respaldo 'admin' con credenciales seguras
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            User admin = new User();
-            admin.setUsername("admin");
-            admin.setDisplayName("System Administrator");
-            String adminInitialPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty())
-                    ? envSuperAdminPass.trim()
-                    : java.util.UUID.randomUUID().toString();
-            admin.setHashedPassword(passwordEncoder.encode(adminInitialPass));
-            admin.setRole(UserRole.ADMINISTRATOR);
-            admin.setTwoFactorEnabled(false);
-            admin.setPermissions(new ArrayList<>());
-            userRepository.save(admin);
-            logger.info("Cuenta administrativa de respaldo 'admin' inicializada con credenciales seguras.");
-        }
+            // Asegurar cuenta administrativa de respaldo 'admin' con credenciales seguras
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setDisplayName("System Administrator");
+                String adminInitialPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty())
+                        ? envSuperAdminPass.trim()
+                        : java.util.UUID.randomUUID().toString();
+                admin.setHashedPassword(passwordEncoder.encode(adminInitialPass));
+                admin.setRole(UserRole.ADMINISTRATOR);
+                admin.setTwoFactorEnabled(false);
+                admin.setPermissions(new ArrayList<>());
+                userRepository.save(admin);
+                logger.info("Cuenta administrativa de respaldo 'admin' inicializada con credenciales seguras.");
+            }
 
-        // Escaneo forense de seguridad: Revocar cualquier credencial por defecto o prohibida
-        scanAndRevokeBannedPasswords(initialSecurePassword, envSuperAdminPass);
+            // Escaneo forense de seguridad: Revocar cualquier credencial por defecto o prohibida
+            scanAndRevokeBannedPasswords(initialSecurePassword, envSuperAdminPass);
+            logger.info("✅ Inicialización de datos de seguridad completada exitosamente.");
+        } catch (Exception e) {
+            logger.error("⚠️ Error durante la inicialización de datos (la aplicación continuará el arranque): {}", e.getMessage(), e);
+        }
     }
 
     private void scanAndRevokeBannedPasswords(String initialSecurePassword, String envSuperAdminPass) {
