@@ -47,6 +47,8 @@ export const userService = {
             } catch (e) {
                 if (response.status === 403 || response.status === 401) {
                     errorMsg = 'Credenciales inválidas';
+                } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+                    errorMsg = `El servidor backend no está respondiendo (HTTP ${response.status}). El servicio se está iniciando o reiniciando en el VPS. Por favor espere unos segundos e intente de nuevo.`;
                 }
             }
             const err: any = new Error(errorMsg);

@@ -18,6 +18,7 @@ public class OsintEvent {
     @Column(columnDefinition = "TEXT")
     private String summary;
 
+    @Column(length = 2048)
     private String sourceUrl;
     private String sourceName;
     private String locationName;

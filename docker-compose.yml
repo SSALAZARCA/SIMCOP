@@ -38,10 +38,12 @@ services:
     restart: unless-stopped
     expose:
       - 8080
+    ports:
+      - "8085:8080"
     environment:
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
-      - SPRING_DATASOURCE_USERNAME=${DATABASE_USER:-root}
-      - SPRING_DATASOURCE_PASSWORD=${DATABASE_PASSWORD:-password}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-${DATABASE_USER:-root}}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD:-password}}
       - SPRING_DATASOURCE_DRIVER=${SPRING_DATASOURCE_DRIVER:-com.mysql.cj.jdbc.Driver}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
@@ -52,7 +54,7 @@ services:
       - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
     depends_on:
       mysql:
-        condition: service_started
+        condition: service_healthy
     networks:
       - simcop_internal
 
@@ -77,16 +79,25 @@ services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=128M
+      --max-connections=100
     environment:
-      - MYSQL_DATABASE=simcop
-      - MYSQL_ROOT_PASSWORD=${DATABASE_PASSWORD:-password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-simcop}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-${DATABASE_PASSWORD:-password}}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-${DATABASE_PASSWORD:-password}}
     volumes:
       - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
     networks:
       - simcop_internal
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD:-password} || exit 1"]
+      interval: 5s
       timeout: 5s
       retries: 20
       start_period: 15s
