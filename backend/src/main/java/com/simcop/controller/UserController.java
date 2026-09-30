@@ -235,10 +235,9 @@ public class UserController {
 
         // 2. Verificación de 2FA / TOTP (VULN-004)
         boolean isHighPrivilege = u.getRole() != null && HIGH_PRIVILEGE_ROLES.contains(u.getRole());
-        boolean isSuperAdminSantiago = "santiago.salazar".equalsIgnoreCase(u.getUsername());
 
-        // A. Si es rol de alto privilegio (excepto santiago.salazar que tiene acceso de emergencia operacional) y no tiene 2FA configurado
-        if (isHighPrivilege && !isSuperAdminSantiago) {
+        if (isHighPrivilege) {
+            // A. Si no tiene 2FA configurado, requerir enrolamiento obligatorio y emitir token temporal de alcance restringido
             if (!Boolean.TRUE.equals(u.getTwoFactorEnabled()) || u.getTwoFactorSecret() == null || u.getTwoFactorSecret().trim().isEmpty()) {
                 logger.warn("⚠️ Usuario de alto privilegio {} requiere configuración obligatoria de 2FA.", u.getUsername());
                 String tempToken = jwtUtil.generatePreAuthToken(u.getUsername());
@@ -248,10 +247,21 @@ public class UserController {
                         "tempToken", tempToken
                 ));
             }
-        }
 
-        // B. Si el usuario (cualquiera, incluido santiago.salazar) tiene 2FA activado, exigir y validar el código TOTP
-        if (Boolean.TRUE.equals(u.getTwoFactorEnabled())) {
+            // B. Si tiene 2FA configurado, exigir código TOTP
+            if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
+                logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "2FA_REQUIRED"));
+            }
+
+            boolean isValid = twoFactorService.isOtpValid(u.getTwoFactorSecret(), loginRequest.getTotpCode().trim());
+            if (!isValid) {
+                rateLimiterService.recordFailedAttempt(clientIp, u.getUsername());
+                logger.warn("Login fallido: Código 2FA inválido para {}", u.getUsername());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "INVALID_2FA_CODE"));
+            }
+        } else if (Boolean.TRUE.equals(u.getTwoFactorEnabled())) {
+            // Usuario con 2FA opcional activado
             if (loginRequest.getTotpCode() == null || loginRequest.getTotpCode().trim().isEmpty()) {
                 logger.warn("Login fallido: 2FA requerido pero no proporcionado para {}", u.getUsername());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "2FA_REQUIRED"));
