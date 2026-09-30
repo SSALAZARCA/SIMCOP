@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { userService } from '../services/userService';
@@ -183,9 +184,24 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
                 </p>
               </div>
 
+              <div className="flex flex-col items-center justify-center p-4 bg-black/40 border border-white/10 rounded-2xl space-y-2">
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest text-center">
+                  1. Escanee con Google Authenticator o Microsoft Authenticator:
+                </p>
+                {twoFactorData?.qrCodeUri ? (
+                  <div className="bg-white p-3 rounded-2xl shadow-xl inline-block my-1 border border-white/20">
+                    <QRCodeSVG value={twoFactorData.qrCodeUri} size={170} level="M" />
+                  </div>
+                ) : (
+                  <div className="w-44 h-44 flex items-center justify-center bg-white/5 rounded-2xl border border-white/10">
+                    <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
+
               <div className="p-3 bg-black/40 border border-white/10 rounded-2xl space-y-2">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Clave Secreta Manual:
+                  O ingrese la Clave Secreta Manual:
                 </p>
                 <div className="flex items-center justify-between gap-2 bg-white/5 p-2 rounded-xl border border-white/5">
                   <code className="text-xs font-mono text-cyan-400 break-all select-all font-bold">
