@@ -9,9 +9,6 @@ RUN mvn clean package -DskipTests
 
 # Run stage
 FROM eclipse-temurin:17-jre-alpine
-WORKDIR /app
-# Install wget for Docker healthcheck probe
-RUN apk add --no-cache wget
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-Xmx384m", "-Xms128m", "-XX:+UseG1GC", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
