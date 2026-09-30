@@ -40,6 +40,9 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
+    @Autowired(required = false)
+    private com.simcop.service.LoginRateLimiterService loginRateLimiterService;
+
     public static final java.util.Set<String> BANNED_DEFAULT_PASSWORDS = java.util.Set.of(
             "password", "admin", "123456", "12345678", "admin123",
             "change-me-immediately", "admin:password", "admin:admin",
@@ -52,6 +55,11 @@ public class DataInitializer implements CommandLineRunner {
             ensureDataDirectoryExists();
             logger.info("Verificando e inicializando datos de seguridad táctica...");
             healDatabaseSchema();
+
+            // Restablecer bloqueos transitorios en memoria al arrancar
+            if (loginRateLimiterService != null) {
+                loginRateLimiterService.clearAllBlocks();
+            }
 
             // Resolver contraseña administrativa inicial desde entorno o generar valor seguro
             String envSuperAdminPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");

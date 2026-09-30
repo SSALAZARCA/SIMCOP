@@ -276,6 +276,31 @@ public class LoginRateLimiterService {
     }
 
     /**
+     * Unblocks an isolated username and removes lockout.
+     */
+    public void unblockUser(String username) {
+        if (username != null && !username.trim().isEmpty()) {
+            String normUser = username.trim().toLowerCase();
+            userFailedAttempts.remove(normUser);
+            userLockoutExpiresAt.remove(normUser);
+            logger.info("Usuario '{}' desbloqueado de rate limiter.", normUser);
+        }
+    }
+
+    /**
+     * Resets all in-memory rate limiting and blacklist locks for self-healing.
+     */
+    public void clearAllBlocks() {
+        ipFailedAttempts.clear();
+        ipLockoutExpiresAt.clear();
+        ipBlacklistExpiresAt.clear();
+        ipBlacklistReasons.clear();
+        userFailedAttempts.clear();
+        userLockoutExpiresAt.clear();
+        logger.info("✅ Todos los bloqueos en memoria de rate limiter e IP blacklist han sido restablecidos.");
+    }
+
+    /**
      * Returns an unmodifiable map of currently blacklisted IPs and their expiration timestamps.
      */
     public Map<String, Long> getBlacklistedIps() {
