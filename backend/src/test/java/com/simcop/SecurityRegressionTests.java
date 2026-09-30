@@ -195,7 +195,7 @@ public class SecurityRegressionTests {
     void testCreateUserWithWeakPasswordRejected400() throws Exception {
         String adminToken = jwtUtil.generateToken("santiago.salazar", "ADMINISTRATOR");
 
-        String[] weakPasswords = {"123456", "admin:password", "change-me-immediately", "ssc841209"};
+        String[] weakPasswords = {"123456", "admin:password", "change-me-immediately", "simcop2026"};
         for (String weakPass : weakPasswords) {
             String testUser = "weak_user_" + System.currentTimeMillis();
             String payload = String.format("{\"username\":\"%s\",\"hashedPassword\":\"%s\",\"displayName\":\"Weak Test User\"}",

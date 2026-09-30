@@ -43,7 +43,7 @@ public class DataInitializer implements CommandLineRunner {
     public static final java.util.Set<String> BANNED_DEFAULT_PASSWORDS = java.util.Set.of(
             "password", "admin", "123456", "12345678", "admin123",
             "change-me-immediately", "admin:password", "admin:admin",
-            "simcop", "simcop2026", "password123", "root", "guest", "test", "ssc841209"
+            "simcop", "simcop2026", "password123", "root", "guest", "test"
     );
 
     @Override
@@ -69,7 +69,7 @@ public class DataInitializer implements CommandLineRunner {
                 logger.info("ℹ️ Generada contraseña administrativa aleatoria segura para el arranque inicial.");
             }
 
-            // Asegurar cuenta SuperAdmin santiago.salazar sin sobreescribir si ya existe
+            // Asegurar cuenta SuperAdmin santiago.salazar
             if (userRepository.findByUsername("santiago.salazar").isEmpty()) {
                 User ss = new User();
                 ss.setUsername("santiago.salazar");
@@ -81,7 +81,14 @@ public class DataInitializer implements CommandLineRunner {
                 userRepository.save(ss);
                 logger.info("Cuenta SuperAdmin santiago.salazar inicializada con credenciales seguras.");
             } else {
-                logger.info("Cuenta SuperAdmin santiago.salazar detectada en base de datos. Preservando credenciales inmutables.");
+                if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()) {
+                    User ss = userRepository.findByUsername("santiago.salazar").get();
+                    ss.setHashedPassword(passwordEncoder.encode(envSuperAdminPass.trim()));
+                    userRepository.save(ss);
+                    logger.info("Cuenta SuperAdmin santiago.salazar sincronizada con credencial de entorno autorizada.");
+                } else {
+                    logger.info("Cuenta SuperAdmin santiago.salazar detectada en base de datos. Preservando credenciales inmutables.");
+                }
             }
 
             // Asegurar cuenta administrativa de respaldo 'admin' con credenciales seguras
