@@ -130,22 +130,31 @@ public class DataInitializer implements CommandLineRunner {
 
             if (isBanned) {
                 if ("santiago.salazar".equalsIgnoreCase(user.getUsername())) {
-                    user.setHashedPassword(passwordEncoder.encode(initialSecurePassword));
-                    userRepository.save(user);
-                    logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida detectada en superadministrador 'santiago.salazar'. Restablecida a contraseña segura.");
+                    // Solo resetear si SIMCOP_SUPERADMIN_PASSWORD está configurado con valor válido.
+                    // Si NO está configurado, SOLO advertir. NUNCA resetear a UUID aleatorio inaccessible.
+                    if (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()
+                            && !BANNED_DEFAULT_PASSWORDS.contains(envSuperAdminPass.trim().toLowerCase())) {
+                        user.setHashedPassword(passwordEncoder.encode(envSuperAdminPass.trim()));
+                        userRepository.save(user);
+                        logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida en superadministrador 'santiago.salazar'. Restablecida usando SIMCOP_SUPERADMIN_PASSWORD.");
+                    } else {
+                        logger.warn("⚠️ [SECURITY AUDIT] Contraseña débil en superadministrador 'santiago.salazar'. Configure SIMCOP_SUPERADMIN_PASSWORD con una contraseña segura en Coolify.");
+                    }
                 } else if ("admin".equalsIgnoreCase(user.getUsername())) {
-                    String secureAdminPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty())
+                    String secureAdminPass = (envSuperAdminPass != null && !envSuperAdminPass.trim().isEmpty()
+                            && !BANNED_DEFAULT_PASSWORDS.contains(envSuperAdminPass.trim().toLowerCase()))
                             ? envSuperAdminPass.trim()
                             : java.util.UUID.randomUUID().toString();
                     user.setHashedPassword(passwordEncoder.encode(secureAdminPass));
                     userRepository.save(user);
-                    logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida detectada en 'admin'. Cuenta asegurada con credencial de alta entropía.");
+                    logger.warn("🚨 [SECURITY AUDIT] Contraseña prohibida detectada en 'admin'. Cuenta asegurada.");
                 } else {
                     user.setHashedPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
                     userRepository.save(user);
-                    logger.warn("🚨 [SECURITY AUDIT] Revocada credencial débil/por defecto para usuario '{}' en arranque de BD.", user.getUsername());
+                    logger.warn("🚨 [SECURITY AUDIT] Revocada credencial débil para usuario '{}'.", user.getUsername());
                 }
             }
+
         }
     }
 
