@@ -81,15 +81,15 @@ export const LoginViewComponent: React.FC<LoginViewComponentProps> = ({ onLogin 
   };
 
   return (
-    <div className="min-h-screen bg-[#050510] flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30">
+    <div className="h-screen w-full bg-[#050510] flex flex-col justify-start items-center p-4 sm:p-6 relative overflow-y-auto font-sans selection:bg-blue-500/30 custom-scrollbar">
       {/* Fondo Animado de Radar */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vmax] h-[150vmax] border border-blue-500/10 rounded-full animate-[ping_8s_linear_infinite]"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vmax] h-[100vmax] border border-blue-500/5 rounded-full animate-[ping_12s_linear_infinite]"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-900/5 to-transparent"></div>
       </div>
 
-      <div className="w-full max-w-md bg-white/5 backdrop-blur-2xl p-8 rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(30,58,138,0.3)] relative z-10 animate-in fade-in zoom-in-95 duration-700">
+      <div className="w-full max-w-md my-auto bg-gray-900/95 sm:bg-white/5 backdrop-blur-2xl p-6 sm:p-8 rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(30,58,138,0.3)] relative z-10 animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-blue-600 to-sky-400 rounded-2xl shadow-lg shadow-blue-500/30 mb-6 rotate-3">
             <ShieldCheckIcon className="w-12 h-12 text-white" />
