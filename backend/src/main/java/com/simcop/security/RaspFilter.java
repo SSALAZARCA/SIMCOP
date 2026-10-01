@@ -51,7 +51,7 @@ public class RaspFilter extends OncePerRequestFilter {
     );
 
     private static final Pattern PATH_TRAVERSAL_PATTERN = Pattern.compile(
-            "(\\.\\./|\\.\\.\\\\|/etc/passwd|%2e%2e)",
+            "((?<!\\.)\\.\\.[\\/\\\\]|/etc/passwd|%2e%2e)",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -78,14 +78,14 @@ public class RaspFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         String queryString = request.getQueryString();
 
-        String uriAttack = inspectText(uri);
+        String uriAttack = inspectText(uri, false);
         if (uriAttack != null) {
             handleAttackDetected(request, response, clientIp, uriAttack + " in URI: " + uri);
             return;
         }
 
         if (queryString != null && !queryString.trim().isEmpty()) {
-            String queryAttack = inspectText(queryString);
+            String queryAttack = inspectText(queryString, false);
             if (queryAttack != null) {
                 handleAttackDetected(request, response, clientIp, queryAttack + " in Query: " + queryString);
                 return;
@@ -102,6 +102,17 @@ public class RaspFilter extends OncePerRequestFilter {
             return;
         }
 
+        // Natural language / AI prompt / OSINT / ORDOP endpoints contain user narrative texts, military summaries, and reports.
+        // They should only be scanned for SQL injection or command injection, never path traversal.
+        boolean isNarrativeOrAiEndpoint = uri != null && (
+                uri.startsWith("/api/ai/") ||
+                uri.startsWith("/api/osint/") ||
+                uri.startsWith("/api/ordop/") ||
+                uri.startsWith("/api/intel/") ||
+                uri.startsWith("/api/history/") ||
+                uri.startsWith("/api/aar/")
+        );
+
         // Wrap body for RASP inspection and downstream controller reuse
         CachedBodyHttpServletRequest wrappedRequest = (request instanceof CachedBodyHttpServletRequest)
                 ? (CachedBodyHttpServletRequest) request
@@ -110,7 +121,7 @@ public class RaspFilter extends OncePerRequestFilter {
         byte[] bodyBytes = wrappedRequest.getCachedBody();
         if (bodyBytes != null && bodyBytes.length > 0) {
             String bodyText = new String(bodyBytes, StandardCharsets.UTF_8);
-            String bodyAttack = inspectText(bodyText);
+            String bodyAttack = inspectText(bodyText, isNarrativeOrAiEndpoint);
             if (bodyAttack != null) {
                 handleAttackDetected(request, response, clientIp, bodyAttack + " in Body");
                 return;
@@ -133,11 +144,11 @@ public class RaspFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private String inspectText(String rawText) {
+    private String inspectText(String rawText, boolean skipPathTraversal) {
         if (rawText == null || rawText.trim().isEmpty()) {
             return null;
         }
-        String attack = detectPatternMatch(rawText);
+        String attack = detectPatternMatch(rawText, skipPathTraversal);
         if (attack != null) {
             return attack;
         }
@@ -146,7 +157,7 @@ public class RaspFilter extends OncePerRequestFilter {
         if (rawText.contains("%")) {
             try {
                 String decoded = URLDecoder.decode(rawText, StandardCharsets.UTF_8);
-                attack = detectPatternMatch(decoded);
+                attack = detectPatternMatch(decoded, skipPathTraversal);
                 if (attack != null) {
                     return attack;
                 }
@@ -158,7 +169,7 @@ public class RaspFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private String detectPatternMatch(String text) {
+    private String detectPatternMatch(String text, boolean skipPathTraversal) {
         if (text == null || text.trim().isEmpty()) {
             return null;
         }
@@ -177,12 +188,12 @@ public class RaspFilter extends OncePerRequestFilter {
             return "SQL_INJECTION";
         }
 
-        if (PATH_TRAVERSAL_PATTERN.matcher(text).find()
-                || text.contains("../")
-                || text.contains("..\\")
-                || text.contains("/etc/passwd")
-                || text.toLowerCase().contains("%2e%2e")) {
-            return "PATH_TRAVERSAL";
+        if (!skipPathTraversal) {
+            if (PATH_TRAVERSAL_PATTERN.matcher(text).find()
+                    || text.contains("/etc/passwd")
+                    || text.toLowerCase().contains("%2e%2e")) {
+                return "PATH_TRAVERSAL";
+            }
         }
 
         if (CMD_INJECTION_PATTERN.matcher(text).find()
