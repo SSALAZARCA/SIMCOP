@@ -179,6 +179,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showRoadsLayer, setShowRoadsLayer] = useState<boolean>(false);
   const [showSatDefensoriaLayer, setShowSatDefensoriaLayer] = useState<boolean>(true);
   const [selectedSatYear, setSelectedSatYear] = useState<string>('TODOS');
+  const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(true);
+  const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
+  const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
   const [showS2COALayer, setShowS2COALayer] = useState<boolean>(true);
   const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(true);
   const [showUnitsLayer, setShowUnitsLayer] = useState<boolean>(true);
@@ -1423,6 +1426,16 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           console.warn("Could not restore COA plan from backend:", err);
         });
     }
+
+    // Cargar Histórico Factores de Inestabilidad BR23 (Simbología OTAN)
+    fetch('/historico_inestabilidad_tactico.json')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setHistoricoEvents(data);
+        }
+      })
+      .catch(err => console.warn("No se pudo cargar historico_inestabilidad_tactico.json:", err));
   }, []);
 
   useEffect(() => {
@@ -2366,6 +2379,68 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
+    // 11b2. Render Histórico Factores de Inestabilidad BR23 (Simbología OTAN)
+    if (showHistoricoBr23Layer && historicoEvents.length > 0) {
+      const filteredHistorico = historicoEvents.filter(h => {
+        if (selectedHistoricoAff !== 'TODOS' && h.aff !== selectedHistoricoAff) return false;
+        return true;
+      });
+
+      filteredHistorico.forEach((ev) => {
+        if (!ev.lat || !ev.lon) return;
+
+        let colorStr = '#DC2626'; // HOSTIL rojo
+        let emoji = '🔴';
+        if (ev.aff === 'AMIGO') {
+          colorStr = '#2563EB'; // AMIGO azul
+          emoji = '🔵';
+        } else if (ev.aff === 'CONTACTO') {
+          colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
+          emoji = '⚔️';
+        } else if (ev.aff === 'NEUTRO') {
+          colorStr = '#16A34A'; // NEUTRO verde
+          emoji = '🟢';
+        }
+
+        const color = Cesium.Color.fromCssColorString(colorStr);
+        const tooltipDetails = [
+          `Afiliación OTAN: ${ev.aff}`,
+          `Fecha: ${ev.date || 'Sin fecha'}`,
+          `Municipio: ${ev.mun || ''} (${ev.dept || ''})`,
+          `Operación: ${ev.type_op || ev.oper || 'Control Territorial'}`,
+          `Estructura: ${ev.group || ev.desc || 'GAO / Delincuencia'}`,
+          `Unidad: ${ev.unit || ''} (${ev.brigade || 'BR23'})`
+        ];
+
+        addTacticalEntity({
+          id: `hist-3d-${ev.id}`,
+          name: `HISTÓRICO ${ev.aff}: ${ev.desc || ev.oper || ev.mun}`,
+          position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
+          point: {
+            pixelSize: ev.aff === 'CONTACTO' ? 12 : 9,
+            color: color,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+          },
+          properties: {
+            tooltipTitle: `Histórico BR23 (${ev.aff}): ${ev.mun}`,
+            tooltipDetails: tooltipDetails
+          },
+          label: ev.aff === 'CONTACTO' ? {
+            text: `⚔️ Combate ${ev.date || ''}`,
+            font: 'bold 9px system-ui, sans-serif',
+            fillColor: Cesium.Color.YELLOW,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 350000.0)
+          } : undefined
+        });
+      });
+    }
+
     // 11c. Red Hidrográfica Oficial de Colombia (92 Cuencas, Ríos Principales y Afluentes Navegables)
     if (showHydrographyLayer) {
       COLOMBIA_RIVER_NETWORKS.forEach((river) => {
@@ -3059,6 +3134,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     osintLayerActive,
     showSatDefensoriaLayer,
     selectedSatYear,
+    showHistoricoBr23Layer,
+    selectedHistoricoAff,
+    historicoEvents,
     showS2COALayer,
     showPiccGraphicsLayer,
     showUnitsLayer,
@@ -3671,6 +3749,30 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                     <option value="2019">2019 (56)</option>
                     <option value="2018">2018 (86)</option>
                     <option value="2017">2017 (1)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Capa Histórico Factores de Inestabilidad BR23 (Simbología OTAN) */}
+            <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-300">⚔️ Histórico BR23 (OTAN)</span>
+                <input type="checkbox" checked={showHistoricoBr23Layer} onChange={e => setShowHistoricoBr23Layer(e.target.checked)} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
+              </div>
+              {showHistoricoBr23Layer && (
+                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800/50">
+                  <span className="text-[10px] text-slate-400 font-mono">Filtro OTAN:</span>
+                  <select
+                    value={selectedHistoricoAff}
+                    onChange={e => setSelectedHistoricoAff(e.target.value)}
+                    className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-2 py-0.5 text-[11px] font-medium outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="TODOS">Todos (2.820)</option>
+                    <option value="HOSTIL">🔴 Hostil (1.450)</option>
+                    <option value="AMIGO">🔵 Amigo (750)</option>
+                    <option value="CONTACTO">⚔️ Combates (301)</option>
+                    <option value="NEUTRO">🟢 Neutro (319)</option>
                   </select>
                 </div>
               )}
