@@ -11,10 +11,7 @@ export const useUAVWebSocket = (onTelemetryUpdate: (telemetry: UAVTelemetryDTO[]
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        let baseUrl = API_BASE_URL;
-        if (!baseUrl || baseUrl.includes('api.simcop.site')) {
-            baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        }
+        const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
         const socketUrl = `${baseUrl}/ws`;
         const socket = new SockJS(socketUrl);
         const client = new Client({

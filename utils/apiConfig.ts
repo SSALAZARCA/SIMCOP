@@ -11,10 +11,12 @@ export const getApiBaseUrl = () => {
             return '';
         }
 
-        // In ANY production deployment (simcop.site, Coolify, VPS):
-        // Nginx reverse-proxies /api/ directly to backend:8080.
-        // Returning '' guarantees all requests use relative paths on the same origin,
-        // preventing any 403, DNS failure, or CORS issues completely.
+        // In production on simcop.site:
+        // Point directly to https://api.simcop.site where Traefik routes directly to Spring Boot
+        if (host === 'simcop.site' || host.endsWith('.simcop.site')) {
+            return 'https://api.simcop.site';
+        }
+
         return '';
     }
 
