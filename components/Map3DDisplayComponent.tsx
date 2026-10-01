@@ -39,6 +39,7 @@ import {
 } from '../constants';
 import { piccService } from '../services/piccService';
 import { coaPlanService } from '../services/coaPlanService';
+import { COLOMBIA_RIVER_NETWORKS } from '../constants/colombiaHydrography';
 
 const PlantillaPICCConfig: any = {};
 
@@ -154,7 +155,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   hotspots = [],
   historicalHotspots = [],
   osintEvents = [],
-  osintLayerActive = false,
+  osintLayerActive = true,
   piccDrawingConfig,
   activeTemplateContext,
   onPiccDrawingComplete,
@@ -173,6 +174,14 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [weatherEffect, setWeatherEffect] = useState<'clear' | 'rain' | 'fog' | 'storm'>('clear');
   
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [showCmocTransitLayer, setShowCmocTransitLayer] = useState<boolean>(false);
+  const [showHydrographyLayer, setShowHydrographyLayer] = useState<boolean>(true);
+  const [showRoadsLayer, setShowRoadsLayer] = useState<boolean>(false);
+  const [showSatDefensoriaLayer, setShowSatDefensoriaLayer] = useState<boolean>(true);
+  const [selectedSatYear, setSelectedSatYear] = useState<string>('TODOS');
+  const [showS2COALayer, setShowS2COALayer] = useState<boolean>(true);
+  const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(true);
+  const [showUnitsLayer, setShowUnitsLayer] = useState<boolean>(true);
   const [showIntelligenceLayer, setShowIntelligenceLayer] = useState<boolean>(true);
   const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(true);
   const [showHistoricalHotspots, setShowHistoricalHotspots] = useState<boolean>(false);
@@ -340,6 +349,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const igacSatLabelsLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const igacPolLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const osmLayerRef = useRef<Cesium.ImageryLayer | null>(null);
+  const hydroLayerRef = useRef<Cesium.ImageryLayer | null>(null);
+  const roadsLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const radarLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const weatherStageRef = useRef<Cesium.PostProcessStage | null>(null);
 
@@ -376,9 +387,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     });
 
     const labelsProvider = new Cesium.UrlTemplateImageryProvider({
-      url: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
-      subdomains: ['a', 'b', 'c', 'd'],
-      credit: '© CartoDB, © OpenStreetMap',
+      url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      credit: '© Esri, HERE, Garmin',
       hasAlphaChannel: true,
       maximumLevel: 20,
       enablePickFeatures: false
@@ -399,8 +409,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       selectionIndicator: false,
       shadows: false,
       shouldAnimate: true,
-      requestRenderMode: true,
-      maximumRenderTimeChange: 0.5
+      requestRenderMode: false
     });
 
     // Cargar relieve 3D geométrico
@@ -491,7 +500,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               PICCElementType.ENEMY_UNIT_POINT_SIT, PICCElementType.FRIENDLY_UNIT_POINT_SIT,
               PICCElementType.NEUTRAL_POINT_SIT, PICCElementType.CIVILIAN_POINT_SIT,
               PICCElementType.NAI_POINT, PICCElementType.TARGET_REFERENCE_POINT,
-              PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED
+              PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED,
+              PICCElementType.ENEMY_GUERRILLA_POINT, PICCElementType.ENEMY_LEADER_POINT,
+              PICCElementType.CIVILIAN_CR_POINT, PICCElementType.TAI_POINT
             ].includes(config.type as PICCElementType);
 
             if (isPoint) {
@@ -904,9 +915,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(satelliteProvider, 0);
 
       const labelsProvider = new Cesium.UrlTemplateImageryProvider({
-        url: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
-        subdomains: ['a', 'b', 'c', 'd'],
-        credit: '© CartoDB, © OpenStreetMap',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        credit: '© Esri, HERE, Garmin',
         hasAlphaChannel: true,
         maximumLevel: 20,
         enablePickFeatures: false
@@ -931,30 +941,160 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
       igacSatLayerRef.current = viewer.imageryLayers.addImageryProvider(streetProvider, 0);
     } else if (mapLayer === 'igac-pol') {
-      // Cartografía Base Oficial (IGAC / CartoDB Voyager)
-      Cesium.ArcGisMapServerImageryProvider.fromUrl(
-        'https://mapas.igac.gov.co/server/rest/services/carto/Colombia_Base/MapServer',
-        { credit: '© Instituto Geográfico Agustín Codazzi (IGAC) - Cartografía Base Oficial', enablePickFeatures: false }
-      ).then(provider => {
-        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-          igacPolLayerRef.current = viewerRef.current.imageryLayers.addImageryProvider(provider, 0);
-        }
-      }).catch(() => {
-        const voyagerProvider = new Cesium.UrlTemplateImageryProvider({
-          url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          subdomains: ['a', 'b', 'c', 'd'],
-          credit: '© CartoDB, © OpenStreetMap contributors',
-          maximumLevel: 19,
-          enablePickFeatures: false
-        });
-        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-          igacPolLayerRef.current = viewerRef.current.imageryLayers.addImageryProvider(voyagerProvider, 0);
-        }
+      // Cartografía Base Táctica Militar (ESRI NatGeo World Map - Libre de marcas de agua)
+      const natGeoProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}',
+        credit: 'National Geographic, Esri, DeLorme, HERE, UNEP-WCMC, USGS, NASA, ESA, METI, NRCAN, GEBCO, NOAA, increment P Corp.',
+        maximumLevel: 19,
+        enablePickFeatures: false
       });
+      igacPolLayerRef.current = viewer.imageryLayers.addImageryProvider(natGeoProvider, 0);
+    }
+
+    if (viewer && !viewer.isDestroyed()) {
+      viewer.scene.requestRender();
     }
   }, [mapLayer]);
 
-  // Capas de radar y satélite obsoletas removidas
+  // CMOC: Clasificación Militar de Transitabilidad Topográfica (Doctrina MTE 2-01.3 / MFRE 1-02.2)
+  // Verde (<15°): Sin Restricciones (Valles y corredores)
+  // Amarillo/Ámbar (15° - 30°): Terreno Restringido (Cuchillas y laderas)
+  // Rojo (>30°): Severamente Restringido (Farallones y cañones)
+  const getCMOCColorRamp = () => {
+    const ramp = document.createElement('canvas');
+    ramp.width = 100;
+    ramp.height = 1;
+    const ctx = ramp.getContext('2d');
+    if (!ctx) return ramp;
+
+    // Rampa de inclinación normalizada de 0 a 90 grados (0.0 a 1.0)
+    // 15° / 90° = 0.1666
+    // 30° / 90° = 0.3333
+    const grd = ctx.createLinearGradient(0, 0, 100, 0);
+    // <15°: Terreno Sin Restricciones (Verde esmeralda táctico)
+    grd.addColorStop(0.0, 'rgba(16, 185, 129, 0.40)');
+    grd.addColorStop(0.165, 'rgba(16, 185, 129, 0.40)');
+    // 15° - 30°: Terreno Restringido (Ámbar / Amarillo militar)
+    grd.addColorStop(0.166, 'rgba(245, 158, 11, 0.65)');
+    grd.addColorStop(0.332, 'rgba(245, 158, 11, 0.65)');
+    // >30°: Terreno Severamente Restringido (Rojo Farallón / Cañón)
+    grd.addColorStop(0.333, 'rgba(239, 68, 68, 0.78)');
+    grd.addColorStop(1.0, 'rgba(220, 38, 38, 0.88)');
+
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, 100, 1);
+    return ramp;
+  };
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (showCmocTransitLayer) {
+      try {
+        const rampCanvas = getCMOCColorRamp();
+        viewer.scene.globe.material = Cesium.Material.fromType('SlopeRamp', {
+          image: rampCanvas
+        });
+      } catch (e) {
+        console.error("Error setting CMOC slope ramp material:", e);
+      }
+    } else {
+      viewer.scene.globe.material = undefined as any;
+    }
+    viewer.scene.requestRender();
+  }, [showCmocTransitLayer]);
+
+  // Capa Oficial de Red Hidrográfica (Ríos Navegables, Afluentes y Quebradas - IGAC / Topo)
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    let isCancelled = false;
+
+    if (showHydrographyLayer) {
+      if (!hydroLayerRef.current) {
+        // Cargar capa hidrográfica con soporte para export dinámico IGAC (Drenajes dobles y sencillos)
+        // y respaldo visual transparente de aguas y drenajes
+        const initHydro = async () => {
+          try {
+            let provider: Cesium.ImageryProvider | null = null;
+            
+            // 1. Intentar ArcGisMapServerImageryProvider oficial de IGAC con export dinámico (sin caché requerido)
+            try {
+              provider = await (Cesium.ArcGisMapServerImageryProvider as any).fromUrl(
+                'https://mapas2.igac.gov.co/server/rest/services/carto/carto25000colombia2017/MapServer',
+                {
+                  usePreCachedTilesIfAvailable: false,
+                  layers: '1,4,6,9,10,11,12,20,21,22', // Cuerpos de agua, Embalses, Lagunas, Drenaje Doble, Drenaje Sencillo (Quebradas), Raudales
+                  enablePickFeatures: false
+                }
+              );
+            } catch (igacErr) {
+              console.warn("IGAC MapServer export falló, intentando capa de referencia hidrográfica ESRI/OSM:", igacErr);
+            }
+
+            // 2. Si IGAC tiene retraso o cae, usar capa de referencia de aguas y drenajes transparente de alta resolución
+            if (!provider) {
+              provider = new Cesium.UrlTemplateImageryProvider({
+                url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/{z}/{y}/{x}',
+                credit: '© Esri, USGS, NPS, IGAC - Red Hidrográfica y Cuerpos de Agua',
+                hasAlphaChannel: true,
+                maximumLevel: 16,
+                enablePickFeatures: false
+              });
+            }
+
+            if (!isCancelled && viewer && !viewer.isDestroyed() && provider) {
+              const layer = viewer.imageryLayers.addImageryProvider(provider);
+              layer.alpha = 0.95;
+              hydroLayerRef.current = layer;
+              viewer.scene.requestRender();
+            }
+          } catch (err) {
+            console.error("Error inicializando capa de hidrografía:", err);
+          }
+        };
+
+        initHydro();
+      }
+    } else {
+      if (hydroLayerRef.current) {
+        viewer.imageryLayers.remove(hydroLayerRef.current);
+        hydroLayerRef.current = null;
+      }
+    }
+    viewer.scene.requestRender();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showHydrographyLayer]);
+
+  // Capa de Red Vial Oficial (Vías y Corredores de Movilidad sobre relieve)
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (showRoadsLayer) {
+      if (!roadsLayerRef.current) {
+        const roadsProvider = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+          credit: '© Esri, HERE, Garmin, Transportation',
+          hasAlphaChannel: true,
+          maximumLevel: 19,
+          enablePickFeatures: false
+        });
+        roadsLayerRef.current = viewer.imageryLayers.addImageryProvider(roadsProvider);
+      }
+    } else {
+      if (roadsLayerRef.current) {
+        viewer.imageryLayers.remove(roadsLayerRef.current);
+        roadsLayerRef.current = null;
+      }
+    }
+    viewer.scene.requestRender();
+  }, [showRoadsLayer]);
 
   // Handle visual weather volumetric effects (Shaders)
   useEffect(() => {
@@ -1099,7 +1239,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     const isPoly = [
       PICCElementType.FRIENDLY_ASSEMBLY_AREA, PICCElementType.FRIENDLY_OBJECTIVE,
-      PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC
+      PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC,
+      PICCElementType.NAI_AREA, PICCElementType.TAI_AREA
     ].includes(config.type as PICCElementType);
 
     const colorHex = config.color || '#0000FF';
@@ -1177,7 +1318,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     const isPoly = [
       PICCElementType.FRIENDLY_ASSEMBLY_AREA, PICCElementType.FRIENDLY_OBJECTIVE,
-      PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC
+      PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC,
+      PICCElementType.NAI_AREA, PICCElementType.TAI_AREA
     ].includes(config.type as PICCElementType);
 
     let geometry: any;
@@ -1296,18 +1438,113 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     const handleClearCOA = () => {
       updateCurrentCOAPlan(null);
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        const entities = viewerRef.current.entities.values;
+        for (let i = entities.length - 1; i >= 0; i--) {
+          const ent = entities[i];
+          if (ent.id && typeof ent.id === 'string' && ent.id.startsWith('coa-3d-')) {
+            viewerRef.current.entities.remove(ent);
+          }
+        }
+        viewerRef.current.scene.requestRender();
+      }
     };
+
+    const handleClearPicc = () => {
+      setLoadedPiccGraphics([]);
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        const entities = viewerRef.current.entities.values;
+        for (let i = entities.length - 1; i >= 0; i--) {
+          const ent = entities[i];
+          if (ent.id && typeof ent.id === 'string' && ent.id.startsWith('picc-3d-')) {
+            viewerRef.current.entities.remove(ent);
+          }
+        }
+        viewerRef.current.scene.requestRender();
+      }
+    };
+
+    const handleSetMapLayer = (_msg: string, layer: any) => {
+      if (layer && typeof layer === 'string') {
+        const validLayers = ['igac-sat', 'topo', 'vias', 'igac-pol', 'osm'];
+        if (validLayers.includes(layer)) {
+          setMapLayer(layer as any);
+        }
+      }
+    };
+
+    const handleSetCmoc = (_msg: string, active: boolean) => setShowCmocTransitLayer(!!active);
+    const handleSetHydro = (_msg: string, active: boolean) => setShowHydrographyLayer(!!active);
+    const handleSetRoads = (_msg: string, active: boolean) => setShowRoadsLayer(!!active);
 
     const tokenNew = eventBus.subscribe('newCOAPlan', handleNewCOAPlan);
     const tokenRender = eventBus.subscribe('renderCOAGraphics', handleRenderCOAGraphics);
     const tokenClear = eventBus.subscribe('clearCOALayer', handleClearCOA);
+    const tokenClearPicc = eventBus.subscribe('clearPiccLayer', handleClearPicc);
+    const tokenSetMapLayer = eventBus.subscribe('setMapLayer', handleSetMapLayer);
+    const tokenCmoc = eventBus.subscribe('setCmocTransitLayer', handleSetCmoc);
+    const tokenHydro = eventBus.subscribe('setHydrographyLayer', handleSetHydro);
+    const tokenRoads = eventBus.subscribe('setRoadsLayer', handleSetRoads);
 
     return () => {
       eventBus.unsubscribe(tokenNew);
       eventBus.unsubscribe(tokenRender);
       eventBus.unsubscribe(tokenClear);
+      eventBus.unsubscribe(tokenClearPicc);
+      eventBus.unsubscribe(tokenSetMapLayer);
+      eventBus.unsubscribe(tokenCmoc);
+      eventBus.unsubscribe(tokenHydro);
+      eventBus.unsubscribe(tokenRoads);
     };
   }, [eventBus]);
+
+  // Manejadores de borrado de calco táctico y medidas
+  const handleClearS2COAPlan = () => {
+    updateCurrentCOAPlan(null);
+    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      const entities = viewerRef.current.entities.values;
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const ent = entities[i];
+        if (ent.id && typeof ent.id === 'string' && ent.id.startsWith('coa-3d-')) {
+          viewerRef.current.entities.remove(ent);
+        }
+      }
+      viewerRef.current.scene.requestRender();
+    }
+    if (eventBus) {
+      eventBus.publish('clearCOALayer', {});
+    }
+  };
+
+  const handleClearPiccGraphics = async () => {
+    setLoadedPiccGraphics([]);
+    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      const entities = viewerRef.current.entities.values;
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const ent = entities[i];
+        if (ent.id && typeof ent.id === 'string' && ent.id.startsWith('picc-3d-')) {
+          viewerRef.current.entities.remove(ent);
+        }
+      }
+      viewerRef.current.scene.requestRender();
+    }
+    try {
+      const all = await piccService.getAllGraphics();
+      for (const g of all) {
+        if (g.id) await piccService.deleteGraphic(g.id);
+      }
+    } catch (err) {
+      console.warn("Borrado en memoria de gráficos PICC completado");
+    }
+    if (eventBus) {
+      eventBus.publish('clearPiccLayer', {});
+    }
+  };
+
+  const handleClearAllTacticalCalco = () => {
+    handleClearS2COAPlan();
+    handleClearPiccGraphics();
+  };
 
   // Render all tactical overlays (Surgical Entity Management)
   useEffect(() => {
@@ -1393,7 +1630,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       cluster.label.id = clusteredEntities;
     });
 
-    units.forEach(unit => {
+    if (showUnitsLayer) {
+      units.forEach(unit => {
       if (!unit || !unit.location) return;
 
       const sidc = generateUnitSIDC(unit);
@@ -1547,6 +1785,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         });
       }
     });
+    }
 
     // 4. Render Intelligence Reports
     if (showIntelligenceLayer) intelligenceReports.forEach((report, idx) => {
@@ -1985,14 +2224,98 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     });
 
-    // 11. Render OSINT Events if active
+    // 11. Render Defensoría del Pueblo SAT Early Warnings (Alertas Tempranas)
+    if (showSatDefensoriaLayer) {
+      const satAlerts = osintEvents.filter(o => {
+        const type = (o.eventType || '').toUpperCase();
+        const isSat = type.includes('ALERTA_TEMPRANA_SAT') || !!o.satMetadata;
+        if (!isSat) return false;
+        if (selectedSatYear && selectedSatYear !== 'TODOS') {
+          const alertYear = o.satMetadata?.anioEmision || (o.eventTimestamp ? new Date(o.eventTimestamp).getFullYear().toString() : '');
+          const matchCodeYear = o.satMetadata?.numeroAlerta?.endsWith(`-${selectedSatYear.slice(-2)}`);
+          if (alertYear !== selectedSatYear && !matchCodeYear) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      satAlerts.forEach((osint) => {
+        if (!osint.location || osint.location.lat === undefined || osint.location.lon === undefined) return;
+        const isImminent = osint.satMetadata?.nivelRiesgo === 'INMINENTE' || (osint.eventType || '').includes('INMINENTE');
+        const colorStr = isImminent ? '#DC2626' : '#EA580C';
+        const color = Cesium.Color.fromCssColorString(colorStr);
+
+        // Anillo de radio táctico (3.000m) que delimita el municipio / zona de riesgo humanitario
+        addTacticalEntity({
+          id: `sat-ring-3d-${osint.id}`,
+          name: `Área de Influencia SAT: ${osint.title}`,
+          position: Cesium.Cartesian3.fromDegrees(osint.location.lon, osint.location.lat),
+          ellipse: {
+            semiMajorAxis: 3000.0,
+            semiMinorAxis: 3000.0,
+            material: color.withAlpha(0.18),
+            outline: true,
+            outlineColor: color,
+            outlineWidth: 2,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+          }
+        });
+
+        const tooltipDetails = osint.satMetadata ? [
+          `Alerta SAT: ${osint.satMetadata.numeroAlerta || 'N/A'} (Riesgo ${osint.satMetadata.nivelRiesgo || 'ESTRUCTURAL'})`,
+          `Municipio: ${osint.satMetadata.municipio || osint.locationName} (${osint.satMetadata.departamento || ''})`,
+          `GAOs Involucrados: ${(osint.satMetadata.gaosInvolucrados || []).join(', ') || 'En Verificación'}`,
+          `Riesgos: ${(osint.satMetadata.riesgosHumanitarios || []).join(', ')}`,
+          osint.summary.substring(0, 140) + (osint.summary.length > 140 ? '...' : '')
+        ] : [
+          `Fuente: ${osint.sourceName}`,
+          `Fiabilidad: ${(osint.confidenceScore * 100).toFixed(0)}%`,
+          osint.summary.substring(0, 100) + (osint.summary.length > 100 ? '...' : '')
+        ];
+
+        addTacticalEntity({
+          id: `osint-3d-${osint.id}`,
+          name: `Defensoría SAT: ${osint.title}`,
+          position: Cesium.Cartesian3.fromDegrees(osint.location.lon, osint.location.lat),
+          point: {
+            pixelSize: 14,
+            color: color,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 3,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+          },
+          properties: {
+            tooltipTitle: `Defensoría del Pueblo - SAT: ${osint.title}`,
+            tooltipDetails: tooltipDetails
+          },
+          label: {
+            text: `🛡️⚠️ ${osint.title}`,
+            font: 'bold 11px system-ui, sans-serif',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 3,
+            pixelOffset: new Cesium.Cartesian2(0, -16),
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+          }
+        });
+      });
+    }
+
+    // 11b. Render General OSINT News (no-SAT) if active
     if (osintLayerActive && showOsintLayer) {
-      osintEvents.forEach((osint, idx) => {
+      const generalOsint = osintEvents.filter(o => {
+        const type = (o.eventType || '').toUpperCase();
+        return !type.includes('ALERTA_TEMPRANA_SAT') && !o.satMetadata;
+      });
+
+      generalOsint.forEach((osint) => {
         if (!osint.location || osint.location.lat === undefined || osint.location.lon === undefined) return;
 
         let emoji = '📢';
         let colorStr = '#EC4899';
         const type = (osint.eventType || '').toUpperCase();
+
         if (type.includes('ATAQUE') || type.includes('EXPLOSIÓN')) {
           emoji = '💥';
           colorStr = '#DC2626';
@@ -2008,6 +2331,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         }
 
         const color = Cesium.Color.fromCssColorString(colorStr);
+        const tooltipDetails = [
+          `Fuente: ${osint.sourceName}`,
+          `Fiabilidad: ${(osint.confidenceScore * 100).toFixed(0)}%`,
+          osint.verified ? '✓ VERIFICADO' : '⚠️ NO VERIFICADO',
+          osint.summary.substring(0, 100) + (osint.summary.length > 100 ? '...' : '')
+        ];
 
         addTacticalEntity({
           id: `osint-3d-${osint.id}`,
@@ -2022,12 +2351,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           },
           properties: {
             tooltipTitle: `OSINT: ${osint.title}`,
-            tooltipDetails: [
-              `Fuente: ${osint.sourceName}`,
-              `Fiabilidad: ${(osint.confidenceScore * 100).toFixed(0)}%`,
-              osint.verified ? '✓ VERIFICADO' : '⚠️ NO VERIFICADO',
-              osint.summary.substring(0, 100) + (osint.summary.length > 100 ? '...' : '')
-            ]
+            tooltipDetails: tooltipDetails
           },
           label: {
             text: `${emoji} ${osint.title}`,
@@ -2042,8 +2366,68 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
+    // 11c. Red Hidrográfica Oficial de Colombia (92 Cuencas, Ríos Principales y Afluentes Navegables)
+    if (showHydrographyLayer) {
+      COLOMBIA_RIVER_NETWORKS.forEach((river) => {
+        const isMain = river.type === 'RIO_PRINCIPAL';
+        const color = isMain 
+          ? Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.92)  // Azul celeste brillante táctico
+          : Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.85); // Azul afluente claro
+        const polyWidth = isMain ? 4.5 : 2.5;
+
+        river.paths.forEach((segment, segIdx) => {
+          if (!segment || segment.length < 2) return;
+          const positions = segment.map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat));
+
+          addTacticalEntity({
+            id: `river-3d-${river.id}-${segIdx}`,
+            name: `${river.name} (Obstáculo Natural / Corredor Fluvial)`,
+            properties: new Cesium.PropertyBag({
+              tooltipTitle: river.name,
+              tooltipDetails: [
+                `Tipo: ${isMain ? 'Arteria Fluvial Principal' : 'Afluente / Cuenca Secundaria'}`,
+                `Navegabilidad: ${river.navigable ? 'Navegable Militar' : 'Restringida / Vado'}`,
+                `Profundidad Estimada: ~${river.depthMeters || 3}m`,
+                'Doctrina: Obstáculo Natural de Agua (MTE 2-01.3)'
+              ]
+            }),
+            polyline: {
+              positions: positions,
+              width: polyWidth,
+              material: color,
+              clampToGround: true
+            }
+          });
+
+          // Etiqueta flotante identificadora en el tramo medio de cada río principal
+          if (isMain && segIdx === Math.floor(river.paths.length / 2) && segment.length >= 4) {
+            const midCoord = segment[Math.floor(segment.length / 2)];
+            addTacticalEntity({
+              id: `river-label-3d-${river.id}`,
+              name: river.name,
+              position: Cesium.Cartesian3.fromDegrees(midCoord[0], midCoord[1]),
+              label: {
+                text: `🌊 ${river.name}`,
+                font: 'bold 11px system-ui, sans-serif',
+                fillColor: Cesium.Color.WHITE,
+                outlineColor: Cesium.Color.fromCssColorString('#0369A1'),
+                outlineWidth: 3,
+                showBackground: true,
+                backgroundColor: Cesium.Color.fromCssColorString('#0C4A6E').withAlpha(0.75),
+                backgroundPadding: new Cesium.Cartesian2(5, 3),
+                pixelOffset: new Cesium.Cartesian2(0, -12),
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(100.0, 1500000.0)
+              }
+            });
+          }
+        });
+      });
+    }
+
     // 12. Render Loaded PICC operational graphics
-    loadedPiccGraphics.forEach(graphic => {
+    if (showPiccGraphicsLayer) {
+      loadedPiccGraphics.forEach(graphic => {
       try {
         const geoJson = JSON.parse(graphic.geoJson);
         const type = graphic.graphicType as PICCElementType;
@@ -2218,9 +2602,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         console.error("Error drawing PICC graphic in 3D:", err, graphic);
       }
     });
+    }
 
     // 13. Render Course of Action (COA) Plans
-    if (currentCOAPlan) {
+    if (showS2COALayer && currentCOAPlan) {
       currentCOAPlan.phases.forEach((phase, phaseIdx) => {
         const phaseColorHex = PHASE_COLORS[phaseIdx % PHASE_COLORS.length];
         const phaseColor = Cesium.Color.fromCssColorString(phaseColorHex);
@@ -2524,6 +2909,139 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                 });
               }
               break;
+
+            // Medidas de Control de Inteligencia MFRE 1-02.2 (Numeral 6.19)
+            case COAGraphicType.INTEL_COORDINATION_LINE:
+              if (positions.length >= 2) {
+                addTacticalEntity({
+                  id: id,
+                  name: `Línea Coord. Intel (ICL): ${graphic.label}`,
+                  polyline: {
+                    positions: positions,
+                    width: 3.5,
+                    material: new Cesium.PolylineDashMaterialProperty({
+                      color: Cesium.Color.MAGENTA,
+                      dashLength: 16.0
+                    }),
+                    clampToGround: true
+                  }
+                });
+                const midICL = Cesium.Cartesian3.lerp(positions[0], positions[Math.floor(positions.length / 2)], 0.5, new Cesium.Cartesian3());
+                addTacticalEntity({
+                  id: `${id}-lbl`,
+                  position: midICL,
+                  label: {
+                    text: `ICL ${graphic.label}`,
+                    font: 'bold 10px monospace',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: Cesium.Color.PURPLE,
+                    showBackground: true,
+                    backgroundPadding: new Cesium.Cartesian2(4, 2),
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  }
+                });
+              }
+              break;
+
+            case COAGraphicType.NAMED_AREA_OF_INTEREST:
+              if (positions.length >= 1) {
+                const pos = positions[0];
+                addTacticalEntity({
+                  id: id,
+                  name: `Área Nombrada de Interés (ANI): ${graphic.label}`,
+                  position: pos,
+                  ellipse: {
+                    semiMajorAxis: 350.0,
+                    semiMinorAxis: 350.0,
+                    material: Cesium.Color.PURPLE.withAlpha(0.25),
+                    outline: true,
+                    outlineColor: Cesium.Color.PURPLE,
+                    outlineWidth: 2,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  },
+                  label: {
+                    text: `ANI: ${graphic.label}`,
+                    font: 'bold 11px sans-serif',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: Cesium.Color.PURPLE,
+                    showBackground: true,
+                    backgroundPadding: new Cesium.Cartesian2(3, 2),
+                    pixelOffset: new Cesium.Cartesian2(0, -12),
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  }
+                });
+              }
+              break;
+
+            case COAGraphicType.TARGET_AREA_OF_INTEREST:
+              if (positions.length >= 1) {
+                const pos = positions[0];
+                addTacticalEntity({
+                  id: id,
+                  name: `Área Blanco de Interés (ABI): ${graphic.label}`,
+                  position: pos,
+                  ellipse: {
+                    semiMajorAxis: 400.0,
+                    semiMinorAxis: 400.0,
+                    material: Cesium.Color.DARKRED.withAlpha(0.3),
+                    outline: true,
+                    outlineColor: Cesium.Color.RED,
+                    outlineWidth: 2.5,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  },
+                  label: {
+                    text: `ABI: ${graphic.label}`,
+                    font: 'bold 11px sans-serif',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: Cesium.Color.RED,
+                    showBackground: true,
+                    backgroundPadding: new Cesium.Cartesian2(3, 2),
+                    pixelOffset: new Cesium.Cartesian2(0, -12),
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  }
+                });
+              }
+              break;
+
+            // Tareas Tácticas de la Misión MFRE 1-02.2 (Capítulo 7)
+            case COAGraphicType.TASK_BLOCK:
+            case COAGraphicType.TASK_CANALIZE:
+            case COAGraphicType.TASK_ISOLATE:
+            case COAGraphicType.TASK_DESTROY:
+              if (positions.length >= 2) {
+                const taskLabels: Record<string, string> = {
+                  [COAGraphicType.TASK_BLOCK]: 'BLOQUEAR',
+                  [COAGraphicType.TASK_CANALIZE]: 'CANALIZAR',
+                  [COAGraphicType.TASK_ISOLATE]: 'AISLAR',
+                  [COAGraphicType.TASK_DESTROY]: 'DESTRUIR',
+                };
+                const taskText = taskLabels[graphic.type] || 'TAREA TÁCTICA';
+                addTacticalEntity({
+                  id: id,
+                  name: `${taskText}: ${graphic.label}`,
+                  polyline: {
+                    positions: positions,
+                    width: 5.0,
+                    material: new Cesium.PolylineArrowMaterialProperty(phaseColor),
+                    clampToGround: true
+                  }
+                });
+                const midTask = Cesium.Cartesian3.lerp(positions[0], positions[Math.floor(positions.length / 2)], 0.5, new Cesium.Cartesian3());
+                addTacticalEntity({
+                  id: `${id}-lbl`,
+                  position: midTask,
+                  label: {
+                    text: `[${taskText}] ${graphic.label}`,
+                    font: 'bold 10px sans-serif',
+                    fillColor: Cesium.Color.WHITE,
+                    backgroundColor: phaseColor,
+                    showBackground: true,
+                    backgroundPadding: new Cesium.Cartesian2(4, 2),
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                  }
+                });
+              }
+              break;
           }
         });
       });
@@ -2539,6 +3057,14 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     historicalHotspots,
     osintEvents,
     osintLayerActive,
+    showSatDefensoriaLayer,
+    selectedSatYear,
+    showS2COALayer,
+    showPiccGraphicsLayer,
+    showUnitsLayer,
+    showHydrographyLayer,
+    showRoadsLayer,
+    showCmocTransitLayer,
     showIntelligenceLayer,
     showHotspotsLayer,
     showHistoricalHotspots,
@@ -3030,12 +3556,15 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     PICCElementType.ENEMY_UNIT_POINT_SIT, PICCElementType.FRIENDLY_UNIT_POINT_SIT,
     PICCElementType.NEUTRAL_POINT_SIT, PICCElementType.CIVILIAN_POINT_SIT,
     PICCElementType.NAI_POINT, PICCElementType.TARGET_REFERENCE_POINT,
-    PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED
+    PICCElementType.CONTROL_CHECKPOINT, PICCElementType.OBSTACLE_DEMOLITION_PLANNED,
+    PICCElementType.ENEMY_GUERRILLA_POINT, PICCElementType.ENEMY_LEADER_POINT,
+    PICCElementType.CIVILIAN_CR_POINT, PICCElementType.TAI_POINT
   ].includes(piccDrawingConfig.type as PICCElementType) : false;
 
   const isPolygon = piccDrawingConfig ? [
     PICCElementType.FRIENDLY_ASSEMBLY_AREA, PICCElementType.FRIENDLY_OBJECTIVE,
-    PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC
+    PICCElementType.NFA_AREA, PICCElementType.RFA_AREA, PICCElementType.CONTROL_AREA_GENERIC,
+    PICCElementType.NAI_AREA, PICCElementType.TAI_AREA
   ].includes(piccDrawingConfig.type as PICCElementType) : false;
 
   return (
@@ -3094,27 +3623,122 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       {/* Analysis Layers Filters Dropdown */}
       {showFilters && (
-        <div className="absolute top-16 left-[9.5rem] z-[100] bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-xl p-4 w-60 shadow-2xl flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
-          <h4 className="text-sm font-semibold text-slate-200 border-b border-slate-700 pb-2">Filtros de Capa</h4>
+        <div className="absolute top-16 left-[9.5rem] z-[100] bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-xl p-4 w-72 shadow-2xl flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+            <h4 className="text-sm font-semibold text-slate-200">Capas y Medidas Tácticas</h4>
+            <span className="text-[10px] text-sky-400 font-mono">ON/OFF</span>
+          </div>
           
-          <div className="space-y-3 pt-1">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Capas de Inteligencia</p>
+          <div className="space-y-2.5 pt-1">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Capas Operacionales & PICC</p>
             
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Inteligencia (Intel)</span>
+              <span className="text-xs font-medium text-slate-300">⛰️ CMOC: Transitabilidad (&lt;15°, 15-30°, &gt;30°)</span>
+              <input type="checkbox" checked={showCmocTransitLayer} onChange={e => setShowCmocTransitLayer(e.target.checked)} className="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">🌊 Red Hidrográfica (Ríos)</span>
+              <input type="checkbox" checked={showHydrographyLayer} onChange={e => setShowHydrographyLayer(e.target.checked)} className="w-4 h-4 accent-cyan-500 rounded cursor-pointer" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">🛣️ Red Vial (Corredores Viales)</span>
+              <input type="checkbox" checked={showRoadsLayer} onChange={e => setShowRoadsLayer(e.target.checked)} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
+            </div>
+
+            <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-300">🛡️ Alertas Defensoría (SAT)</span>
+                <input type="checkbox" checked={showSatDefensoriaLayer} onChange={e => setShowSatDefensoriaLayer(e.target.checked)} className="w-4 h-4 accent-red-500 rounded cursor-pointer" />
+              </div>
+              {showSatDefensoriaLayer && (
+                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800/50">
+                  <span className="text-[10px] text-slate-400 font-mono">Año SAT:</span>
+                  <select
+                    value={selectedSatYear}
+                    onChange={e => setSelectedSatYear(e.target.value)}
+                    className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-2 py-0.5 text-[11px] font-medium outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="TODOS">Todos los años (369)</option>
+                    <option value="2026">2026 (23)</option>
+                    <option value="2025">2025 (20)</option>
+                    <option value="2024">2024 (27)</option>
+                    <option value="2023">2023 (39)</option>
+                    <option value="2022">2022 (34)</option>
+                    <option value="2021">2021 (29)</option>
+                    <option value="2020">2020 (54)</option>
+                    <option value="2019">2019 (56)</option>
+                    <option value="2018">2018 (86)</option>
+                    <option value="2017">2017 (1)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">🎯 Medidas S2 / Calco COA</span>
+              <input type="checkbox" checked={showS2COALayer} onChange={e => setShowS2COALayer(e.target.checked)} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">✏️ Gráficos PICC</span>
+              <input type="checkbox" checked={showPiccGraphicsLayer} onChange={e => setShowPiccGraphicsLayer(e.target.checked)} className="w-4 h-4 accent-blue-500 rounded cursor-pointer" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">🎖️ Unidades Propias</span>
+              <input type="checkbox" checked={showUnitsLayer} onChange={e => setShowUnitsLayer(e.target.checked)} className="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
+            </div>
+
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pt-2 border-t border-slate-800/80">Inteligencia y Sensores</p>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-300">📡 Inteligencia (Intel)</span>
               <input type="checkbox" checked={showIntelligenceLayer} onChange={e => setShowIntelligenceLayer(e.target.checked)} className="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Hotspots (BMA)</span>
+              <span className="text-xs font-medium text-slate-300">🔥 Hotspots (BMA)</span>
               <input type="checkbox" checked={showHotspotsLayer} onChange={e => setShowHotspotsLayer(e.target.checked)} className="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Histórico Hotspots</span>
+              <span className="text-xs font-medium text-slate-300">📜 Histórico Hotspots</span>
               <input type="checkbox" checked={showHistoricalHotspots} onChange={e => setShowHistoricalHotspots(e.target.checked)} className="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Noticias OSINT (IA)</span>
+              <span className="text-xs font-medium text-slate-300">📢 Noticias OSINT</span>
               <input type="checkbox" checked={showOsintLayer} onChange={e => setShowOsintLayer(e.target.checked)} className="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
+            </div>
+          </div>
+
+          {/* Acciones de Limpieza y Borrado de Calco */}
+          <div className="pt-2 border-t border-slate-800 space-y-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Borrado de Calco Táctico</p>
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={handleClearS2COAPlan}
+                className="w-full text-left px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-slate-700/60 rounded text-[11px] font-medium transition flex items-center justify-between"
+                title="Eliminar del visor 3D las medidas de coordinación de maniobra S2 y COA"
+              >
+                <span>🎯 Borrar Calco COA / S2</span>
+                <span className="text-[10px] text-slate-400">Limpiar</span>
+              </button>
+              <button
+                onClick={handleClearPiccGraphics}
+                className="w-full text-left px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-rose-300 hover:text-rose-200 border border-slate-700/60 rounded text-[11px] font-medium transition flex items-center justify-between"
+                title="Eliminar del mapa todos los trazos y símbolos PICC guardados"
+              >
+                <span>✏️ Borrar Gráficos PICC</span>
+                <span className="text-[10px] text-slate-400">Limpiar</span>
+              </button>
+              <button
+                onClick={handleClearAllTacticalCalco}
+                className="w-full text-left px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-800/60 rounded text-[11px] font-semibold transition flex items-center justify-between"
+                title="Limpiar completamente todas las medidas graficadas del visor 3D"
+              >
+                <span>🗑️ Limpiar Todo el Calco</span>
+                <span className="text-[10px] text-red-400 font-bold">Total</span>
+              </button>
             </div>
           </div>
         </div>

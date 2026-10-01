@@ -5,14 +5,15 @@ import { renderTacticalMarkdown } from '../utils/markdownUtils';
 import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
 import type { Feature as GeoJSONFeature, Polygon as GeoJSONPolygon } from 'geojson';
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, SelectedEntity, NominatimResult, GeoLocation, PICCDrawConfig, PlantillaType as PlantillaTypeEnum, PICCToolDefinition, COAPlan } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, SelectedEntity, NominatimResult, GeoLocation, PICCDrawConfig, PlantillaType as PlantillaTypeEnum, PICCToolDefinition, COAPlan, OsintEvent, AfterActionReport } from '../types';
 import { MapEntityType, PlantillaType } from '../types';
 import { getGeminiAnalysis, generateCOAPlan, getDoctrinalAssistantResponse, simulateCOAOutcome, useAITask, updateTaskState, AoiGeoContext } from '../utils/geminiService';
 import { weatherService } from '../services/weatherService';
 import { decimalToDMS } from '../utils/coordinateUtils';
 import { coaPlanService } from '../services/coaPlanService';
+import { PICCWorkflowAssistant } from './PICCWorkflowAssistant';
+import { COLOMBIA_RIVER_NETWORKS } from '../constants/colombiaHydrography';
 
-const PlantillaPICCConfig: any = {};
 import { RulerIcon } from './icons/RulerIcon';
 import { PencilIcon } from './icons/PencilIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
@@ -23,6 +24,65 @@ import { AcademicCapIcon } from './icons/AcademicCapIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
+import { FlagIcon } from './icons/FlagIcon';
+import { MapPinIcon } from './icons/MapPinIcon';
+import { BoltIcon } from './icons/BoltIcon';
+import { ShieldExclamationIcon } from './icons/ShieldExclamationIcon';
+import { CrosshairsIcon } from './icons/CrosshairsIcon';
+
+// Configuración Doctrinal de Plantillas PICC (MTE 2-01.3 & MFRE 1-02.2)
+const PlantillaPICCConfig: Record<string, { label: string; elements: PICCToolDefinition[] }> = {
+  [PlantillaType.SITUACION_ACTUAL]: {
+    label: "Plantilla de Situación Actual",
+    elements: [
+      { type: 'FRIENDLY_UNIT_POINT_SIT' as any, label: 'Unidad Propia', icon: ShieldCheckIcon, colorClass: 'bg-blue-600 hover:bg-blue-700' },
+      { type: 'ENEMY_UNIT_POINT_SIT' as any, label: 'Contacto Hostil', icon: ShieldExclamationIcon, colorClass: 'bg-red-600 hover:bg-red-700' },
+      { type: 'LINE_OF_CONTACT' as any, label: 'Línea de Contacto (LC)', icon: PencilIcon, colorClass: 'bg-amber-600 hover:bg-amber-700' },
+      { type: 'CONTROL_PHASE_LINE' as any, label: 'Línea de Fase (PL)', icon: RulerIcon, colorClass: 'bg-indigo-600 hover:bg-indigo-700' },
+      { type: 'CONTROL_CHECKPOINT' as any, label: 'Punto de Control', icon: MapPinIcon, colorClass: 'bg-teal-600 hover:bg-teal-700' },
+    ]
+  },
+  [PlantillaType.MANIOBRA_PROPUESTA]: {
+    label: "Plantilla de Maniobra Propuesta",
+    elements: [
+      { type: 'FRIENDLY_MAIN_ATTACK_AXIS' as any, label: 'Eje de Avance Ppal', icon: BoltIcon, colorClass: 'bg-blue-600 hover:bg-blue-700' },
+      { type: 'FRIENDLY_SUPPORTING_ATTACK_AXIS' as any, label: 'Eje Secundario', icon: BoltIcon, colorClass: 'bg-sky-600 hover:bg-sky-700' },
+      { type: 'FRIENDLY_ASSEMBLY_AREA' as any, label: 'Área de Reunión (AA)', icon: FlagIcon, colorClass: 'bg-emerald-600 hover:bg-emerald-700' },
+      { type: 'FRIENDLY_OBJECTIVE' as any, label: 'Objetivo (OBJ)', icon: CrosshairsIcon, colorClass: 'bg-red-600 hover:bg-red-700' },
+      { type: 'CONTROL_PHASE_LINE' as any, label: 'Línea de Fase', icon: RulerIcon, colorClass: 'bg-indigo-600 hover:bg-indigo-700' },
+    ]
+  },
+  [PlantillaType.OBSTACULOS]: {
+    label: "Plantilla de Obstáculos (CMOC)",
+    elements: [
+      { type: 'OBSTACLE_MINEFIELD_DETECTED' as any, label: 'Campo Minado Detectado', icon: ExclamationTriangleIcon, colorClass: 'bg-rose-700 hover:bg-rose-800' },
+      { type: 'OBSTACLE_MINEFIELD_PLANNED' as any, label: 'Campo Minado Planeado', icon: ExclamationTriangleIcon, colorClass: 'bg-amber-700 hover:bg-amber-800' },
+      { type: 'OBSTACLE_BARRIER_GENERIC' as any, label: 'Barrera / Obstáculo', icon: ShieldExclamationIcon, colorClass: 'bg-orange-600 hover:bg-orange-700' },
+      { type: 'OBSTACLE_DEMOLITION_PLANNED' as any, label: 'Demolición Planeada', icon: BoltIcon, colorClass: 'bg-purple-700 hover:bg-purple-800' },
+    ]
+  },
+  [PlantillaType.APOYO_FUEGOS]: {
+    label: "Plantilla de Apoyo de Fuegos",
+    elements: [
+      { type: 'TARGET_REFERENCE_POINT' as any, label: 'Pto Ref Blanco (TRP)', icon: CrosshairsIcon, colorClass: 'bg-red-600 hover:bg-red-700' },
+      { type: 'FSCL_LINE' as any, label: 'Línea FSCL', icon: RulerIcon, colorClass: 'bg-yellow-600 hover:bg-yellow-700' },
+      { type: 'NFA_AREA' as any, label: 'Zona Sin Fuego (NFA)', icon: ShieldCheckIcon, colorClass: 'bg-emerald-600 hover:bg-emerald-700' },
+      { type: 'RFA_AREA' as any, label: 'Zona Restringida (RFA)', icon: ExclamationTriangleIcon, colorClass: 'bg-amber-600 hover:bg-amber-700' },
+    ]
+  },
+  [PlantillaType.INTELIGENCIA_ENEMIGA]: {
+    label: "Plantilla de Inteligencia Enemiga (S2)",
+    elements: [
+      { type: 'ENEMY_GUERRILLA_POINT' as any, label: 'Guerrilla GAO (G)', icon: ShieldExclamationIcon, colorClass: 'bg-red-700 hover:bg-red-800' },
+      { type: 'ENEMY_LEADER_POINT' as any, label: 'Cabecilla / Liderazgo (LDR)', icon: CrosshairsIcon, colorClass: 'bg-rose-800 hover:bg-rose-900' },
+      { type: 'CIVILIAN_CR_POINT' as any, label: 'Alerta Reclutamiento (CR)', icon: ExclamationTriangleIcon, colorClass: 'bg-orange-600 hover:bg-orange-700' },
+      { type: 'NAI_POINT' as any, label: 'Punto ANI (NAI)', icon: EyeIcon, colorClass: 'bg-purple-600 hover:bg-purple-700' },
+      { type: 'NAI_AREA' as any, label: 'Área ANI (NAI)', icon: EyeIcon, colorClass: 'bg-violet-600 hover:bg-violet-700' },
+      { type: 'ICL_LINE' as any, label: 'Línea Coord Intel (ICL)', icon: RulerIcon, colorClass: 'bg-fuchsia-600 hover:bg-fuchsia-700' },
+      { type: 'ENEMY_COA_AXIS' as any, label: 'Eje COA Amenaza', icon: BoltIcon, colorClass: 'bg-rose-600 hover:bg-rose-700' },
+    ]
+  }
+};
 
 import { API_BASE_URL } from '../utils/apiConfig';
 
@@ -104,6 +164,9 @@ const ElevationProfileChart: React.FC<ElevationProfileChartProps> = ({ data }) =
 interface AnalysisViewProps {
   units: MilitaryUnit[];
   intelligenceReports: IntelligenceReport[];
+  osintEvents?: OsintEvent[];
+  afterActionReports?: AfterActionReport[];
+  unitHistoryLog?: any[];
   distanceToolActive: boolean;
   setDistanceToolActive: (active: boolean) => void;
   aoiDrawingModeActive: boolean;
@@ -126,6 +189,8 @@ interface AoiStats {
   areaKm2: number;
   unitsInAoi: MilitaryUnit[];
   intelInAoi: IntelligenceReport[];
+  satInAoi: OsintEvent[];
+  riversInAoi: string[];
 }
 
 // Global store to manage AI query execution and states across tab unmounting
@@ -185,6 +250,9 @@ const fetchMunicipalityName = async (lat: number, lon: number): Promise<string |
 export const AnalysisView: React.FC<AnalysisViewProps> = ({
   units,
   intelligenceReports,
+  osintEvents = [],
+  afterActionReports = [],
+  unitHistoryLog = [],
   distanceToolActive,
   setDistanceToolActive,
   aoiDrawingModeActive,
@@ -391,6 +459,36 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         const geoResults = await Promise.all(pointsToGeocode.map(p => fetchMunicipalityName(p.lat, p.lon)));
         const municipalities = Array.from(new Set(geoResults.filter(Boolean) as string[]));
 
+        // Calcular Alertas SAT de la Defensoría del Pueblo en el AOI
+        const satInAoi = (osintEvents || []).filter(e => {
+          const isSat = (e.eventType || '').toUpperCase().includes('ALERTA_TEMPRANA_SAT') || !!e.satMetadata;
+          if (!isSat || !e.location) return false;
+          return turf.booleanPointInPolygon(turfPoint([e.location.lon, e.location.lat]), targetAoiGeoJson);
+        });
+
+        let satAlertsSummary = undefined;
+        if (satInAoi.length > 0) {
+          satAlertsSummary = satInAoi.slice(0, 8).map(s => 
+            `- Alerta ${s.satMetadata?.numeroAlerta || s.title} [Riesgo: ${s.satMetadata?.nivelRiesgo || 'ESTRUCTURAL'}]: ${s.summary || 'Sin detalle'} (GAOs: ${s.satMetadata?.gaosInvolucrados?.join(', ') || 'En disputa'})`
+          ).join('\n');
+        }
+
+        // Calcular Ríos y Red Hidrográfica que cruzan el AOI
+        const riversInAoi: string[] = [];
+        COLOMBIA_RIVER_NETWORKS.forEach(river => {
+          const passesThrough = river.paths.some(path => 
+            path.some(([rLon, rLat]) => turf.booleanPointInPolygon(turfPoint([rLon, rLat]), targetAoiGeoJson))
+          );
+          if (passesThrough && !riversInAoi.includes(river.name)) {
+            riversInAoi.push(river.name);
+          }
+        });
+
+        let hydrographySummary = undefined;
+        if (riversInAoi.length > 0) {
+          hydrographySummary = `Ríos y tributarios principales que cruzan el sector operacional: ${riversInAoi.join(', ')} (constituyen obstáculos tácticos de agua, líneas de fase naturales y avenidas fluviales de movilidad).`;
+        }
+
         geoContext = {
           areaKm2: turf.area(targetAoiGeoJson) / 1000000,
           centroid: {
@@ -406,7 +504,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           elevationAvg,
           elevationRange,
           terrainType,
-          elevationGrid
+          elevationGrid,
+          satAlertsSummary,
+          hydrographySummary
         };
 
         setCurrentGeoContext(geoContext);
@@ -436,8 +536,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     eventBus.publish('clearCOALayer');
 
     try {
-      // Generate COA with AI
-      const result = await generateCOAPlan(coaObjective, units, intelligenceReports);
+      // Generate COA with AI (informing terrain, river obstacles, and SAT alerts)
+      const result = await generateCOAPlan(coaObjective, units, intelligenceReports, currentGeoContext || undefined);
 
       // Save to database
       try {
@@ -469,7 +569,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     setSimulationResult(null);
 
     try {
-      const result = await simulateCOAOutcome(coaPlan, units, intelligenceReports);
+      const result = await simulateCOAOutcome(coaPlan, units, intelligenceReports, currentGeoContext || undefined);
       setSimulationResult(result);
     } catch (err: any) {
       setSimulationError(err.message || "Error al simular el resultado.");
@@ -531,7 +631,31 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     const unitsInAoi = units.filter(unit => turf.booleanPointInPolygon(turfPoint([unit.location.lon, unit.location.lat]), polygonGeoJson));
     const intelInAoi = intelligenceReports.filter(intel => turf.booleanPointInPolygon(turfPoint([intel.location.lon, intel.location.lat]), polygonGeoJson));
 
-    setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi });
+    // Cruzar Alertas SAT de la Defensoría del Pueblo dentro del AOI
+    const satInAoi = (osintEvents || []).filter(e => {
+      const isSat = (e.eventType || '').toUpperCase().includes('ALERTA_TEMPRANA_SAT') || !!e.satMetadata;
+      if (!isSat || !e.location) return false;
+      return turf.booleanPointInPolygon(turfPoint([e.location.lon, e.location.lat]), polygonGeoJson);
+    });
+
+    // Cruzar Red Hidrográfica y Ríos que atraviesan el AOI
+    const riversInAoi: string[] = [];
+    COLOMBIA_RIVER_NETWORKS.forEach(river => {
+      const passesThrough = river.paths.some(path => 
+        path.some(([lon, lat]) => turf.booleanPointInPolygon(turfPoint([lon, lat]), polygonGeoJson))
+      );
+      if (passesThrough && !riversInAoi.includes(river.name)) {
+        riversInAoi.push(river.name);
+      }
+    });
+
+    setAoiStats({ 
+      areaKm2: areaM2 / 1000000, 
+      unitsInAoi, 
+      intelInAoi,
+      satInAoi,
+      riversInAoi
+    });
     setAoiError(null);
     // Ahora sí, asignar formalmente al mapa
     eventBus.publish('finalizeAoiLayer', polygonGeoJson);
@@ -571,8 +695,24 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       const areaM2 = turf.area(geoJson);
       const unitsInAoi = unitsRef.current.filter(unit => turf.booleanPointInPolygon(turfPoint([unit.location.lon, unit.location.lat]), geoJson));
       const intelInAoi = intelRef.current.filter(intel => turf.booleanPointInPolygon(turfPoint([intel.location.lon, intel.location.lat]), geoJson));
+      
+      const satInAoi = (osintEvents || []).filter(e => {
+        const isSat = (e.eventType || '').toUpperCase().includes('ALERTA_TEMPRANA_SAT') || !!e.satMetadata;
+        if (!isSat || !e.location) return false;
+        return turf.booleanPointInPolygon(turfPoint([e.location.lon, e.location.lat]), geoJson);
+      });
 
-      setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi });
+      const riversInAoi: string[] = [];
+      COLOMBIA_RIVER_NETWORKS.forEach(river => {
+        const passesThrough = river.paths.some(path => 
+          path.some(([lon, lat]) => turf.booleanPointInPolygon(turfPoint([lon, lat]), geoJson))
+        );
+        if (passesThrough && !riversInAoi.includes(river.name)) {
+          riversInAoi.push(river.name);
+        }
+      });
+
+      setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi, satInAoi, riversInAoi });
       setAoiError(null);
     };
 
@@ -585,7 +725,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       eventBus.unsubscribe(finishedToken);
       eventBus.unsubscribe(approveToken);
     };
-  }, [eventBus, setAoiDrawingModeActive]);
+  }, [eventBus, setAoiDrawingModeActive, osintEvents]);
 
   // Sincronizar AOI de la unidad guardada al montar el componente para evitar que se pierda al cambiar de pestaña
   useEffect(() => {
@@ -602,7 +742,23 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
             const unitsInAoi = units.filter(unit => turf.booleanPointInPolygon(turfPoint([unit.location.lon, unit.location.lat]), geoJson));
             const intelInAoi = intelligenceReports.filter(intel => turf.booleanPointInPolygon(turfPoint([intel.location.lon, intel.location.lat]), geoJson));
             
-            setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi });
+            const satInAoi = (osintEvents || []).filter(e => {
+              const isSat = (e.eventType || '').toUpperCase().includes('ALERTA_TEMPRANA_SAT') || !!e.satMetadata;
+              if (!isSat || !e.location) return false;
+              return turf.booleanPointInPolygon(turfPoint([e.location.lon, e.location.lat]), geoJson);
+            });
+
+            const riversInAoi: string[] = [];
+            COLOMBIA_RIVER_NETWORKS.forEach(river => {
+              const passesThrough = river.paths.some(path => 
+                path.some(([lon, lat]) => turf.booleanPointInPolygon(turfPoint([lon, lat]), geoJson))
+              );
+              if (passesThrough && !riversInAoi.includes(river.name)) {
+                riversInAoi.push(river.name);
+              }
+            });
+
+            setAoiStats({ areaKm2: areaM2 / 1000000, unitsInAoi, intelInAoi, satInAoi, riversInAoi });
             setAoiError(null);
 
             // Obtener el sector correspondiente
@@ -941,6 +1097,18 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       eventBus.publish('clearGeospatialSearchMarkers');
     };
   }, [eventBus]);
+
+  useEffect(() => {
+    if (!eventBus) return;
+    const token = eventBus.subscribe('setTemplateContext', (_msg: string, template: any) => {
+      if (template && setActiveTemplateContext) {
+        setActiveTemplateContext(template);
+      }
+    });
+    return () => {
+      eventBus.unsubscribe(token);
+    };
+  }, [eventBus, setActiveTemplateContext]);
 
   const handlePiccToolSelect = (toolDef: PICCToolDefinition) => {
     deactivateOtherTools();
@@ -1479,11 +1647,30 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         </div>
       </div>
 
+      <PICCWorkflowAssistant
+        units={units}
+        intelligenceReports={intelligenceReports}
+        osintEvents={osintEvents}
+        afterActionReports={afterActionReports}
+        finalizedAoiGeoJson={finalizedAoiGeoJson}
+        onSelectStepTool={(toolType) => {
+          if (toolType === 'DRAW_AOI') {
+            toggleAoiDrawingMode();
+          } else if (toolType === 'PICC_S2_TOOL') {
+            setActiveTemplateContext(PlantillaType.INTELIGENCIA_ENEMIGA);
+          }
+        }}
+        onActivateTemplate={(template) => {
+          setActiveTemplateContext(template);
+        }}
+        eventBus={eventBus}
+      />
+
       <div className="bg-gray-800 p-4 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-lime-300 flex items-center">
             <PencilIcon className="w-5 h-5 mr-2" />
-            Planeamiento Operacional (PICC)
+            Calco Táctico y Plantillas PICC (MFRE 1-02.2)
           </h3>
           <div className="flex items-center space-x-2">
             <button
@@ -1665,19 +1852,57 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               </div>
 
               <div>
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Puntos de Inteligencia</h4>
-                {aoiStats.intelInAoi.length > 0 ? (
-                  <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-                    {aoiStats.intelInAoi.map(i => (
-                      <div key={i.id}
-                        className="p-1 px-2 flex justify-between bg-gray-750 hover:bg-gray-700 rounded border border-gray-700/50 cursor-pointer text-xs"
-                        onClick={() => onSelectEntityOnMap && onSelectEntityOnMap({ type: MapEntityType.INTEL, id: i.id })}
+                <h4 className="text-xs font-black text-amber-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                  <span>🛡️ Alertas SAT Defensoría en el AOI</span>
+                  <span className="font-mono text-[10px] text-amber-300">({aoiStats.satInAoi.length})</span>
+                </h4>
+                {aoiStats.satInAoi.length > 0 ? (
+                  <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                    {aoiStats.satInAoi.map(s => (
+                      <div key={s.id}
+                        className="p-1.5 px-2 bg-gray-750 hover:bg-gray-700 rounded border border-amber-900/50 hover:border-amber-600/80 cursor-pointer text-xs space-y-0.5 transition"
+                        onClick={() => {
+                          if (s.location) {
+                            eventBus.publish('panToLocationAndShowInfo', {
+                              location: s.location,
+                              displayName: `SAT: ${s.satMetadata?.numeroAlerta || s.title}`,
+                              placeType: 'ALERTA TEMPRANA SAT'
+                            });
+                          }
+                        }}
+                        title="Centrar visor 3D en la alerta"
                       >
-                        <span className="text-yellow-500/80 font-medium truncate">{i.title}</span>
+                        <div className="flex justify-between items-center">
+                          <span className="text-amber-300 font-bold text-[11px] truncate">
+                            {s.satMetadata?.numeroAlerta || s.title}
+                          </span>
+                          <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                            s.satMetadata?.nivelRiesgo === 'INMINENTE' ? 'bg-red-950 text-red-300 border border-red-800' : 'bg-amber-950 text-amber-300 border border-amber-800'
+                          }`}>
+                            {s.satMetadata?.nivelRiesgo || 'ESTRUCTURAL'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{s.summary}</p>
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-xs italic text-gray-500">Sin alertas de inteligencia en el sector.</p>}
+                ) : <p className="text-xs italic text-gray-500">Sin alertas tempranas SAT en este sector.</p>}
+              </div>
+
+              <div>
+                <h4 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                  <span>🌊 Red Hidrográfica y Obstáculos de Agua</span>
+                  <span className="font-mono text-[10px] text-cyan-300">({aoiStats.riversInAoi.length})</span>
+                </h4>
+                {aoiStats.riversInAoi.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {aoiStats.riversInAoi.map((rName, idx) => (
+                      <span key={idx} className="px-2 py-0.5 bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 rounded text-[10px] font-medium flex items-center gap-1">
+                        <span>🌊</span> {rName}
+                      </span>
+                    ))}
+                  </div>
+                ) : <p className="text-xs italic text-gray-500">Sin ríos principales identificados en el polígono.</p>}
               </div>
             </div>
           )}

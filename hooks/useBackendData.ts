@@ -36,11 +36,12 @@ import { useReportManagement } from './modules/useReportManagement';
 import { useTacticalOps } from './modules/useTacticalOps';
 
 import { generateRandomId } from '../utils/idUtils';
+import { DEFAULT_DEFENSORIA_SAT_ALERTS } from '../constants/defensoriaSatAlerts';
 
 export const useBackendData = (): UseSimulatedDataReturn => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [userTelegramConfigs, setUserTelegramConfigsInternal] = useState<UserTelegramConfig[]>([]);
-  const [osintEvents, setOsintEventsInternal] = useState<OsintEvent[]>([]);
+  const [osintEvents, setOsintEventsInternal] = useState<OsintEvent[]>(DEFAULT_DEFENSORIA_SAT_ALERTS);
   const [loadingErrors, setLoadingErrors] = useState<string[]>([]);
 
   const { unitHistoryLog, setUnitHistoryLogInternal, addUnitHistoryEvent } = useHistoryManagement();
@@ -90,7 +91,19 @@ export const useBackendData = (): UseSimulatedDataReturn => {
       if (resQ5s.status === 'fulfilled') setQ5ReportsInternal(resQ5s.value); else errors.push("reportes Q5");
       if (resLogistics.status === 'fulfilled') setLogisticsRequestsInternal(resLogistics.value); else errors.push("logística");
       if (resHistory.status === 'fulfilled') setUnitHistoryLogInternal(resHistory.value); else errors.push("historial");
-      if (resOsint.status === 'fulfilled') setOsintEventsInternal(resOsint.value); else errors.push("OSINT");
+      if (resOsint.status === 'fulfilled') {
+        const backendEvents = resOsint.value || [];
+        const merged = [...DEFAULT_DEFENSORIA_SAT_ALERTS];
+        backendEvents.forEach((bEvent: any) => {
+          if (!merged.some(m => m.id === bEvent.id)) {
+            merged.push(bEvent);
+          }
+        });
+        setOsintEventsInternal(merged);
+      } else {
+        setOsintEventsInternal(DEFAULT_DEFENSORIA_SAT_ALERTS);
+        errors.push("OSINT");
+      }
 
       if (errors.length > 0) {
         setLoadingErrors(errors);

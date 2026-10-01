@@ -188,7 +188,7 @@ const App: React.FC = () => {
   const [aoiDrawingModeActive, setAoiDrawingModeActive] = useState<boolean>(false);
   const [enemyInfluenceLayerActive, setEnemyInfluenceLayerActive] = useState<boolean>(false);
   const [elevationProfileActive, setElevationProfileActive] = useState<boolean>(false);
-  const [osintLayerActive, setOsintLayerActive] = useState<boolean>(false);
+  const [osintLayerActive, setOsintLayerActive] = useState<boolean>(true);
   const [aoDrawingUnitId, setAoDrawingUnitId] = useState<string | null>(null);
   const [pendingAoiGeoJson, setPendingAoiGeoJson] = useState<any | null>(null);
   const [aoiSector, setAoiSector] = useState<string | null>(null);
@@ -338,10 +338,17 @@ const App: React.FC = () => {
       }
     });
 
+    const tokenSetTemplate = eventBus.subscribe('setTemplateContext', (_msg: string, template: any) => {
+      if (template) {
+        setActivePICCPlantillaContext(template);
+      }
+    });
+
     return () => {
       eventBus.unsubscribe(tokenNew);
       eventBus.unsubscribe(tokenRender);
       eventBus.unsubscribe(tokenClear);
+      eventBus.unsubscribe(tokenSetTemplate);
     };
   }, []);
 
@@ -831,6 +838,9 @@ const App: React.FC = () => {
   const analysisViewProps = {
     units: operationalUnitsForMap,
     intelligenceReports,
+    osintEvents,
+    afterActionReports,
+    unitHistoryLog,
     distanceToolActive,
     setDistanceToolActive,
     aoiDrawingModeActive,

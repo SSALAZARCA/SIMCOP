@@ -887,6 +887,9 @@ export interface AoiGeoContext {
   elevationRange?: number;   // max - min (relief)
   terrainType?: string;      // classified terrain description
   elevationGrid?: {lat: number, lon: number, elev: number}[]; // Full point cloud matrix
+  // Alertas Defensoría SAT y Red Hidrográfica
+  satAlertsSummary?: string;
+  hydrographySummary?: string;
 }
 
 export const getGeminiAnalysis = async (
@@ -1108,6 +1111,8 @@ TOPOGRAFÍA Y GEOMETRÍA GENERAL DEL AOI:${geometryPrompt}
 ${quadrantPrompt}
 ${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA DE PUNTOS SAMPLING (POINT CLOUD):
 ${geoContext.elevationGrid.map(p => `[Lat:${p.lat.toFixed(5)}, Lon:${p.lon.toFixed(5)} -> ${p.elev} msnm]`).join(' | ')}` : ''}
+${geoContext.satAlertsSummary ? `\nALERTAS TEMPRANAS DEFENSORÍA DEL PUEBLO (SAT / FACTOR AECOPE POBLACIÓN CIVIL):\n${geoContext.satAlertsSummary}` : ''}
+${geoContext.hydrographySummary ? `\nRED HIDROGRÁFICA Y CURSOS FLUVIALES (OBSTÁCULOS NATURALES DE AGUA):\n${geoContext.hydrographySummary}` : ''}
 ---`;
   }
 
@@ -1297,7 +1302,8 @@ export const normalizeCOAPlan = (raw: any): COAPlan => {
 export const generateCOAPlan = async (
   objective: string,
   units: MilitaryUnit[],
-  intelReports: IntelligenceReport[]
+  intelReports: IntelligenceReport[],
+  geoContext?: AoiGeoContext
 ): Promise<COAPlan> => {
   // Ensure AI client is initialized
   const isInitialized = await ensureInitialized();
@@ -1308,10 +1314,17 @@ export const generateCOAPlan = async (
   const unitContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
   
+  let geoPrompt = '';
+  if (geoContext) {
+    const rivers = geoContext.hydrographySummary ? `\nOBSTÁCULOS FLUVIALES EN EL AOI:\n${geoContext.hydrographySummary}` : '';
+    const sat = geoContext.satAlertsSummary ? `\nALERTAS HUMANITARIAS SAT EN EL AOI (FACTOR AECOPE):\n${geoContext.satAlertsSummary}` : '';
+    geoPrompt = `\nCONTEXTO GEOGRÁFICO Y TERRENO DEL AOI:${rivers}${sat}\n- Topografía: ${geoContext.terrainType || 'Terreno mixto'}\n- Elevación promedio: ${geoContext.elevationAvg || geoContext.elevationMeters} msnm\n`;
+  }
+  
   const systemInstruction = `Eres el Oficial de Planeamiento y Operaciones (G3) del sistema SIMCOP. Tu tarea es diseñar un Curso de Acción (COA) táctico completo y generar simultáneamente su CALCO TÁCTICO DE GRAFICACIÓN sobre el mapa.
 
 REGLAS OBLIGATORIAS:
-1. ANCLAJE ESPACIAL: Prohibido inventar coordenadas. Emplea exclusivamente las coordenadas y posiciones de las unidades amigas e informes de inteligencia inyectados en la consulta.
+1. ANCLAJE ESPACIAL Y DEL TERRENO: Prohibido inventar coordenadas. Emplea exclusivamente las coordenadas y posiciones de las unidades amigas e informes de inteligencia inyectados en la consulta. Si se incluye contexto geográfico (ríos/obstáculos de agua y alertas SAT), adecúa las avenidas de aproximación respetando los vados o puentes fluviales y resguardando las zonas pobladas bajo alerta humanitaria.
 2. INTEGRACIÓN DE GRAFICACIÓN: Cada fase de la maniobra debe incluir obligatoriamente sus capas geométricas de control táctico para ser renderizadas en el mapa (puntos de control, líneas de fase, vectores de avance, zonas de reunión y áreas de objetivo).
 3. FORMATO DE COORDENADAS: Formato estándar [latitud, longitud] en decimales o [longitud, latitud] según GeoJSON. Valida que los vértices sean consistentes con el terreno real del área.
 4. SALIDA: Responde ÚNICAMENTE con un objeto JSON válido, sin bloques de texto introductorio ni explicaciones fuera del JSON.
@@ -1404,7 +1417,7 @@ ${unitContext}
 
 INTELIGENCIA Y AMENAZAS EN EL MAPA:
 ${intelContext}
-
+${geoPrompt}
 ---
 SOLICITUD G3:
 Diseña el Curso de Acción (COA) táctico completo y genera simultáneamente las medidas de control gráfico táctico (puntos, líneas y polígonos) para su renderizado y calco directo en el mapa 3D de SIMCOP.
@@ -1912,7 +1925,8 @@ export const formatWargameMarkdown = (wg: WargameSimulationResult): string => {
 export const simulateCOAOutcome = async (
   coaPlan: COAPlan,
   units: MilitaryUnit[],
-  intelReports: IntelligenceReport[]
+  intelReports: IntelligenceReport[],
+  geoContext?: AoiGeoContext
 ): Promise<GeminiAnalysisResult> => {
   const isInitialized = await ensureInitialized();
   if (aiProvider === 'GEMINI' && (!isInitialized || !ai)) {
@@ -2043,7 +2057,12 @@ ${unitContext}
 ---
 INTELIGENCIA ADVERSARIA Y AMENAZA GANE/GAO (HISTÓRICO Y CONTACTOS RECIENTES):
 ${intelContext}
-
+${geoContext ? `
+---
+FACTOR TERRENO, RÍOS Y POBLACIÓN CIVIL EN EL AOI:
+- Relieve y Topografía: ${geoContext.terrainType || 'Terreno irregular'} (Elevación promedio: ${geoContext.elevationAvg || geoContext.elevationMeters} msnm)
+${geoContext.hydrographySummary ? `- Obstáculos de Agua / Cursos Fluviales: ${geoContext.hydrographySummary}\n  (Pondera dificultad de vadeo, cuellos de botella en puentes y riesgo de emboscada ribereña)` : ''}
+${geoContext.satAlertsSummary ? `- Factor AECOPE / Alertas SAT Población Civil: ${geoContext.satAlertsSummary}\n  (Pondera presencia de civiles en el área, riesgo de confinamiento o uso de población como escudo por el GAO)` : ''}` : ''}
 ---
 INSTRUCCIÓN FINAL:
 Ejecuta el wargaming aplicando Acción - Reacción - Contraacción en cada fase, cuantifica la atrición propia vs enemiga y emite el veredicto operacional.

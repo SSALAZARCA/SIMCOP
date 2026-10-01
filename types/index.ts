@@ -179,6 +179,18 @@ export interface OsintEvent {
   confidenceScore: number;
   eventType: string;
   verified: boolean;
+  // Campos especializados Sistema de Alertas Tempranas (SAT) - Defensoría del Pueblo
+  satMetadata?: {
+    numeroAlerta?: string; // ej. "AT 018-24"
+    anioEmision?: string; // ej. "2026", "2025"
+    codigoDaneMunicipio?: string; // ej. "81001"
+    departamento?: string;
+    municipio?: string;
+    gaosInvolucrados?: string[]; // ej. ["ELN - Frente Domingo Laín", "EMC FARC - Frente 10"]
+    nivelRiesgo?: 'INMINENTE' | 'ESTRUCTURAL' | 'MEDIO';
+    riesgosHumanitarios?: ('MINAS_MAP_MUSE' | 'CONFINAMIENTO' | 'DESPLAZAMIENTO_FORZADO' | 'RECLUTAMIENTO_MENORES' | 'EXTORSION' | 'COMBATE_ZONA_CIVIL')[];
+    poblacionAfectadaEstimada?: number;
+  };
 }
 
 export enum AlertType {
@@ -1118,6 +1130,14 @@ export enum PICCElementType {
   CONTROL_PHASE_LINE = 'CONTROL_PHASE_LINE',
   CONTROL_CHECKPOINT = 'CONTROL_CHECKPOINT',
   CONTROL_AREA_GENERIC = 'CONTROL_AREA_GENERIC',
+  // Elementos Doctrinales Adicionales MFRE 1-02.2 (2024)
+  ICL_LINE = 'ICL_LINE', // Línea de Coordinación de Inteligencia (MFRE 1-02.2 Numeral 6.19)
+  NAI_AREA = 'NAI_AREA', // Área Nombrada de Interés (Polígono ANI)
+  TAI_POINT = 'TAI_POINT', // Área Blanco de Interés (Punto ABI)
+  TAI_AREA = 'TAI_AREA',   // Área Blanco de Interés (Polígono ABI)
+  ENEMY_GUERRILLA_POINT = 'ENEMY_GUERRILLA_POINT', // Guerrilla (Modificador 'G', MFRE Tabla 2-18)
+  ENEMY_LEADER_POINT = 'ENEMY_LEADER_POINT',       // Cabecilla / Liderazgo (Modificador 'LDR')
+  CIVILIAN_CR_POINT = 'CIVILIAN_CR_POINT',         // Zona Alerta Reclutamiento Forzado (Modificador 'CR')
 }
 
 
@@ -1164,20 +1184,37 @@ export interface LoggedSpotReport extends SpotReportPayload {
   unitName?: string;
 }
 
-// --- COA (Course of Action) Types ---
+// --- COA (Course of Action) Types (MFRE 1-02.2 Cap. 6, 7 y 8) ---
 export enum COAGraphicType {
   PHASE_LINE = 'PHASE_LINE',
   AXIS_OF_ADVANCE = 'AXIS_OF_ADVANCE',
   OBJECTIVE = 'OBJECTIVE',
   ASSEMBLY_AREA = 'ASSEMBLY_AREA',
   BOUNDARY = 'BOUNDARY',
-  CHECKPOINT = 'CHECKPOINT'
+  CHECKPOINT = 'CHECKPOINT',
+  // Medidas de Control de Inteligencia (MFRE 1-02.2 Numeral 6.19)
+  INTEL_COORDINATION_LINE = 'INTEL_COORDINATION_LINE', // ICL
+  NAMED_AREA_OF_INTEREST = 'NAMED_AREA_OF_INTEREST',   // ANI / NAI
+  TARGET_AREA_OF_INTEREST = 'TARGET_AREA_OF_INTEREST', // ABI / TAI
+  // Tareas Tácticas de la Misión (MFRE 1-02.2 Capítulo 7)
+  TASK_BLOCK = 'TASK_BLOCK',         // Bloquear
+  TASK_CANALIZE = 'TASK_CANALIZE',   // Canalizar
+  TASK_CONTAIN = 'TASK_CONTAIN',     // Contener
+  TASK_ISOLATE = 'TASK_ISOLATE',     // Aislar
+  TASK_DESTROY = 'TASK_DESTROY',     // Destruir
+  TASK_CLEAR = 'TASK_CLEAR',         // Despejar
+  TASK_SEIZE = 'TASK_SEIZE',         // Capturar
+  TASK_FIX = 'TASK_FIX',             // Fijar
+  TASK_DELAY = 'TASK_DELAY',         // Acción Dilatoria
+  TASK_WITHDRAW = 'TASK_WITHDRAW',   // Repliegue
 }
 
 export interface COAGraphicElement {
   type: COAGraphicType;
   label: string;
   locations: GeoLocation[];
+  sidc?: string;
+  taskCode?: string;
 }
 
 export interface COAPhase {

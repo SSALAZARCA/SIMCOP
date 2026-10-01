@@ -135,6 +135,17 @@ export const getPICCElementSIDC = (type: PICCElementType, options?: SIDCGenerati
         case PICCElementType.CONTROL_CHECKPOINT: baseSIDC = PICC_SIDC.CONTROL_CHECKPOINT; break;
         case PICCElementType.CONTROL_AREA_GENERIC: baseSIDC = `G${affiliation}GAC-----`; break;
 
+        // Medidas de Control de Inteligencia MFRE 1-02.2 (Numeral 6.19)
+        case PICCElementType.ICL_LINE: baseSIDC = `G${affiliation}GLFI----`; break; // Intelligence Coordination Line
+        case PICCElementType.NAI_AREA: baseSIDC = `G${affiliation}GAOI----`; break; // Named Area of Interest (Area)
+        case PICCElementType.TAI_POINT: baseSIDC = `G${affiliation}TPOI----`; break; // Target Area of Interest (Point)
+        case PICCElementType.TAI_AREA: baseSIDC = `G${affiliation}TAOI----`; break; // Target Area of Interest (Area)
+
+        // Organizaciones y Actores MFRE 1-02.2 (Tablas 2-17 a 2-19)
+        case PICCElementType.ENEMY_GUERRILLA_POINT: baseSIDC = `S${SIDC_AFFILIATION_HOSTILE}GPUCI---`; break; // Hostil Irregular Guerrilla
+        case PICCElementType.ENEMY_LEADER_POINT: baseSIDC = `S${SIDC_AFFILIATION_HOSTILE}GPUCL---`; break;    // Hostil Cabecilla/Líder
+        case PICCElementType.CIVILIAN_CR_POINT: baseSIDC = `S${SIDC_AFFILIATION_NEUTRAL}GPCVCR--`; break;     // Civil Bajo Coacción/Reclutamiento
+
         default:
             console.warn(`PICC Element Type ${type} has no defined SIDC. Using generic point.`);
             baseSIDC = `S${affiliation}GPP-----`;
