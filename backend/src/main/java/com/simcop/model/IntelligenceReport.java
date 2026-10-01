@@ -25,7 +25,7 @@ public class IntelligenceReport {
     @Enumerated(EnumType.STRING)
     private IntelligenceCredibility credibility;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> keywords = new ArrayList<>();
 
     @Embedded
@@ -44,7 +44,7 @@ public class IntelligenceReport {
     @Column(name = "reporting_unit_id")
     private String reportingUnitId;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "report_links", joinColumns = @JoinColumn(name = "report_id"))
     @Column(name = "related_report_id")
     private List<String> relatedReportIds = new ArrayList<>();

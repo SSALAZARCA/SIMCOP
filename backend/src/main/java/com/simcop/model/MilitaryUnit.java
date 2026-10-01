@@ -40,11 +40,11 @@ public class MilitaryUnit {
     })
     private PersonnelBreakdown personnelBreakdown;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @Fetch(FetchMode.SUBSELECT)
     private List<String> equipment = new ArrayList<>();
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @Fetch(FetchMode.SUBSELECT)
     private List<String> capabilities = new ArrayList<>();
 
