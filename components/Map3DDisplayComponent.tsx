@@ -596,11 +596,23 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             latestProps.current.onSelectEntityOnMap({ id: matchedIntel.id, type: MapEntityType.INTEL });
           }
         }
-      } else if (latestProps.current.onSelectEntityOnMap) {
-        // Did not click a valid entity, clear selection if we didn't click a cluster
+      } else {
         const isClusterClick = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
-        if (!isClusterClick) {
-            latestProps.current.onSelectEntityOnMap(null);
+        if (isClusterClick) {
+          const clusterEntities = pickedObject.id as Cesium.Entity[];
+          if (clusterEntities.length > 0 && clusterEntities[0].position) {
+            const firstPos = clusterEntities[0].position.getValue ? clusterEntities[0].position.getValue(Cesium.JulianDate.now()) : clusterEntities[0].position;
+            if (firstPos) {
+              const carto = Cesium.Cartographic.fromCartesian(firstPos);
+              const targetAlt = Math.max(12000, viewer.camera.positionCartographic.height * 0.45);
+              viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, targetAlt),
+                duration: 1.2
+              });
+            }
+          }
+        } else if (latestProps.current.onSelectEntityOnMap) {
+          latestProps.current.onSelectEntityOnMap(null);
         }
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -647,57 +659,109 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       // Check for hovered entity and clusters
       const pickedObject = viewer.scene.pick(movement.endPosition);
       
-      // 1. Hover side-expansion for clusters
+      // 1. Hover handling for clusters and individual entities
       let isHoveringCluster = Cesium.defined(pickedObject) && pickedObject.id && Array.isArray(pickedObject.id);
       let isHoveringExpandedUnit = Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id && pickedObject.id.id.startsWith('expanded-hover-');
       
       if (isHoveringCluster) {
-          const clusteredEntities = pickedObject.id;
-          const clusterPrimitive = pickedObject.primitive;
-          
-          if (clusteredEntities.length > 8) {
+          const clusteredEntities = pickedObject.id as Cesium.Entity[];
+          const isHistoricoCluster = clusteredEntities.some((e: Cesium.Entity) => typeof e.id === 'string' && e.id.startsWith('hist-3d-'));
+
+          if (isHistoricoCluster) {
+              // Reseña detallada del sector agrupado de factores de inestabilidad
               if (expandedHoverStateRef.current) {
                   expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
                   expandedHoverStateRef.current = null;
               }
+
+              const count = clusteredEntities.length;
+              const details: string[] = [
+                  `📍 Total Hechos en este Sector: ${count} eventos operacionales agrupados.`,
+                  'Haga clic sobre el círculo rojo o acerque la cámara para ver cada punto en el terreno.',
+                  '----------------------------------------'
+              ];
+
+              clusteredEntities.slice(0, 8).forEach((entity: Cesium.Entity) => {
+                  const p: any = entity.properties;
+                  let title = entity.name || 'Factor de Inestabilidad';
+                  let dateStr = '';
+                  let grpStr = '';
+
+                  if (p) {
+                      if (typeof p.hasProperty === 'function') {
+                          if (p.hasProperty('tooltipTitle')) {
+                              const rawT = p.tooltipTitle;
+                              title = typeof rawT?.getValue === 'function' ? rawT.getValue() : rawT;
+                          }
+                          if (p.hasProperty('tooltipDetails')) {
+                              const rawD = p.tooltipDetails;
+                              const dList = typeof rawD?.getValue === 'function' ? rawD.getValue() : rawD;
+                              if (Array.isArray(dList)) {
+                                  const dt = dList.find(d => typeof d === 'string' && (d.startsWith('Fecha del Hecho:') || d.includes('Total Hechos')));
+                                  if (dt) dateStr = dt.replace('Fecha del Hecho: ', '');
+                                  const grp = dList.find(d => typeof d === 'string' && d.startsWith('Estructura Amenaza:'));
+                                  if (grp) grpStr = grp.replace('Estructura Amenaza: ', '');
+                              }
+                          }
+                      } else {
+                          if (p.tooltipTitle) title = typeof p.tooltipTitle.getValue === 'function' ? p.tooltipTitle.getValue() : p.tooltipTitle;
+                          if (p.tooltipDetails) {
+                              const dList = typeof p.tooltipDetails.getValue === 'function' ? p.tooltipDetails.getValue() : p.tooltipDetails;
+                              if (Array.isArray(dList)) {
+                                  const dt = dList.find(d => typeof d === 'string' && (d.startsWith('Fecha del Hecho:') || d.includes('Total Hechos')));
+                                  if (dt) dateStr = dt.replace('Fecha del Hecho: ', '');
+                                  const grp = dList.find(d => typeof d === 'string' && d.startsWith('Estructura Amenaza:'));
+                                  if (grp) grpStr = grp.replace('Estructura Amenaza: ', '');
+                              }
+                          }
+                      }
+                  }
+
+                  const row = [dateStr ? `[${dateStr.slice(0, 10)}]` : '', title, grpStr ? `(${grpStr})` : ''].filter(Boolean).join(' ');
+                  details.push(`• ${row}`);
+              });
+
+              if (count > 8) {
+                  details.push(`... y ${count - 8} hechos operacionales adicionales registrados en este sector.`);
+              }
+
               setHoveredTooltipInfo({
                   x: movement.endPosition.x,
                   y: movement.endPosition.y,
-                  title: `Concentración Táctica: ${clusteredEntities.length.toLocaleString()} Elementos`,
-                  details: [
-                      'Sector con alta densidad agrupada de factores de inestabilidad / unidades.',
-                      'Haga zoom para desagrupar e inspeccionar los hechos individualmente.'
-                  ]
+                  title: `Concentración Táctica: ${count} Factores de Inestabilidad`,
+                  details: details
               });
               document.body.style.cursor = 'pointer';
               return;
           }
 
-          if (!expandedHoverStateRef.current || expandedHoverStateRef.current.clusterPrimitive !== clusterPrimitive) {
+          // Para unidades militares amigas: expansión lateral
+          if (!expandedHoverStateRef.current || expandedHoverStateRef.current.clusterPrimitive !== pickedObject.primitive) {
               if (expandedHoverStateRef.current) {
                  expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
                  expandedHoverStateRef.current = null;
               }
               
-              let cartesianPos = clusterPrimitive?.position;
+              let cartesianPos = pickedObject.primitive?.position;
               if (cartesianPos) {
                   const expandedEntities: Cesium.Entity[] = [];
-                  const baseHorizontalOffset = 30; // Start 30px to the right of the cluster
-                  const spacing = 50; // 50px between each unit
+                  const baseHorizontalOffset = 30;
+                  const spacing = 50;
                   
                   clusteredEntities.forEach((entity: Cesium.Entity, index: number) => {
                       const offsetX = baseHorizontalOffset + (index * spacing);
                       const expandedEntity = viewer.entities.add({
                           id: `expanded-hover-${entity.id}`,
-                          position: cartesianPos, // Exact same 3D position
+                          position: cartesianPos,
+                          properties: entity.properties,
                           billboard: {
                               image: entity.billboard?.image,
                               heightReference: entity.billboard?.heightReference,
                               horizontalOrigin: entity.billboard?.horizontalOrigin,
                               verticalOrigin: entity.billboard?.verticalOrigin,
                               scaleByDistance: entity.billboard?.scaleByDistance,
-                              disableDepthTestDistance: entity.billboard?.disableDepthTestDistance,
-                              pixelOffset: new Cesium.Cartesian2(offsetX, 0) // Shift to the right
+                              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                              pixelOffset: new Cesium.Cartesian2(offsetX, 0)
                           },
                           label: {
                               text: entity.label?.text,
@@ -708,16 +772,16 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                               outlineWidth: entity.label?.outlineWidth,
                               verticalOrigin: entity.label?.verticalOrigin,
                               scaleByDistance: entity.label?.scaleByDistance,
-                              disableDepthTestDistance: entity.label?.disableDepthTestDistance,
+                              disableDepthTestDistance: Number.POSITIVE_INFINITY,
                               heightReference: entity.label?.heightReference,
-                              pixelOffset: new Cesium.Cartesian2(offsetX, 25) // Shift to the right, keep vertical offset
+                              pixelOffset: new Cesium.Cartesian2(offsetX, 25)
                           }
                       });
                       expandedEntities.push(expandedEntity);
                   });
                   
                   expandedHoverStateRef.current = {
-                      clusterPrimitive: clusterPrimitive,
+                      clusterPrimitive: pickedObject.primitive,
                       entities: expandedEntities,
                       basePosition: cartesianPos
                   };
@@ -728,15 +792,38 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           expandedHoverStateRef.current = null;
       }
 
-      // 2. Standard Tooltip logic
+      // 2. Extracción de reseña táctica (Tooltip) para entidades individuales
       if (pickedObject && pickedObject.id && pickedObject.id.properties) {
-        const props = pickedObject.id.properties;
-        if (props.hasProperty('tooltipTitle')) {
+        const props: any = pickedObject.id.properties;
+        let title: string | undefined;
+        let details: string[] = [];
+
+        if (typeof props.hasProperty === 'function') {
+          if (props.hasProperty('tooltipTitle')) {
+            const rawT = props.tooltipTitle;
+            title = typeof rawT?.getValue === 'function' ? rawT.getValue() : rawT;
+          }
+          if (props.hasProperty('tooltipDetails')) {
+            const rawD = props.tooltipDetails;
+            const val = typeof rawD?.getValue === 'function' ? rawD.getValue() : rawD;
+            details = Array.isArray(val) ? val.filter(Boolean) : [String(val)];
+          }
+        } else {
+          if (props.tooltipTitle) {
+            title = typeof props.tooltipTitle?.getValue === 'function' ? props.tooltipTitle.getValue() : props.tooltipTitle;
+          }
+          if (props.tooltipDetails) {
+            const val = typeof props.tooltipDetails?.getValue === 'function' ? props.tooltipDetails.getValue() : props.tooltipDetails;
+            details = Array.isArray(val) ? val.filter(Boolean) : [String(val)];
+          }
+        }
+
+        if (title) {
           setHoveredTooltipInfo({
             x: movement.endPosition.x,
             y: movement.endPosition.y,
-            title: props.tooltipTitle.getValue(),
-            details: props.tooltipDetails ? props.tooltipDetails.getValue().filter(Boolean) : []
+            title: title,
+            details: details
           });
           document.body.style.cursor = 'pointer';
         } else {
@@ -3165,7 +3252,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // Enable native Cesium clustering to prevent WebGL GPU stalls
     historicoDataSource.clustering.enabled = true;
-    historicoDataSource.clustering.pixelRange = 45;
+    historicoDataSource.clustering.pixelRange = 35;
     historicoDataSource.clustering.minimumClusterSize = 3;
     historicoDataSource.clustering.clusterEvent.addEventListener((clusteredEntities, cluster) => {
       cluster.label.show = true;
@@ -3177,6 +3264,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       cluster.label.outlineColor = Cesium.Color.BLACK;
       cluster.label.horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
       cluster.label.verticalOrigin = Cesium.VerticalOrigin.CENTER;
+      cluster.label.disableDepthTestDistance = Number.POSITIVE_INFINITY;
 
       cluster.billboard.show = false;
       cluster.point.show = true;
@@ -3306,20 +3394,21 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
         billboard: {
           image: iconPath,
-          width: isMulti ? 24 : (hasCombat ? 22 : 18),
-          height: isMulti ? 24 : (hasCombat ? 22 : 18),
+          width: isMulti ? 26 : (hasCombat ? 24 : 20),
+          height: isMulti ? 26 : (hasCombat ? 24 : 20),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(10.0, 450000.0)
+          scaleByDistance: symbolScaleByDistance,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         point: {
-          pixelSize: isMulti ? 14 : (hasCombat ? 12 : 9),
+          pixelSize: isMulti ? 14 : (hasCombat ? 12 : 10),
           color: color,
           outlineColor: Cesium.Color.WHITE,
           outlineWidth: isMulti ? 3 : 2,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(450000.0, 2500000.0)
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         properties: new Cesium.PropertyBag({
           tooltipTitle: tooltipTitle,
@@ -3327,13 +3416,16 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         }),
         label: labelText ? {
           text: labelText,
-          font: 'bold 9px system-ui, sans-serif',
+          font: 'bold 10px system-ui, sans-serif',
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
           fillColor: hasCombat ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
           outlineColor: Cesium.Color.BLACK,
-          outlineWidth: 2,
-          pixelOffset: new Cesium.Cartesian2(0, -14),
+          outlineWidth: 3,
+          pixelOffset: new Cesium.Cartesian2(0, -18),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 150000.0)
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          scaleByDistance: labelScaleByDistance,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(1.0, 350000.0)
         } : undefined
       });
     });
