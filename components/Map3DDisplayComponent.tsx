@@ -135,6 +135,63 @@ const PHASE_COLORS = [
 const symbolScaleByDistance = new Cesium.NearFarScalar(1.0e4, 1.0, 5.0e6, 0.3);
 const labelScaleByDistance = new Cesium.NearFarScalar(1.0e4, 1.0, 5.0e6, 0.0);
 
+// Cache global en memoria para símbolos tácticos milsymbol (evita recrear canvas/DataURL por cada punto)
+const historicoSymbolCache = new Map<string, string>();
+
+/**
+ * Resuelve el SIDC (MIL-STD-2525C/D / APP-6) táctico doctrinal estrictamente HOSTIL (ROJO)
+ * para los factores de inestabilidad y presencia del enemigo (MTE 2-01.3 & STANAG 2019).
+ * Guía oficial Cesium + Milsymbol: https://cesium.com/blog/2016/07/20/cesium-and-milsymbol
+ */
+const getHistoricoSIDC = (category?: string, aff?: string): string => {
+  const cat = (category || '').toUpperCase();
+  const a = (aff || '').toUpperCase();
+
+  // Combate / Contacto armado contra el enemigo -> Infantería hostil en contacto (Rombo rojo con 'X')
+  if (cat.includes('COMBATE') || a === 'CONTACTO' || cat.includes('ENFRENTAMIENTO')) {
+    return 'SHGPUCI--------';
+  }
+  // Neutralización de Artefactos Explosivos, Minas, IED, Acciones terroristas
+  if (cat.includes('EXPLOSIV') || cat.includes('MINA') || cat.includes('TERRORIS') || cat.includes('BOMBA')) {
+    return 'SHGPUCE--------'; // Zapadores / Explosivos hostiles
+  }
+  // Depósito ilegal, caleta, armamento incautado, munición
+  if (cat.includes('DEPÓSITO') || cat.includes('DEPOSITO') || cat.includes('CALETA') || cat.includes('ARMA') || cat.includes('MUNICION') || cat.includes('INCAUTACIÓN')) {
+    return 'SHGPUSA--------'; // Suministro / Depósito de armamento y municiones hostil
+  }
+  // Campamentos, áreas base, infraestructura ilícita enemiga
+  if (cat.includes('CAMPAMENTO') || cat.includes('BASE') || cat.includes('INFRAESTRUCTURA')) {
+    return 'SHGPI----------'; // Instalación / base fija hostil
+  }
+  // Narcotráfico, cristalizaderos, laboratorios, insumos
+  if (cat.includes('NARCO') || cat.includes('LABORATORIO') || cat.includes('CRISTALIZADERO')) {
+    return 'SHGPUS---------'; // Red de abastecimiento / logística ilícita
+  }
+  // Capturas, neutralizaciones, delincuencia, presencia armada general
+  return 'SHGPU----------'; // Factor de inestabilidad / Unidad terrestre hostil estándar
+};
+
+const getHistoricoSymbolUrl = (sidc: string): string => {
+  const cached = historicoSymbolCache.get(sidc);
+  if (cached) return cached;
+
+  try {
+    const sym = new ms.Symbol(sidc, {
+      size: 26,
+      outlineColor: 'white',
+      outlineWidth: 3,
+      infoFields: false
+    });
+    const url = sym.asCanvas().toDataURL();
+    historicoSymbolCache.set(sidc, url);
+    return url;
+  } catch (err) {
+    console.warn("Error generando simbolo milsymbol para SIDC:", sidc, err);
+    return '/files/hostil.png';
+  }
+};
+
+
 export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   units,
   intelligenceReports,
@@ -3314,33 +3371,19 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       const count = eventsAtCoord.length;
       const isMulti = count > 1;
 
-      let colorStr = '#DC2626'; // HOSTIL rojo (MTE 2-01.3 PICC)
-      let iconPath = '/files/hostil.png';
+      // DOCTRINA MILITAR MTE 2-01.3 & STANAG 2019:
+      // Toda actividad del enemigo / factores de inestabilidad es 100% HOSTIL (ROJO #DC2626).
+      // Jamás se grafica en azul (amigo) ni amarillo (desconocido) en esta capa de amenazas.
+      const colorStr = '#DC2626';
 
       const hasCombat = eventsAtCoord.some(e => e.aff === 'CONTACTO' || e.category?.includes('COMBATE'));
       const hasExplosive = eventsAtCoord.some(e => e.category && (e.category.includes('EXPLOSIV') || e.category.includes('TERRORIS')));
-      const hasDepot = eventsAtCoord.some(e => e.category && (e.category.includes('DEPÓSITO') || e.category.includes('CALETA')));
+      const hasDepot = eventsAtCoord.some(e => e.category && (e.category.includes('DEPÓSITO') || e.category.includes('CALETA') || e.category.includes('DEPOSITO')));
 
-      if (historicoDoctrinalMode === 'DOCTRINAL_RED') {
-        // MODO DOCTRINAL PICC / S2 (Cap. 5 y 6 MTE 2-01.3): Toda presencia hostil en rojo
-        colorStr = '#DC2626';
-        iconPath = hasCombat ? '/files/desconocido.png' : '/files/hostil.png';
-      } else {
-        // MODO CLASIFICACIÓN KMZ (Multicolor OTAN):
-        if (hasCombat) {
-          colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
-          iconPath = '/files/desconocido.png';
-        } else if (ev.aff === 'AMIGO') {
-          colorStr = '#2563EB'; // AMIGO azul
-          iconPath = '/files/amigo.png';
-        } else if (ev.aff === 'NEUTRO') {
-          colorStr = '#16A34A'; // NEUTRO verde
-          iconPath = '/files/neutro.png';
-        } else {
-          colorStr = '#DC2626';
-          iconPath = '/files/hostil.png';
-        }
-      }
+      // Generar símbolo táctico vectorial OTAN estándar con milsymbol (MIL-STD-2525)
+      const primaryCat = hasCombat ? 'COMBATES' : (hasExplosive ? 'EXPLOSIVOS' : (hasDepot ? 'DEPÓSITO' : (ev.category || '')));
+      const sidc = getHistoricoSIDC(primaryCat, ev.aff);
+      const iconUrl = getHistoricoSymbolUrl(sidc);
 
       const color = Cesium.Color.fromCssColorString(colorStr);
 
@@ -3348,9 +3391,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       let tooltipDetails: string[] = [];
 
       if (isMulti) {
-        tooltipTitle = `Sector ${ev.mun || ev.place || 'Rural'}: ${count} Factores de Inestabilidad`;
+        tooltipTitle = `Sector ${ev.mun || ev.place || 'Rural'}: ${count} Factores de Inestabilidad (Amenaza)`;
         tooltipDetails.push(`📍 Total Hechos Registrados en este Punto: ${count}`);
-        tooltipDetails.push(`Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : '🎨 Simbología OTAN'}`);
+        tooltipDetails.push('🔴 Simbología Militar Doctrinal: Amenaza / Factor de Inestabilidad (MTE 2-01.3)');
         tooltipDetails.push(`Ubicación: ${ev.mun || ''} (${ev.dept || 'Nariño'})`);
         tooltipDetails.push('----------------------------------------');
         eventsAtCoord.slice(0, 10).forEach((item) => {
@@ -3364,11 +3407,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           tooltipDetails.push(`... y ${count - 10} hechos operacionales adicionales registrados.`);
         }
       } else {
-        tooltipTitle = `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.category || ev.mun || ''}`;
+        tooltipTitle = `Factor de Inestabilidad: ${ev.category || ev.desc || ev.oper || ev.mun || 'Amenaza Hostil'}`;
         tooltipDetails = [
-          `Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : `Afiliación KMZ: ${ev.aff}`}`,
-          `Tipo de Hecho / Categoría: ${ev.category || ev.desc || 'Factor de Inestabilidad'}`,
-          `Afiliación de Origen: ${ev.aff} (Simbología OTAN / APP-6)`,
+          '🔴 Clasificación: Amenaza / Actividad Hostil (MTE 2-01.3 & STANAG 2019)',
+          `Tipo de Hecho / Factor: ${ev.category || ev.desc || 'Factor de Inestabilidad'}`,
+          `Símbolo Táctico SIDC: ${sidc}`,
           `Fecha del Hecho: ${ev.date || 'Sin fecha registrada'}`,
           `Ubicación: ${ev.place || ev.mun || 'Sector rural'} - ${ev.mun || ''} (${ev.dept || 'Nariño'})`,
           `Estructura Amenaza: ${ev.group || ev.desc || 'No determinada'}`,
@@ -3383,19 +3426,19 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       }
 
       const labelText = isMulti
-        ? `📍 [${count}] ${hasCombat ? '⚔️ Combates' : hasExplosive ? '💣 Explosivos' : ev.category || 'Hechos'}`
+        ? `🔴 [${count}] ${hasCombat ? 'Combates' : hasExplosive ? 'Explosivos' : ev.category || 'Hechos'}`
         : (hasCombat || hasExplosive || hasDepot)
-        ? `${hasCombat ? '⚔️ Combate' : hasExplosive ? '💣 Artefacto Explosivo' : '📦 Depósito/Caleta'} [${ev.date ? ev.date.slice(0, 4) : ''}]`
+        ? `${hasCombat ? 'Combate' : hasExplosive ? 'Artefacto Explosivo' : 'Depósito/Caleta'} [${ev.date ? ev.date.slice(0, 4) : ''}]`
         : undefined;
 
       historicoDataSource.entities.add({
         id: `hist-3d-${coordKey.replace('.', '_').replace(',', '_')}`,
-        name: isMulti ? `HISTÓRICO (${count} Hechos): ${ev.mun || ev.place}` : `HISTÓRICO ${ev.aff}: ${ev.category || ev.desc || ev.oper || ev.mun}`,
+        name: isMulti ? `HISTÓRICO (${count} Hechos): ${ev.mun || ev.place}` : `HISTÓRICO HOSTIL: ${ev.category || ev.desc || ev.oper || ev.mun}`,
         position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
         billboard: {
-          image: iconPath,
-          width: isMulti ? 26 : (hasCombat ? 24 : 20),
-          height: isMulti ? 26 : (hasCombat ? 24 : 20),
+          image: iconUrl,
+          width: isMulti ? 30 : 26,
+          height: isMulti ? 30 : 26,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
@@ -3403,10 +3446,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         point: {
-          pixelSize: isMulti ? 14 : (hasCombat ? 12 : 10),
+          pixelSize: isMulti ? 14 : 10,
           color: color,
           outlineColor: Cesium.Color.WHITE,
-          outlineWidth: isMulti ? 3 : 2,
+          outlineWidth: isMulti ? 2.5 : 1.5,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
@@ -3418,10 +3461,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           text: labelText,
           font: 'bold 10px system-ui, sans-serif',
           style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          fillColor: hasCombat ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
+          fillColor: Cesium.Color.WHITE,
           outlineColor: Cesium.Color.BLACK,
           outlineWidth: 3,
-          pixelOffset: new Cesium.Cartesian2(0, -18),
+          pixelOffset: new Cesium.Cartesian2(0, -20),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
           scaleByDistance: labelScaleByDistance,
@@ -4066,51 +4109,15 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               </div>
               {showHistoricoBr23Layer && (
                 <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800/50">
-                  {/* Selector de Modo Doctrinal (PICC Rojo vs Multicolor KMZ) */}
-                  <div className="flex flex-col gap-1 bg-slate-950/80 p-1.5 rounded border border-slate-800">
-                    <span className="text-[10px] text-amber-400 font-semibold tracking-wider uppercase">Modo Doctrinal:</span>
-                    <div className="grid grid-cols-2 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setHistoricoDoctrinalMode('DOCTRINAL_RED')}
-                        className={`px-1.5 py-1 text-[9px] font-bold rounded text-center transition-all ${
-                          historicoDoctrinalMode === 'DOCTRINAL_RED'
-                            ? 'bg-red-700 text-white shadow-sm ring-1 ring-red-400'
-                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                        }`}
-                        title="Doctrina MTE 2-01.3: Toda la actividad del enemigo (incluso donde hubo captura o combate) se grafica en ROJO como factor de inestabilidad / presencia hostil"
-                      >
-                        🔴 PICC S2 (Rojo)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHistoricoDoctrinalMode('NATO_AFFILIATION')}
-                        className={`px-1.5 py-1 text-[9px] font-bold rounded text-center transition-all ${
-                          historicoDoctrinalMode === 'NATO_AFFILIATION'
-                            ? 'bg-blue-700 text-white shadow-sm ring-1 ring-blue-400'
-                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                        }`}
-                        title="Clasificación original del KMZ por actor del resultado (Hostil rojo, Amigo azul, Combate amarillo, Neutro verde)"
-                      >
-                        🎨 OTAN KMZ
-                      </button>
+                  {/* Doctrina Militar MTE 2-01.3: Simbología OTAN milsymbol 100% Hostil (Rojo) */}
+                  <div className="flex flex-col gap-1 bg-slate-950/80 p-1.5 rounded border border-red-900/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-red-400 font-semibold tracking-wider uppercase">Simbología Táctica OTAN:</span>
+                      <span className="text-[9px] px-1.5 py-0.2 bg-red-950/80 text-red-300 border border-red-800 rounded font-mono">MIL-STD-2525</span>
                     </div>
-                  </div>
-
-                  {/* Filtro por Afiliación (solo relevante o modificable si está en modo KMZ o para filtrar subset) */}
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] text-slate-400 font-mono">Afiliación:</span>
-                    <select
-                      value={selectedHistoricoAff}
-                      onChange={e => setSelectedHistoricoAff(e.target.value)}
-                      className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer"
-                    >
-                      <option value="TODOS">Todas las afiliaciones</option>
-                      <option value="HOSTIL">🔴 HOSTIL (10.081)</option>
-                      <option value="AMIGO">🔵 AMIGO / OP PROPIAS (9.283)</option>
-                      <option value="CONTACTO">⚔️ CONTACTO / COMBATES (301)</option>
-                      <option value="NEUTRO">🟢 NEUTRO / CIVILES (319)</option>
-                    </select>
+                    <p className="text-[9px] text-slate-400 leading-tight">
+                      MTE 2-01.3 PICC: Toda actividad y factor de inestabilidad del enemigo se grafica en <strong className="text-red-400">ROJO DOCTRINAL</strong> mediante vectorización milsymbol.
+                    </p>
                   </div>
 
                   {/* Filtro por Categoría / Tipo de Hecho */}
