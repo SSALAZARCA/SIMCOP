@@ -17,7 +17,8 @@ import {
   PlantillaType,
   COAGraphicType,
   OperationalGraphic,
-  GeoLocation
+  GeoLocation,
+  UnitType
 } from '../types';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiClient } from '../utils/apiClient';
