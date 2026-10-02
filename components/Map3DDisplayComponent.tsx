@@ -4263,11 +4263,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               )}
             </div>
 
-            {/* Capa Histórico Factores de Inestabilidad BR23 (Simbología OTAN) */}
+            {/* Capa Histórico Factores de Inestabilidad (Simbología OTAN) */}
             <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-slate-800/80">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-slate-300">⚔️ Histórico BR23 (OTAN)</span>
+                  <span className="text-xs font-medium text-slate-300">⚔️ Histórico (OTAN)</span>
                   {isHistoricoLoading && (
                     <span className="text-[9px] text-amber-400 font-mono animate-pulse">Cargando...</span>
                   )}
@@ -4377,11 +4377,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               <input type="checkbox" checked={showPiccGraphicsLayer} onChange={e => setShowPiccGraphicsLayer(e.target.checked)} className="w-4 h-4 accent-blue-500 rounded cursor-pointer" />
             </div>
 
-            {/* Capa Rutas y Corredores de Movilidad de la Amenaza (PICC 2026 BR23) */}
+            {/* Capa Rutas y Corredores de Movilidad de la Amenaza */}
             <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-red-950/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-red-300">🚩 Rutas Amenaza (PICC)</span>
+                  <span className="text-xs font-medium text-red-300">🚩 Rutas Amenaza</span>
                   {isRutasAmenazaLoading && (
                     <span className="text-[9px] text-amber-400 font-mono animate-pulse">Cargando...</span>
                   )}

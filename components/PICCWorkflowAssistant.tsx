@@ -647,14 +647,14 @@ export const PICCWorkflowAssistant: React.FC<PICCWorkflowAssistantProps> = ({
             <div className="bg-gray-800/90 p-3 rounded-lg border border-amber-900/60 space-y-2 mt-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                  <span>📜</span> Histórico Factores de Inestabilidad BR23 (19.984 Eventos / Simbología OTAN)
+                  <span>📜</span> Histórico Factores de Inestabilidad (21.434+ Eventos / Simbología OTAN)
                 </span>
                 <span className="text-[10px] bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-800 font-mono">
-                  2015 – 2021
+                  2015 – 2026
                 </span>
               </div>
               <p className="text-[11px] text-gray-300">
-                Patrón histórico de incidentes armados, corredores de narcotráfico y enfrentamientos en la jurisdicción de la Brigada 23:
+                Patrón histórico de incidentes armados, corredores de narcotráfico y hechos operacionales a nivel nacional:
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
                 <div className="p-2 bg-red-950/40 border border-red-900/60 rounded">
