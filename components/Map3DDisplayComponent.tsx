@@ -264,6 +264,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showS2COALayer, setShowS2COALayer] = useState<boolean>(false);
   const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(false);
   const [showRutasAmenazaLayer, setShowRutasAmenazaLayer] = useState<boolean>(false);
+  const [showCorredoresEstrategicosLayer, setShowCorredoresEstrategicosLayer] = useState<boolean>(true);
+  const [showAvenidasAproximacionLayer, setShowAvenidasAproximacionLayer] = useState<boolean>(true);
+  const [showAreasConfrontacionLayer, setShowAreasConfrontacionLayer] = useState<boolean>(true);
   const [rutasAmenazaFeatures, setRutasAmenazaFeatures] = useState<any[]>([]);
   const [isRutasAmenazaLoading, setIsRutasAmenazaLoading] = useState<boolean>(false);
   const [showUnitsLayer, setShowUnitsLayer] = useState<boolean>(true);
@@ -2678,7 +2681,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
-    // 11d. Render Rutas y Corredores de Movilidad de la Amenaza PICC 2026 BR23
+    // 11d. Render Rutas y Corredores de Movilidad de la Amenaza PICC 2026 BR23 (Discriminadas por Capa)
     if (showRutasAmenazaLayer && rutasAmenazaFeatures.length > 0) {
       rutasAmenazaFeatures.forEach((feat, fIdx) => {
         try {
@@ -2691,16 +2694,27 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const folUpper = (props.folder || '').toUpperCase();
           const nameUpper = (props.name || '').toUpperCase();
 
-          // Identificar si es corredor estratégico, confrontación o ruta táctica
-          const isEstrategico = folUpper.includes('ESTRATEGICO') || nameUpper.includes('ESTRATEGICO');
-          const isConfrontacion = folUpper.includes('CONFRONTACION') || nameUpper.includes('VS');
+          // Subcapa determinada
+          const sublayer = props.sublayer || (
+            (folUpper.includes('ESTRATEGICO') || nameUpper.includes('ESTRATEGICO')) ? 'CORREDOR_ESTRATEGICO' :
+            (folUpper.includes('CONFRONTACION') || folUpper.includes('CONFRONTACIONES') || nameUpper.includes(' VS ') || nameUpper.includes('VS') || isPolygon) ? 'AREA_CONFRONTACION' :
+            'RUTA_TACTICA'
+          );
 
-          // Estilo Doctrinal Militar: Rojo Hostil (#DC2626) para la amenaza, Ámbar para confrontaciones
+          // Filtro por conmutador individual
+          if (sublayer === 'CORREDOR_ESTRATEGICO' && !showCorredoresEstrategicosLayer) return;
+          if (sublayer === 'RUTA_TACTICA' && !showAvenidasAproximacionLayer) return;
+          if (sublayer === 'AREA_CONFRONTACION' && !showAreasConfrontacionLayer) return;
+
+          const isEstrategico = sublayer === 'CORREDOR_ESTRATEGICO';
+          const isConfrontacion = sublayer === 'AREA_CONFRONTACION';
+
+          // Estilo Doctrinal Militar: Rojo Hostil (#DC2626) para la amenaza, Ámbar (#F59E0B) para confrontaciones
           const strokeColor = isConfrontacion 
             ? Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.9)
             : (isEstrategico ? Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.95) : Cesium.Color.fromCssColorString('#DC2626').withAlpha(0.85));
 
-          const polyWidth = isEstrategico ? 4.5 : 3.0;
+          const polyWidth = isEstrategico ? 5.0 : 3.0;
 
           if (isLine) {
             const coords = geom.coordinates;
@@ -3425,6 +3439,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     showUnitsLayer,
     showHydrographyLayer,
     showRutasAmenazaLayer,
+    showCorredoresEstrategicosLayer,
+    showAvenidasAproximacionLayer,
+    showAreasConfrontacionLayer,
     rutasAmenazaFeatures,
     showRoadsLayer,
     showCmocTransitLayer,
@@ -4361,7 +4378,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             </div>
 
             {/* Capa Rutas y Corredores de Movilidad de la Amenaza (PICC 2026 BR23) */}
-            <div className="flex flex-col gap-1 py-1 px-1.5 bg-slate-900/60 rounded border border-red-950/60">
+            <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-red-950/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium text-red-300">🚩 Rutas Amenaza (PICC)</span>
@@ -4379,10 +4396,51 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                   className="w-4 h-4 accent-red-600 rounded cursor-pointer" 
                 />
               </div>
+
               {showRutasAmenazaLayer && (
-                <p className="text-[8.5px] text-slate-400 leading-tight">
-                  Corredores estratégicos, avenidas de aproximación tácticas y áreas de confrontación activa de la amenaza.
-                </p>
+                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800/60 pl-1">
+                  {/* Subcapa 1: Corredores Estratégicos */}
+                  <label className="flex items-center justify-between gap-1 cursor-pointer hover:bg-slate-800/40 px-1 py-0.5 rounded">
+                    <span className="text-[10px] text-red-200 font-medium flex items-center gap-1">
+                      <span className="w-2 h-0.5 bg-red-500 inline-block border-b border-dashed border-red-300"></span>
+                      Corredores Estratégicos (15)
+                    </span>
+                    <input 
+                      type="checkbox" 
+                      checked={showCorredoresEstrategicosLayer} 
+                      onChange={e => setShowCorredoresEstrategicosLayer(e.target.checked)} 
+                      className="w-3.5 h-3.5 accent-red-500 rounded cursor-pointer" 
+                    />
+                  </label>
+
+                  {/* Subcapa 2: Avenidas de Aproximación y Rutas Tácticas */}
+                  <label className="flex items-center justify-between gap-1 cursor-pointer hover:bg-slate-800/40 px-1 py-0.5 rounded">
+                    <span className="text-[10px] text-rose-300 font-medium flex items-center gap-1">
+                      <span className="w-2 h-0.5 bg-rose-600 inline-block"></span>
+                      Avenidas Aproximación y Rutas (475)
+                    </span>
+                    <input 
+                      type="checkbox" 
+                      checked={showAvenidasAproximacionLayer} 
+                      onChange={e => setShowAvenidasAproximacionLayer(e.target.checked)} 
+                      className="w-3.5 h-3.5 accent-rose-600 rounded cursor-pointer" 
+                    />
+                  </label>
+
+                  {/* Subcapa 3: Áreas de Confrontación Inter-Estructura */}
+                  <label className="flex items-center justify-between gap-1 cursor-pointer hover:bg-slate-800/40 px-1 py-0.5 rounded">
+                    <span className="text-[10px] text-amber-300 font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 bg-amber-500/40 border border-amber-400 inline-block rounded-sm"></span>
+                      Áreas de Confrontación (19)
+                    </span>
+                    <input 
+                      type="checkbox" 
+                      checked={showAreasConfrontacionLayer} 
+                      onChange={e => setShowAreasConfrontacionLayer(e.target.checked)} 
+                      className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer" 
+                    />
+                  </label>
+                </div>
               )}
             </div>
 
