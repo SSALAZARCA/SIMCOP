@@ -194,9 +194,9 @@ const getHistoricoSymbolUrl = (sidc: string): string => {
 
   try {
     const sym = new ms.Symbol(sidc, {
-      size: 26,
+      size: 36,
       outlineColor: 'white',
-      outlineWidth: 3,
+      outlineWidth: 3.5,
       infoFields: false
     });
     const url = sym.asCanvas().toDataURL();
@@ -3468,20 +3468,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
         billboard: {
           image: iconUrl,
-          width: isMulti ? 30 : 26,
-          height: isMulti ? 30 : 26,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.CENTER,
           scaleByDistance: symbolScaleByDistance,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY
-        },
-        point: {
-          pixelSize: isMulti ? 14 : 10,
-          color: color,
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: isMulti ? 2.5 : 1.5,
-          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY
         },
         properties: new Cesium.PropertyBag({
