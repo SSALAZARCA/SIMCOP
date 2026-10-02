@@ -22,10 +22,10 @@ const CREDIBILITY_WEIGHTS: { [key in IntelligenceCredibility]?: number } = {
 };
 
 const SYMBOL_PRIORITY_ORDER: string[] = [
-    'SOF Infantry', 'SOF Recon', 'Mortero', 'Anti-Tanque', 'Howitzer', 'Contra-IED', 'Combat Engineer',
+    'SOF Infantry', 'SOF Recon', 'Francotirador', 'Mortero', 'Anti-Tanque', 'Howitzer', 'Obús / Howitzer', 'Artillería Cohetes', 'Combat Engineer', 'Contra-IED',
     'Infantería', 'Combate Urbano', 'Acción Directa', 'Acorazado Ruedas', 'Acorazado', 'Tanque', 'Caballería',
     'Artillería', 'Ingenieros', 'Helicópteros', 'Defensa Aérea', 'Aviación', 'Vigilancia', 'Reconocimiento',
-    'Mando', 'Transmisiones', 'Comunicaciones', 'Inteligencia de Señales', 'Fuerzas Especiales', 'Sanidad',
+    'Puesto de Mando', 'Mando', 'Transmisiones', 'Comunicaciones', 'Inteligencia de Señales', 'Guerra Electrónica', 'Fuerzas Especiales', 'Sanidad',
     'Evacuación Médica', 'Mantenimiento', 'Transporte', 'Abastecimiento', 'Apoyo de Combate', 'Logística',
     'Apoyo Logístico', 'Policía Militar', 'Montaña', 'Blindado',
 ];

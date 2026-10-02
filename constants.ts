@@ -96,16 +96,19 @@ export const PRIMARY_UNIT_ROLES_APP6 = [
 export const CAPABILITY_TO_FUNCTION_ID_APP6: Record<string, string> = {
   // Primary Combat Arms
   'Infantería': 'UCI---',
+  'Francotirador': 'UCIS--',   // Infantry Sniper
   'Acorazado': 'UCA---',
   'Acorazado Ruedas': 'UCAW--',
-  'Anti-Tanque': 'UCAAT-',
+  'Anti-Tanque': 'UCAA--',
   'Caballería': 'UCR---',
   'Reconocimiento': 'UCR---',
   'Artillería': 'UCF---',
+  'Obús / Howitzer': 'UCFH--',
+  'Artillería Cohetes': 'UCFR--',
   'Mortero': 'UCFM--',
-  'Defensa Aérea': 'UCAD--',
-  'Aviación': 'UCV---', // Generic Aviation, can be modified
-  'Helicópteros': 'UCV-L-', // Utility/Light Helicopter
+  'Defensa Aérea': 'UCD---',
+  'Aviación': 'UCV---', // Generic Aviation
+  'Helicópteros': 'UCVR--', // Rotary Wing
   // Special Operations Forces (Dimension P)
   'Fuerzas Especiales': 'UPS---',
   'SOF Infantry': 'UPSI--',
@@ -113,22 +116,23 @@ export const CAPABILITY_TO_FUNCTION_ID_APP6: Record<string, string> = {
   // Combat Support
   'Ingenieros': 'UCE---',
   'Combat Engineer': 'UCEC--',
-  'Contra-IED': 'UCEOD-',
-  'Transmisiones': 'UCJ---',
-  'Comunicaciones': 'UCJ---',
+  'Contra-IED': 'UCE---',
+  'Transmisiones': 'UUS---', // Signal / Logistics comms
+  'Comunicaciones': 'UUS---',
   'Inteligencia de Señales': 'UCJI--',
-  'Guerra Electrónica': 'UCJW--',
+  'Guerra Electrónica': 'UCEW--',
   'Policía Militar': 'UCO---',
   'Apoyo de Combate': 'UCS---',
   'Vigilancia': 'UCSV--',
-  // Combat Service Support
+  // Combat Service Support & Logistics (MIL-STD-2525C)
   'Mando': 'UCHQ--',
+  'Puesto de Mando': 'UCHQ--',
   'Logística': 'UL----',
-  'Abastecimiento': 'ULSS--',
-  'Transporte': 'ULST--',
-  'Mantenimiento': 'ULSM--',
-  'Sanidad': 'ULM---',
-  'Evacuación Médica': 'ULME--',
+  'Abastecimiento': 'UUSS--', // Supply
+  'Transporte': 'UUST--',    // Transportation
+  'Mantenimiento': 'UUSM--',   // Maintenance
+  'Sanidad': 'UUM---',         // Medical
+  'Evacuación Médica': 'UUM---',
   // Other specific capabilities that map to a base
   'Acción Directa': 'UCI---', // Infantry Action
   'Combate Urbano': 'UCIU--', // Infantry Urban

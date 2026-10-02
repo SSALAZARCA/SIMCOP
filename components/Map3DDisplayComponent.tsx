@@ -137,6 +137,7 @@ const labelScaleByDistance = new Cesium.NearFarScalar(1.0e4, 1.0, 5.0e6, 0.0);
 
 // Cache global en memoria para símbolos tácticos milsymbol (evita recrear canvas/DataURL por cada punto)
 const historicoSymbolCache = new Map<string, string>();
+const unitSymbolCache = new Map<string, string>();
 
 /**
  * Resuelve el SIDC (MIL-STD-2525C/D / APP-6) táctico doctrinal estrictamente HOSTIL (ROJO)
@@ -151,9 +152,21 @@ const getHistoricoSIDC = (category?: string, aff?: string): string => {
   if (cat.includes('COMBATE') || a === 'CONTACTO' || cat.includes('ENFRENTAMIENTO')) {
     return 'SHGPUCI--------';
   }
-  // Neutralización de Artefactos Explosivos, Minas, IED, Acciones terroristas
-  if (cat.includes('EXPLOSIV') || cat.includes('MINA') || cat.includes('TERRORIS') || cat.includes('BOMBA')) {
-    return 'SHGPUCE--------'; // Zapadores / Explosivos hostiles
+  // Atentado terrorista, activación de artefacto explosivo, IED, bombas
+  if (cat.includes('ACTIVACIÓN ARTEFACTO') || cat.includes('ACTO TERRORISMO') || cat.includes('BOMBA') || cat.includes('IED')) {
+    return 'OHVPB----------'; // Violent Activity - Bombing / IED (MIL-STD-2525C/D)
+  }
+  // Neutralización de Artefactos Explosivos, Minas, Zapadores hostiles
+  if (cat.includes('EXPLOSIV') || cat.includes('MINA') || cat.includes('TERRORIS')) {
+    return 'SHGPUCE--------'; // Ingenieros / Explosivos hostiles
+  }
+  // Ataque directo contra la Fuerza Pública, emboscada, homicidio
+  if (cat.includes('ATAQUE FUERZA PUBLICA') || cat.includes('HOMICIDIO') || cat.includes('SICARIATO')) {
+    return 'OHVPA----------'; // Violent Activity - Attack / Targeted killing
+  }
+  // Francotirador enemigo / Hostigamiento de precisión
+  if (cat.includes('FRANCOTIRADOR') || cat.includes('SNIPER')) {
+    return 'SHGPUCIS-------'; // Hostile Ground Infantry Sniper
   }
   // Depósito ilegal, caleta, armamento incautado, munición
   if (cat.includes('DEPÓSITO') || cat.includes('DEPOSITO') || cat.includes('CALETA') || cat.includes('ARMA') || cat.includes('MUNICION') || cat.includes('INCAUTACIÓN')) {
@@ -164,8 +177,12 @@ const getHistoricoSIDC = (category?: string, aff?: string): string => {
     return 'SHGPI----------'; // Instalación / base fija hostil
   }
   // Narcotráfico, cristalizaderos, laboratorios, insumos
-  if (cat.includes('NARCO') || cat.includes('LABORATORIO') || cat.includes('CRISTALIZADERO')) {
+  if (cat.includes('NARCO') || cat.includes('LABORATORIO') || cat.includes('CRISTALIZADERO') || cat.includes('COCA')) {
     return 'SHGPUS---------'; // Red de abastecimiento / logística ilícita
+  }
+  // Minería ilegal / Explotación ilícita de yacimientos mineros
+  if (cat.includes('MINERÍA') || cat.includes('MINERIA') || cat.includes('EXPLOTACIÓN ILÍCITA') || cat.includes('EXPLOTACION ILICITA')) {
+    return 'SHGPUS---------'; // Red logística ilícita
   }
   // Capturas, neutralizaciones, delincuencia, presencia armada general
   return 'SHGPU----------'; // Factor de inestabilidad / Unidad terrestre hostil estándar
@@ -1835,14 +1852,28 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       if (!unit || !unit.location) return;
 
       const sidc = generateUnitSIDC(unit);
-      const symbol = new ms.Symbol(sidc, {
-        size: 40,
-        outlineColor: 'white',
-        outlineWidth: 4,
-        infoFields: false // Strictly disable native Milsymbol side-text
-      });
-      const canvas = symbol.asCanvas();
-      const iconUrl = canvas.toDataURL();
+      const isHQ = unit.type === UnitType.COMMAND_POST || unit.type === UnitType.BRIGADE || unit.type === UnitType.DIVISION || (unit.name && unit.name.toUpperCase().includes('HQ'));
+      
+      const symbolKey = `${sidc}_${isHQ ? 'HQ' : 'STD'}`;
+      let iconUrl = unitSymbolCache.get(symbolKey);
+
+      if (!iconUrl) {
+        try {
+          const symbol = new ms.Symbol(sidc, {
+            size: 38,
+            outlineColor: 'white',
+            outlineWidth: 4,
+            headquarters: isHQ,
+            infoFields: false // Desactivar texto lateral de canvas para usar label Cesium 3D nítido
+          });
+          const canvas = symbol.asCanvas();
+          iconUrl = canvas.toDataURL();
+          unitSymbolCache.set(symbolKey, iconUrl);
+        } catch (e) {
+          console.warn("Fallo generando símbolo de unidad militar con milsymbol:", sidc, e);
+          iconUrl = '/files/amigo.png';
+        }
+      }
 
       unitDataSource.entities.add({
         id: unit.id,
