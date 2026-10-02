@@ -256,7 +256,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(false);
   const [historicoDoctrinalMode, setHistoricoDoctrinalMode] = useState<'DOCTRINAL_RED' | 'NATO_AFFILIATION'>('DOCTRINAL_RED');
   const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
-  const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('2021');
+  const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('2026');
   const [selectedHistoricoStructure, setSelectedHistoricoStructure] = useState<string>('TODOS');
   const [selectedHistoricoCategory, setSelectedHistoricoCategory] = useState<string>('TODOS');
   const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
@@ -4180,14 +4180,18 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                       onChange={e => setSelectedHistoricoYear(e.target.value)}
                       className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer"
                     >
-                      <option value="2021">2021 (1.531 hechos - Rápido)</option>
-                      <option value="2020">2020 (2.891 hechos)</option>
+                      <option value="2026">2026 (807 hechos - Actual)</option>
+                      <option value="2025">2025 (483 hechos)</option>
+                      <option value="2024">2024 (1.015 hechos)</option>
+                      <option value="2023">2023 (89 hechos)</option>
+                      <option value="2021">2021 (1.538 hechos)</option>
+                      <option value="2020">2020 (2.915 hechos)</option>
                       <option value="2019">2019 (4.290 hechos)</option>
                       <option value="2018">2018 (3.132 hechos)</option>
                       <option value="2017">2017 (2.831 hechos)</option>
                       <option value="2016">2016 (2.420 hechos)</option>
                       <option value="2015">2015 (1.902 hechos)</option>
-                      <option value="TODOS">Todos los años (18.997 - Agrupado Seguro)</option>
+                      <option value="TODOS">Todos los años (21.434 hechos)</option>
                     </select>
                   </div>
 
@@ -4199,21 +4203,14 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                       className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer max-w-[155px] truncate"
                     >
                       <option value="TODOS">Todas las estructuras</option>
-                      <option value="GAO-r Estructura Oliver Sinisterra">GAO-r Oliver Sinisterra (3.403)</option>
-                      <option value="FARC Columna Móvil Daniel Aldana">FARC Daniel Aldana (2.209)</option>
-                      <option value="ELN Compañía Elder Santos">ELN Elder Santos (1.537)</option>
-                      <option value="ELN Frente José María Becerra">ELN José María Becerra (1.106)</option>
-                      <option value="ELN Frente Manuel Vásquez Castaño">ELN Manuel Vásquez (949)</option>
-                      <option value="Comandos de la Frontera / Frente 48">Frente 48 / Comandos Frontera (846)</option>
-                      <option value="GAO Los Contadores">GAO Los Contadores (820)</option>
-                      <option value="ELN Compañía José Luis Cabrera Ruales">ELN José Luis Cabrera (677)</option>
-                      <option value="FARC / Disidencias Frente 29">FARC Frente 29 (666)</option>
-                      <option value="ELN Milicias Jaime Toño Obando">ELN Jaime Toño Obando (661)</option>
-                      <option value="GAO Guerrillas Unidas del Pacífico (GUP)">GAO Guerrillas Unidas Pacífico (451)</option>
-                      <option value="Clan del Golfo / AGC">Clan del Golfo / AGC (303)</option>
-                      <option value="GAO-r Estructura Carlos Patiño">GAO-r Carlos Patiño (299)</option>
-                      <option value="Delincuencia Común / Narcotráfico">Delincuencia Común / Narcotráfico (3.335)</option>
-                      <option value="Redes de Narcotráfico">Redes de Narcotráfico (765)</option>
+                      <option value="GAOR FRANCO BENAVIDES">GAO-r Franco Benavides (1.001)</option>
+                      <option value="COMUNEROS DEL SUR">Comuneros del Sur (272)</option>
+                      <option value="ELN">ELN (135)</option>
+                      <option value="GAOR URIAS RONDON">GAO-r Urías Rondón (118)</option>
+                      <option value="SEGUNDA MARQUETALIA">Segunda Marquetalia (107)</option>
+                      <option value="AUTODEFENSAS UNIDAS DE NARIÑO">Autodefensas Nariño (106)</option>
+                      <option value="Clan del Golfo / AGC">Clan del Golfo / AGC (38)</option>
+                      <option value="Redes de Narcotráfico">Redes de Narcotráfico (4.032)</option>
                       <option value="OTRAS ESTRUCTURAS">Otras Estructuras</option>
                     </select>
                   </div>
