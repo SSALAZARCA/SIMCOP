@@ -175,24 +175,25 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [showCmocTransitLayer, setShowCmocTransitLayer] = useState<boolean>(false);
-  const [showHydrographyLayer, setShowHydrographyLayer] = useState<boolean>(true);
+  const [showHydrographyLayer, setShowHydrographyLayer] = useState<boolean>(false);
   const [showRoadsLayer, setShowRoadsLayer] = useState<boolean>(false);
-  const [showSatDefensoriaLayer, setShowSatDefensoriaLayer] = useState<boolean>(true);
+  const [showSatDefensoriaLayer, setShowSatDefensoriaLayer] = useState<boolean>(false);
   const [selectedSatYear, setSelectedSatYear] = useState<string>('TODOS');
-  const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(true);
+  const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(false);
   const [historicoDoctrinalMode, setHistoricoDoctrinalMode] = useState<'DOCTRINAL_RED' | 'NATO_AFFILIATION'>('DOCTRINAL_RED');
   const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
   const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('TODOS');
   const [selectedHistoricoStructure, setSelectedHistoricoStructure] = useState<string>('TODOS');
   const [selectedHistoricoCategory, setSelectedHistoricoCategory] = useState<string>('TODOS');
   const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
-  const [showS2COALayer, setShowS2COALayer] = useState<boolean>(true);
-  const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(true);
+  const [isHistoricoLoading, setIsHistoricoLoading] = useState<boolean>(false);
+  const [showS2COALayer, setShowS2COALayer] = useState<boolean>(false);
+  const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(false);
   const [showUnitsLayer, setShowUnitsLayer] = useState<boolean>(true);
-  const [showIntelligenceLayer, setShowIntelligenceLayer] = useState<boolean>(true);
-  const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(true);
+  const [showIntelligenceLayer, setShowIntelligenceLayer] = useState<boolean>(false);
+  const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(false);
   const [showHistoricalHotspots, setShowHistoricalHotspots] = useState<boolean>(false);
-  const [showOsintLayer, setShowOsintLayer] = useState<boolean>(true);
+  const [showOsintLayer, setShowOsintLayer] = useState<boolean>(false);
   const [showWindyPanel, setShowWindyPanel] = useState<boolean>(false);
   const [nativeRadarActive, setNativeRadarActive] = useState<boolean>(false);
   const [windyCoords, setWindyCoords] = useState<{lat: number, lon: number, zoom: number}>({ lat: 4.5708, lon: -74.2973, zoom: 6 });
@@ -1431,22 +1432,35 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         });
     }
 
-    // Cargar Histórico Factores de Inestabilidad BR23 Completo (19.984 eventos / Simbología OTAN)
-    fetch('/historico_inestabilidad_br23.json')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setHistoricoEvents(data);
-        }
-      })
-      .catch(err => {
-        console.warn("Fallo cargando historico completo, usando contingencia táctica:", err);
-        fetch('/historico_inestabilidad_tactico.json')
-          .then(r => r.json())
-          .then(d => { if (Array.isArray(d)) setHistoricoEvents(d); })
-          .catch(e => console.warn("No se pudo cargar dataset táctico:", e));
-      });
   }, []);
+
+  // Cargar Histórico Factores de Inestabilidad BR23 bajo demanda (Lazy-load al activar la capa)
+  useEffect(() => {
+    if (showHistoricoBr23Layer && historicoEvents.length === 0 && !isHistoricoLoading) {
+      setIsHistoricoLoading(true);
+      fetch('/historico_inestabilidad_br23.json')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setHistoricoEvents(data);
+          }
+          setIsHistoricoLoading(false);
+        })
+        .catch(err => {
+          console.warn("Fallo cargando historico completo, usando contingencia táctica:", err);
+          fetch('/historico_inestabilidad_tactico.json')
+            .then(r => r.json())
+            .then(d => { 
+              if (Array.isArray(d)) setHistoricoEvents(d); 
+              setIsHistoricoLoading(false);
+            })
+            .catch(e => {
+              console.warn("No se pudo cargar dataset táctico:", e);
+              setIsHistoricoLoading(false);
+            });
+        });
+    }
+  }, [showHistoricoBr23Layer, historicoEvents.length, isHistoricoLoading]);
 
   useEffect(() => {
     if (!eventBus) return;
@@ -3805,7 +3819,15 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             {/* Capa Histórico Factores de Inestabilidad BR23 (Simbología OTAN) */}
             <div className="flex flex-col gap-1.5 py-1 px-1.5 bg-slate-900/60 rounded border border-slate-800/80">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-300">⚔️ Histórico BR23 (OTAN)</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-300">⚔️ Histórico BR23 (OTAN)</span>
+                  {isHistoricoLoading && (
+                    <span className="text-[9px] text-amber-400 font-mono animate-pulse">Cargando...</span>
+                  )}
+                  {showHistoricoBr23Layer && historicoEvents.length > 0 && (
+                    <span className="text-[9px] text-emerald-400 font-mono">({historicoEvents.length.toLocaleString()})</span>
+                  )}
+                </div>
                 <input type="checkbox" checked={showHistoricoBr23Layer} onChange={e => setShowHistoricoBr23Layer(e.target.checked)} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
               </div>
               {showHistoricoBr23Layer && (
