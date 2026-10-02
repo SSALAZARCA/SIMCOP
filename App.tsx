@@ -29,35 +29,36 @@ import { bmaService } from './services/bmaService';
 import { uavService } from './services/uavService';
 import { apiClient } from './utils/apiClient';
 import { userService } from './services/userService';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
 const SIMCOP_USER_SESSION_KEY = 'simcop_currentUser_id';
 
-// Hardened Dynamic Lazy Chunks - Tactical components isolated from unauthenticated public traffic
-const DashboardView = React.lazy(() => import('./components/DashboardView').then(m => ({ default: m.DashboardView })));
-const UnitsView = React.lazy(() => import('./components/UnitsView').then(m => ({ default: m.UnitsView })));
-const IntelView = React.lazy(() => import('./components/IntelView').then(m => ({ default: m.IntelView })));
-const AlertsView = React.lazy(() => import('./components/AlertsView').then(m => ({ default: m.AlertsView })));
-const AnalysisView = React.lazy(() => import('./components/AnalysisView').then(m => ({ default: m.AnalysisView })));
-const CommunicationsView = React.lazy(() => import('./components/CommunicationsView').then(m => ({ default: m.CommunicationsView })));
-const ArtilleryViewComponent = React.lazy(() => import('./components/ArtilleryViewComponent').then(m => ({ default: m.ArtilleryViewComponent })));
-const HistoricalViewComponent = React.lazy(() => import('./components/HistoricalViewComponent').then(m => ({ default: m.HistoricalViewComponent })));
-const UnitHistoryViewComponent = React.lazy(() => import('./components/UnitHistoryViewComponent').then(m => ({ default: m.UnitHistoryViewComponent })));
-const Q5ViewComponent = React.lazy(() => import('./components/Q5ViewComponent').then(m => ({ default: m.Q5ViewComponent })));
-const RetrainingAreaViewComponent = React.lazy(() => import('./components/RetrainingAreaViewComponent').then(m => ({ default: m.RetrainingAreaViewComponent })));
-const InsitopViewComponent = React.lazy(() => import('./components/InsitopViewComponent').then(m => ({ default: m.InsitopViewComponent })));
-const SpotViewComponent = React.lazy(() => import('./components/SpotViewComponent').then(m => ({ default: m.SpotViewComponent })));
-const ORDOPViewComponent = React.lazy(() => import('./components/ORDOPViewComponent').then(m => ({ default: m.ORDOPViewComponent })));
-const OrganizationStructureView = React.lazy(() => import('./components/OrganizationStructureView').then(m => ({ default: m.OrganizationStructureView })));
-const PlatoonCommanderView = React.lazy(() => import('./components/platoon/PlatoonCommanderView').then(m => ({ default: m.PlatoonCommanderView })));
-const CompanyCommanderView = React.lazy(() => import('./components/company/CompanyCommanderView').then(m => ({ default: m.CompanyCommanderView })));
-const LogisticsViewComponent = React.lazy(() => import('./components/LogisticsViewComponent').then(m => ({ default: m.LogisticsViewComponent })));
-const PersonnelView = React.lazy(() => import('./components/PersonnelView').then(m => ({ default: m.PersonnelView })));
-const UAVManagementView = React.lazy(() => import('./components/UAVManagementView').then(m => ({ default: m.UAVManagementView })));
-const BMAPanel = React.lazy(() => import('./components/BMAPanel').then(m => ({ default: m.BMAPanel })));
-const Map3DDisplayComponent = React.lazy(() => import('./components/Map3DDisplayComponent').then(m => ({ default: m.Map3DDisplayComponent })));
-const UserManagementViewComponent = React.lazy(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })));
-const SettingsView = React.lazy(() => import('./components/SettingsView'));
-const AdminDashboardComponent = React.lazy(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })));
+// Hardened Dynamic Lazy Chunks - Tactical components isolated with automatic stale-chunk reload resilience
+const DashboardView = lazyWithRetry(() => import('./components/DashboardView').then(m => ({ default: m.DashboardView })), 'DashboardView');
+const UnitsView = lazyWithRetry(() => import('./components/UnitsView').then(m => ({ default: m.UnitsView })), 'UnitsView');
+const IntelView = lazyWithRetry(() => import('./components/IntelView').then(m => ({ default: m.IntelView })), 'IntelView');
+const AlertsView = lazyWithRetry(() => import('./components/AlertsView').then(m => ({ default: m.AlertsView })), 'AlertsView');
+const AnalysisView = lazyWithRetry(() => import('./components/AnalysisView').then(m => ({ default: m.AnalysisView })), 'AnalysisView');
+const CommunicationsView = lazyWithRetry(() => import('./components/CommunicationsView').then(m => ({ default: m.CommunicationsView })), 'CommunicationsView');
+const ArtilleryViewComponent = lazyWithRetry(() => import('./components/ArtilleryViewComponent').then(m => ({ default: m.ArtilleryViewComponent })), 'ArtilleryViewComponent');
+const HistoricalViewComponent = lazyWithRetry(() => import('./components/HistoricalViewComponent').then(m => ({ default: m.HistoricalViewComponent })), 'HistoricalViewComponent');
+const UnitHistoryViewComponent = lazyWithRetry(() => import('./components/UnitHistoryViewComponent').then(m => ({ default: m.UnitHistoryViewComponent })), 'UnitHistoryViewComponent');
+const Q5ViewComponent = lazyWithRetry(() => import('./components/Q5ViewComponent').then(m => ({ default: m.Q5ViewComponent })), 'Q5ViewComponent');
+const RetrainingAreaViewComponent = lazyWithRetry(() => import('./components/RetrainingAreaViewComponent').then(m => ({ default: m.RetrainingAreaViewComponent })), 'RetrainingAreaViewComponent');
+const InsitopViewComponent = lazyWithRetry(() => import('./components/InsitopViewComponent').then(m => ({ default: m.InsitopViewComponent })), 'InsitopViewComponent');
+const SpotViewComponent = lazyWithRetry(() => import('./components/SpotViewComponent').then(m => ({ default: m.SpotViewComponent })), 'SpotViewComponent');
+const ORDOPViewComponent = lazyWithRetry(() => import('./components/ORDOPViewComponent').then(m => ({ default: m.ORDOPViewComponent })), 'ORDOPViewComponent');
+const OrganizationStructureView = lazyWithRetry(() => import('./components/OrganizationStructureView').then(m => ({ default: m.OrganizationStructureView })), 'OrganizationStructureView');
+const PlatoonCommanderView = lazyWithRetry(() => import('./components/platoon/PlatoonCommanderView').then(m => ({ default: m.PlatoonCommanderView })), 'PlatoonCommanderView');
+const CompanyCommanderView = lazyWithRetry(() => import('./components/company/CompanyCommanderView').then(m => ({ default: m.CompanyCommanderView })), 'CompanyCommanderView');
+const LogisticsViewComponent = lazyWithRetry(() => import('./components/LogisticsViewComponent').then(m => ({ default: m.LogisticsViewComponent })), 'LogisticsViewComponent');
+const PersonnelView = lazyWithRetry(() => import('./components/PersonnelView').then(m => ({ default: m.PersonnelView })), 'PersonnelView');
+const UAVManagementView = lazyWithRetry(() => import('./components/UAVManagementView').then(m => ({ default: m.UAVManagementView })), 'UAVManagementView');
+const BMAPanel = lazyWithRetry(() => import('./components/BMAPanel').then(m => ({ default: m.BMAPanel })), 'BMAPanel');
+const Map3DDisplayComponent = lazyWithRetry(() => import('./components/Map3DDisplayComponent').then(m => ({ default: m.Map3DDisplayComponent })), 'Map3DDisplayComponent');
+const UserManagementViewComponent = lazyWithRetry(() => import('./components/UserManagementViewComponent').then(module => ({ default: module.UserManagementViewComponent })), 'UserManagementViewComponent');
+const SettingsView = lazyWithRetry(() => import('./components/SettingsView'), 'SettingsView');
+const AdminDashboardComponent = lazyWithRetry(() => import('./components/AdminDashboardComponent').then(module => ({ default: module.AdminDashboardComponent })), 'AdminDashboardComponent');
 
 const TacticalModuleFallback: React.FC<{ label?: string }> = ({ label = "CARGANDO MÓDULO TÁCTICO..." }) => (
   <div className="flex flex-col items-center justify-center h-full min-h-[250px] w-full p-6 text-slate-400">

@@ -32,6 +32,25 @@ class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // You can also log the error to an error reporting service
     console.error("Uncaught error in React tree:", error, errorInfo);
+    
+    const errorMessage = error?.message || error?.toString() || '';
+    const isChunkError =
+      errorMessage.includes('Failed to fetch dynamically imported module') ||
+      errorMessage.includes('Importing a module script failed') ||
+      errorMessage.includes('Loading chunk') ||
+      errorMessage.includes('error loading dynamically imported module');
+
+    if (isChunkError) {
+      const lastReload = window.sessionStorage.getItem('simcop_boundary_chunk_reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        window.sessionStorage.setItem('simcop_boundary_chunk_reload', now.toString());
+        console.info('[SIMCOP ErrorBoundary] Chunk 404 detected after deployment. Forcing reload...');
+        window.location.reload();
+        return;
+      }
+    }
+
     this.setState({
       errorInfo: errorInfo
     });
@@ -39,6 +58,13 @@ class ErrorBoundary extends Component<Props, State> {
 
   public render(): ReactNode {
     if (this.state.hasError) {
+      const errorMessage = this.state.error?.message || this.state.error?.toString() || '';
+      const isChunkError =
+        errorMessage.includes('Failed to fetch dynamically imported module') ||
+        errorMessage.includes('Importing a module script failed') ||
+        errorMessage.includes('Loading chunk') ||
+        errorMessage.includes('error loading dynamically imported module');
+
       // Fallback UI
       return (
         <div style={{ 
@@ -52,15 +78,35 @@ class ErrorBoundary extends Component<Props, State> {
             justifyContent: 'center',
             fontFamily: 'sans-serif'
         }}>
-          <h1 style={{ color: '#F87171', /* text-red-400 */ fontSize: '2em', marginBottom: '1rem' }}>
-            &#x26A0; Oops! Algo salió mal.
+          <h1 style={{ color: isChunkError ? '#60A5FA' : '#F87171', fontSize: '2em', marginBottom: '1rem' }}>
+            {isChunkError ? '🔄 Actualización del Sistema Detectada' : '⚠️ Oops! Algo salió mal.'}
           </h1>
-          <p style={{ color: '#FCA5A5', /* text-red-300 */ marginBottom: '0.5rem' }}>
-            La aplicación encontró un error y no puede continuar.
+          <p style={{ color: isChunkError ? '#93C5FD' : '#FCA5A5', marginBottom: '0.5rem', textAlign: 'center', maxWidth: '600px' }}>
+            {isChunkError
+              ? 'Se ha desplegado una nueva versión de SIMCOP. Para cargar los módulos actualizados, haga clic en el botón inferior para recargar.'
+              : 'La aplicación encontró un error y no puede continuar.'}
           </p>
-          <p style={{ color: '#FDBA74', /* text-orange-300 */ marginBottom: '1.5rem', fontSize: '0.9em' }}>
-            Por favor, intente recargar la página. Si el problema persiste, contacte al soporte.
-          </p>
+          <div style={{ marginTop: '1rem', marginBottom: '1.5rem' }}>
+            <button
+              onClick={() => {
+                window.sessionStorage.clear();
+                window.location.reload();
+              }}
+              style={{
+                backgroundColor: '#2563EB',
+                color: 'white',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '14px',
+                letterSpacing: '1px'
+              }}
+            >
+              🔄 RECARGAR Y ACTUALIZAR
+            </button>
+          </div>
           {this.state.error && (
             <details style={{ 
                 marginTop: '20px', 
