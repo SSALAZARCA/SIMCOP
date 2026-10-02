@@ -642,6 +642,56 @@ export const PICCWorkflowAssistant: React.FC<PICCWorkflowAssistantProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Análisis Histórico de Factores de Inestabilidad (MTE 2-01.3 & Simbología OTAN) */}
+            <div className="bg-gray-800/90 p-3 rounded-lg border border-amber-900/60 space-y-2 mt-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>📜</span> Histórico Factores de Inestabilidad BR23 (19.984 Eventos / Simbología OTAN)
+                </span>
+                <span className="text-[10px] bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-800 font-mono">
+                  2015 – 2021
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-300">
+                Patrón histórico de incidentes armados, corredores de narcotráfico y enfrentamientos en la jurisdicción de la Brigada 23:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+                <div className="p-2 bg-red-950/40 border border-red-900/60 rounded">
+                  <div className="text-red-400 font-bold text-sm">10.081</div>
+                  <div className="text-[10px] text-gray-400 uppercase font-semibold">🔴 Hostil (Rombo)</div>
+                </div>
+                <div className="p-2 bg-blue-950/40 border border-blue-900/60 rounded">
+                  <div className="text-blue-400 font-bold text-sm">9.283</div>
+                  <div className="text-[10px] text-gray-400 uppercase font-semibold">🔵 Amigo (Rectángulo)</div>
+                </div>
+                <div className="p-2 bg-amber-950/40 border border-amber-900/60 rounded">
+                  <div className="text-amber-400 font-bold text-sm">301</div>
+                  <div className="text-[10px] text-gray-400 uppercase font-semibold">⚔️ Combates (Amarillo)</div>
+                </div>
+                <div className="p-2 bg-emerald-950/40 border border-emerald-900/60 rounded">
+                  <div className="text-emerald-400 font-bold text-sm">319</div>
+                  <div className="text-[10px] text-gray-400 uppercase font-semibold">🟢 Neutro (Cuadrado)</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-700/80">
+                <span className="text-[11px] text-gray-400">
+                  Controla la visualización tridimensional en el HUD del mapa (filtros por año y por estructura).
+                </span>
+                <button
+                  onClick={() => {
+                    eventBus.publish('panToLocationAndShowInfo', {
+                      location: { lat: 1.4122, lon: -78.5478 },
+                      displayName: 'Epicentro Histórico Factores de Inestabilidad (Tumaco - BR23)',
+                      placeType: 'HISTORICO FACTORES DE INESTABILIDAD'
+                    });
+                  }}
+                  className="px-2.5 py-1 bg-amber-800 hover:bg-amber-700 text-amber-100 rounded text-[10px] font-bold transition flex items-center gap-1 shadow"
+                >
+                  <span>📍</span> Centrar en Foco Principal
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

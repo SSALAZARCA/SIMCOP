@@ -181,6 +181,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [selectedSatYear, setSelectedSatYear] = useState<string>('TODOS');
   const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(true);
   const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
+  const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('TODOS');
+  const [selectedHistoricoStructure, setSelectedHistoricoStructure] = useState<string>('TODOS');
   const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
   const [showS2COALayer, setShowS2COALayer] = useState<boolean>(true);
   const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(true);
@@ -1427,15 +1429,21 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         });
     }
 
-    // Cargar Histórico Factores de Inestabilidad BR23 (Simbología OTAN)
-    fetch('/historico_inestabilidad_tactico.json')
+    // Cargar Histórico Factores de Inestabilidad BR23 Completo (19.984 eventos / Simbología OTAN)
+    fetch('/historico_inestabilidad_br23.json')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
           setHistoricoEvents(data);
         }
       })
-      .catch(err => console.warn("No se pudo cargar historico_inestabilidad_tactico.json:", err));
+      .catch(err => {
+        console.warn("Fallo cargando historico completo, usando contingencia táctica:", err);
+        fetch('/historico_inestabilidad_tactico.json')
+          .then(r => r.json())
+          .then(d => { if (Array.isArray(d)) setHistoricoEvents(d); })
+          .catch(e => console.warn("No se pudo cargar dataset táctico:", e));
+      });
   }, []);
 
   useEffect(() => {
@@ -2379,10 +2387,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
-    // 11b2. Render Histórico Factores de Inestabilidad BR23 (Simbología OTAN)
+    // 11b2. Render Histórico Factores de Inestabilidad BR23 (Simbología OTAN / MTE 2-01.3 & APP-6)
     if (showHistoricoBr23Layer && historicoEvents.length > 0) {
       const filteredHistorico = historicoEvents.filter(h => {
         if (selectedHistoricoAff !== 'TODOS' && h.aff !== selectedHistoricoAff) return false;
+        if (selectedHistoricoYear !== 'TODOS' && (h.year || h.date?.slice(0, 4)) !== selectedHistoricoYear) return false;
+        if (selectedHistoricoStructure !== 'TODOS' && h.groupClean !== selectedHistoricoStructure) return false;
         return true;
       });
 
@@ -2390,52 +2400,67 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         if (!ev.lat || !ev.lon) return;
 
         let colorStr = '#DC2626'; // HOSTIL rojo
-        let emoji = '🔴';
+        let iconPath = '/files/hostil.png';
         if (ev.aff === 'AMIGO') {
           colorStr = '#2563EB'; // AMIGO azul
-          emoji = '🔵';
+          iconPath = '/files/amigo.png';
         } else if (ev.aff === 'CONTACTO') {
           colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
-          emoji = '⚔️';
+          iconPath = '/files/desconocido.png';
         } else if (ev.aff === 'NEUTRO') {
           colorStr = '#16A34A'; // NEUTRO verde
-          emoji = '🟢';
+          iconPath = '/files/neutro.png';
         }
 
         const color = Cesium.Color.fromCssColorString(colorStr);
         const tooltipDetails = [
-          `Afiliación OTAN: ${ev.aff}`,
-          `Fecha: ${ev.date || 'Sin fecha'}`,
-          `Municipio: ${ev.mun || ''} (${ev.dept || ''})`,
-          `Operación: ${ev.type_op || ev.oper || 'Control Territorial'}`,
-          `Estructura: ${ev.group || ev.desc || 'GAO / Delincuencia'}`,
-          `Unidad: ${ev.unit || ''} (${ev.brigade || 'BR23'})`
-        ];
+          `Afiliación Doctrinal: ${ev.aff} (Simbología OTAN / APP-6)`,
+          `Fecha del Hecho: ${ev.date || 'Sin fecha registrada'}`,
+          `Ubicación: ${ev.place || ev.mun || 'Sector rural'} - ${ev.mun || ''} (${ev.dept || 'Nariño'})`,
+          `Estructura Amenaza: ${ev.group || ev.desc || 'No determinada'}`,
+          `Misión/Operación: ${ev.type_op || 'Control Territorial'} ${ev.oper ? `(${ev.oper})` : ''}`,
+          `Unidad Empeñada: ${ev.unit || 'Fuerza Pública'} - ${ev.brigade || 'BR23'} (${ev.div || 'DIV03'})`,
+          ev.ordop ? `ORDOP UT: ${ev.ordop}` : '',
+          ev.terrain ? `Terreno / Relieve: ${ev.terrain} (Clima: ${ev.weather || 'Variable'})` : '',
+          ev.field ? `Ambiente Operacional: ${ev.field}` : '',
+          ev.boletin ? `Boletín Operacional: ${ev.boletin} | HR: ${ev.hr || 'S/N'}` : '',
+          ev.resumen ? `Resumen: ${ev.resumen}` : ''
+        ].filter(Boolean);
 
         addTacticalEntity({
           id: `hist-3d-${ev.id}`,
           name: `HISTÓRICO ${ev.aff}: ${ev.desc || ev.oper || ev.mun}`,
           position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
+          billboard: {
+            image: iconPath,
+            width: ev.aff === 'CONTACTO' ? 22 : 18,
+            height: ev.aff === 'CONTACTO' ? 22 : 18,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(10.0, 450000.0)
+          },
           point: {
             pixelSize: ev.aff === 'CONTACTO' ? 12 : 9,
             color: color,
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 2,
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(450000.0, 2500000.0)
           },
           properties: {
-            tooltipTitle: `Histórico BR23 (${ev.aff}): ${ev.mun}`,
+            tooltipTitle: `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.mun || ''}`,
             tooltipDetails: tooltipDetails
           },
-          label: ev.aff === 'CONTACTO' ? {
-            text: `⚔️ Combate ${ev.date || ''}`,
+          label: (ev.aff === 'CONTACTO' || (ev.desc && ['CALETA', 'CAMPAMENTOS', 'ACTIVACIÓN_ARTEFACTO_EXPLOSIVO'].includes(ev.desc))) ? {
+            text: `${ev.aff === 'CONTACTO' ? '⚔️ Combate' : '💣 ' + (ev.desc || '')} [${ev.date ? ev.date.slice(0, 4) : ''}]`,
             font: 'bold 9px system-ui, sans-serif',
-            fillColor: Cesium.Color.YELLOW,
+            fillColor: ev.aff === 'CONTACTO' ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
             outlineColor: Cesium.Color.BLACK,
             outlineWidth: 2,
-            pixelOffset: new Cesium.Cartesian2(0, -12),
+            pixelOffset: new Cesium.Cartesian2(0, -14),
             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 350000.0)
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 150000.0)
           } : undefined
         });
       });
@@ -3136,6 +3161,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     selectedSatYear,
     showHistoricoBr23Layer,
     selectedHistoricoAff,
+    selectedHistoricoYear,
+    selectedHistoricoStructure,
     historicoEvents,
     showS2COALayer,
     showPiccGraphicsLayer,
@@ -3761,19 +3788,66 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                 <input type="checkbox" checked={showHistoricoBr23Layer} onChange={e => setShowHistoricoBr23Layer(e.target.checked)} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
               </div>
               {showHistoricoBr23Layer && (
-                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800/50">
-                  <span className="text-[10px] text-slate-400 font-mono">Filtro OTAN:</span>
-                  <select
-                    value={selectedHistoricoAff}
-                    onChange={e => setSelectedHistoricoAff(e.target.value)}
-                    className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-2 py-0.5 text-[11px] font-medium outline-none focus:border-amber-500 cursor-pointer"
-                  >
-                    <option value="TODOS">Todos (2.820)</option>
-                    <option value="HOSTIL">🔴 Hostil (1.450)</option>
-                    <option value="AMIGO">🔵 Amigo (750)</option>
-                    <option value="CONTACTO">⚔️ Combates (301)</option>
-                    <option value="NEUTRO">🟢 Neutro (319)</option>
-                  </select>
+                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono">Afiliación:</span>
+                    <select
+                      value={selectedHistoricoAff}
+                      onChange={e => setSelectedHistoricoAff(e.target.value)}
+                      className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="TODOS">Todas las afiliaciones</option>
+                      <option value="HOSTIL">🔴 HOSTIL (10.081)</option>
+                      <option value="AMIGO">🔵 AMIGO (9.283)</option>
+                      <option value="CONTACTO">⚔️ CONTACTO / COMBATE (301)</option>
+                      <option value="NEUTRO">🟢 NEUTRO (319)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono">Año:</span>
+                    <select
+                      value={selectedHistoricoYear}
+                      onChange={e => setSelectedHistoricoYear(e.target.value)}
+                      className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="TODOS">Todos los años (2015-2021)</option>
+                      <option value="2021">2021 (1.673)</option>
+                      <option value="2020">2020 (3.109)</option>
+                      <option value="2019">2019 (4.561)</option>
+                      <option value="2018">2018 (3.398)</option>
+                      <option value="2017">2017 (2.861)</option>
+                      <option value="2016">2016 (2.455)</option>
+                      <option value="2015">2015 (1.926)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono">Estructura:</span>
+                    <select
+                      value={selectedHistoricoStructure}
+                      onChange={e => setSelectedHistoricoStructure(e.target.value)}
+                      className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer max-w-[155px] truncate"
+                    >
+                      <option value="TODOS">Todas las estructuras</option>
+                      <option value="GAO-r Estructura Oliver Sinisterra">GAO-r Oliver Sinisterra (3.403)</option>
+                      <option value="FARC Columna Móvil Daniel Aldana">FARC Daniel Aldana (2.209)</option>
+                      <option value="ELN Compañía Elder Santos">ELN Elder Santos (1.537)</option>
+                      <option value="ELN Frente José María Becerra">ELN José María Becerra (1.106)</option>
+                      <option value="ELN Frente Manuel Vásquez Castaño">ELN Manuel Vásquez (949)</option>
+                      <option value="Comandos de la Frontera / Frente 48">Frente 48 / Comandos Frontera (846)</option>
+                      <option value="GAO Los Contadores">GAO Los Contadores (820)</option>
+                      <option value="ELN Compañía José Luis Cabrera Ruales">ELN José Luis Cabrera (677)</option>
+                      <option value="FARC / Disidencias Frente 29">FARC Frente 29 (666)</option>
+                      <option value="ELN Milicias Jaime Toño Obando">ELN Jaime Toño Obando (661)</option>
+                      <option value="GAO Guerrillas Unidas del Pacífico (GUP)">GAO Guerrillas Unidas Pacífico (451)</option>
+                      <option value="Clan del Golfo / AGC">Clan del Golfo / AGC (303)</option>
+                      <option value="GAO-r Estructura Carlos Patiño">GAO-r Carlos Patiño (299)</option>
+                      <option value="Delincuencia Común / Narcotráfico">Delincuencia Común / Narcotráfico (3.335)</option>
+                      <option value="Redes de Narcotráfico">Redes de Narcotráfico (765)</option>
+                      <option value="OTRAS ESTRUCTURAS">Otras Estructuras</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
