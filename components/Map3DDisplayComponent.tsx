@@ -182,7 +182,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(false);
   const [historicoDoctrinalMode, setHistoricoDoctrinalMode] = useState<'DOCTRINAL_RED' | 'NATO_AFFILIATION'>('DOCTRINAL_RED');
   const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
-  const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('TODOS');
+  const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('2021');
   const [selectedHistoricoStructure, setSelectedHistoricoStructure] = useState<string>('TODOS');
   const [selectedHistoricoCategory, setSelectedHistoricoCategory] = useState<string>('TODOS');
   const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
@@ -266,6 +266,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const piccDrawingPointsRef = useRef<Cesium.Cartesian3[]>([]);
 
   const unitDataSourceRef = useRef<Cesium.CustomDataSource | null>(null);
+  const historicoDataSourceRef = useRef<Cesium.CustomDataSource | null>(null);
   const tacticalEntitiesRef = useRef<Cesium.Entity[]>([]);
   const piccEntitiesRef = useRef<Cesium.Entity[]>([]);
 
@@ -654,6 +655,24 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           const clusteredEntities = pickedObject.id;
           const clusterPrimitive = pickedObject.primitive;
           
+          if (clusteredEntities.length > 8) {
+              if (expandedHoverStateRef.current) {
+                  expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
+                  expandedHoverStateRef.current = null;
+              }
+              setHoveredTooltipInfo({
+                  x: movement.endPosition.x,
+                  y: movement.endPosition.y,
+                  title: `Concentración Táctica: ${clusteredEntities.length.toLocaleString()} Elementos`,
+                  details: [
+                      'Sector con alta densidad agrupada de factores de inestabilidad / unidades.',
+                      'Haga zoom para desagrupar e inspeccionar los hechos individualmente.'
+                  ]
+              });
+              document.body.style.cursor = 'pointer';
+              return;
+          }
+
           if (!expandedHoverStateRef.current || expandedHoverStateRef.current.clusterPrimitive !== clusterPrimitive) {
               if (expandedHoverStateRef.current) {
                  expandedHoverStateRef.current.entities.forEach(e => viewer.entities.remove(e));
@@ -2403,147 +2422,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
-    // 11b2. Render Histórico Factores de Inestabilidad BR23 (Simbología OTAN / MTE 2-01.3 & APP-6)
-    if (showHistoricoBr23Layer && historicoEvents.length > 0) {
-      const filteredHistorico = historicoEvents.filter(h => {
-        if (selectedHistoricoAff !== 'TODOS' && h.aff !== selectedHistoricoAff) return false;
-        if (selectedHistoricoYear !== 'TODOS' && (h.year || h.date?.slice(0, 4)) !== selectedHistoricoYear) return false;
-        if (selectedHistoricoStructure !== 'TODOS' && h.groupClean !== selectedHistoricoStructure) return false;
-        if (selectedHistoricoCategory !== 'TODOS' && h.category !== selectedHistoricoCategory) return false;
-        return true;
-      });
-
-      // Agrupar eventos por coordenada geográfica única para garantizar CERO puntos repetidos encimados en 3D
-      const coordEventMap = new Map<string, typeof filteredHistorico>();
-      filteredHistorico.forEach((ev) => {
-        if (!ev.lat || !ev.lon) return;
-        const key = `${Number(ev.lat).toFixed(5)},${Number(ev.lon).toFixed(5)}`;
-        const list = coordEventMap.get(key);
-        if (list) {
-          list.push(ev);
-        } else {
-          coordEventMap.set(key, [ev]);
-        }
-      });
-
-      coordEventMap.forEach((eventsAtCoord, coordKey) => {
-        const ev = eventsAtCoord[0];
-        const count = eventsAtCoord.length;
-        const isMulti = count > 1;
-
-        let colorStr = '#DC2626'; // HOSTIL rojo
-        let iconPath = '/files/hostil.png';
-
-        const hasCombat = eventsAtCoord.some(e => e.aff === 'CONTACTO' || e.category?.includes('COMBATE'));
-        const hasExplosive = eventsAtCoord.some(e => e.category && (e.category.includes('EXPLOSIV') || e.category.includes('TERRORIS')));
-        const hasDepot = eventsAtCoord.some(e => e.category && (e.category.includes('DEPÓSITO') || e.category.includes('CALETA')));
-
-        if (historicoDoctrinalMode === 'DOCTRINAL_RED') {
-          // MODO DOCTRINAL PICC / S2 (Cap. 5 y 6 MTE 2-01.3): Toda presencia hostil en rojo
-          colorStr = '#DC2626';
-          iconPath = hasCombat ? '/files/desconocido.png' : '/files/hostil.png';
-        } else {
-          // MODO CLASIFICACIÓN KMZ (Multicolor OTAN):
-          if (hasCombat) {
-            colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
-            iconPath = '/files/desconocido.png';
-          } else if (ev.aff === 'AMIGO') {
-            colorStr = '#2563EB'; // AMIGO azul
-            iconPath = '/files/amigo.png';
-          } else if (ev.aff === 'NEUTRO') {
-            colorStr = '#16A34A'; // NEUTRO verde
-            iconPath = '/files/neutro.png';
-          } else {
-            colorStr = '#DC2626';
-            iconPath = '/files/hostil.png';
-          }
-        }
-
-        const color = Cesium.Color.fromCssColorString(colorStr);
-
-        let tooltipTitle = '';
-        let tooltipDetails: string[] = [];
-
-        if (isMulti) {
-          tooltipTitle = `Sector ${ev.mun || ev.place || 'Rural'}: ${count} Factores de Inestabilidad`;
-          tooltipDetails.push(`📍 Total Hechos Registrados en este Punto: ${count}`);
-          tooltipDetails.push(`Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : '🎨 Simbología OTAN'}`);
-          tooltipDetails.push(`Ubicación: ${ev.mun || ''} (${ev.dept || 'Nariño'})`);
-          tooltipDetails.push('----------------------------------------');
-          eventsAtCoord.slice(0, 10).forEach((item) => {
-            const yr = item.date ? item.date.slice(0, 10) : 'S/F';
-            const cat = item.category || 'Hecho';
-            const grp = item.groupClean || item.group || 'Amenaza';
-            const res = item.resumen ? `"${item.resumen.slice(0, 80)}${item.resumen.length > 80 ? '...' : ''}"` : '';
-            tooltipDetails.push(`• [${yr}] ${cat} (${grp}) ${res}`);
-          });
-          if (count > 10) {
-            tooltipDetails.push(`... y ${count - 10} hechos operacionales adicionales registrados.`);
-          }
-        } else {
-          tooltipTitle = `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.category || ev.mun || ''}`;
-          tooltipDetails = [
-            `Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : `Afiliación KMZ: ${ev.aff}`}`,
-            `Tipo de Hecho / Categoría: ${ev.category || ev.desc || 'Factor de Inestabilidad'}`,
-            `Afiliación de Origen: ${ev.aff} (Simbología OTAN / APP-6)`,
-            `Fecha del Hecho: ${ev.date || 'Sin fecha registrada'}`,
-            `Ubicación: ${ev.place || ev.mun || 'Sector rural'} - ${ev.mun || ''} (${ev.dept || 'Nariño'})`,
-            `Estructura Amenaza: ${ev.group || ev.desc || 'No determinada'}`,
-            `Misión/Operación: ${ev.type_op || 'Control Territorial'} ${ev.oper ? `(${ev.oper})` : ''}`,
-            `Unidad Empeñada: ${ev.unit || 'Fuerza Pública'} - ${ev.brigade || 'BR23'} (${ev.div || 'DIV03'})`,
-            ev.ordop ? `ORDOP UT: ${ev.ordop}` : '',
-            ev.terrain ? `Terreno / Relieve: ${ev.terrain} (Clima: ${ev.weather || 'Variable'})` : '',
-            ev.field ? `Ambiente Operacional: ${ev.field}` : '',
-            ev.boletin ? `Boletín Operacional: ${ev.boletin} | HR: ${ev.hr || 'S/N'}` : '',
-            ev.resumen ? `Resumen: ${ev.resumen}` : ''
-          ].filter(Boolean);
-        }
-
-        const labelText = isMulti
-          ? `📍 [${count}] ${hasCombat ? '⚔️ Combates' : hasExplosive ? '💣 Explosivos' : ev.category || 'Hechos'}`
-          : (hasCombat || hasExplosive || hasDepot)
-          ? `${hasCombat ? '⚔️ Combate' : hasExplosive ? '💣 Artefacto Explosivo' : '📦 Depósito/Caleta'} [${ev.date ? ev.date.slice(0, 4) : ''}]`
-          : undefined;
-
-        addTacticalEntity({
-          id: `hist-3d-${coordKey.replace('.', '_').replace(',', '_')}`,
-          name: isMulti ? `HISTÓRICO (${count} Hechos): ${ev.mun || ev.place}` : `HISTÓRICO ${ev.aff}: ${ev.category || ev.desc || ev.oper || ev.mun}`,
-          position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
-          billboard: {
-            image: iconPath,
-            width: isMulti ? 24 : (hasCombat ? 22 : 18),
-            height: isMulti ? 24 : (hasCombat ? 22 : 18),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-            verticalOrigin: Cesium.VerticalOrigin.CENTER,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(10.0, 450000.0)
-          },
-          point: {
-            pixelSize: isMulti ? 14 : (hasCombat ? 12 : 9),
-            color: color,
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: isMulti ? 3 : 2,
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(450000.0, 2500000.0)
-          },
-          properties: {
-            tooltipTitle: tooltipTitle,
-            tooltipDetails: tooltipDetails
-          },
-          label: labelText ? {
-            text: labelText,
-            font: 'bold 9px system-ui, sans-serif',
-            fillColor: hasCombat ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 2,
-            pixelOffset: new Cesium.Cartesian2(0, -14),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 150000.0)
-          } : undefined
-        });
-      });
-    }
-
     // 11c. Red Hidrográfica Oficial de Colombia (92 Cuencas, Ríos Principales y Afluentes Navegables)
     if (showHydrographyLayer) {
       COLOMBIA_RIVER_NETWORKS.forEach((river) => {
@@ -3237,13 +3115,6 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     osintLayerActive,
     showSatDefensoriaLayer,
     selectedSatYear,
-    showHistoricoBr23Layer,
-    historicoDoctrinalMode,
-    selectedHistoricoAff,
-    selectedHistoricoYear,
-    selectedHistoricoStructure,
-    selectedHistoricoCategory,
-    historicoEvents,
     showS2COALayer,
     showPiccGraphicsLayer,
     showUnitsLayer,
@@ -3258,6 +3129,232 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     currentCOAPlan,
     selectedUnitForDome,
     coverageDomeActive
+  ]);
+
+  // Dedicated, optimized effect for Histórico Factores de Inestabilidad BR23 with native clustering and WebGL safety cap
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    // Clean previous datasource and any cluster primitives safely
+    if (historicoDataSourceRef.current && viewer.dataSources.contains(historicoDataSourceRef.current)) {
+      viewer.dataSources.remove(historicoDataSourceRef.current, true);
+      historicoDataSourceRef.current = null;
+    }
+
+    if (!showHistoricoBr23Layer || historicoEvents.length === 0) {
+      viewer.scene.requestRender();
+      return;
+    }
+
+    const filteredHistorico = historicoEvents.filter(h => {
+      if (selectedHistoricoAff !== 'TODOS' && h.aff !== selectedHistoricoAff) return false;
+      if (selectedHistoricoYear !== 'TODOS' && (h.year || h.date?.slice(0, 4)) !== selectedHistoricoYear) return false;
+      if (selectedHistoricoStructure !== 'TODOS' && h.groupClean !== selectedHistoricoStructure) return false;
+      if (selectedHistoricoCategory !== 'TODOS' && h.category !== selectedHistoricoCategory) return false;
+      return true;
+    });
+
+    if (filteredHistorico.length === 0) {
+      viewer.scene.requestRender();
+      return;
+    }
+
+    const historicoDataSource = new Cesium.CustomDataSource('historico-br23');
+    historicoDataSourceRef.current = historicoDataSource;
+
+    // Enable native Cesium clustering to prevent WebGL GPU stalls
+    historicoDataSource.clustering.enabled = true;
+    historicoDataSource.clustering.pixelRange = 45;
+    historicoDataSource.clustering.minimumClusterSize = 3;
+    historicoDataSource.clustering.clusterEvent.addEventListener((clusteredEntities, cluster) => {
+      cluster.label.show = true;
+      cluster.label.text = `🔴 ${clusteredEntities.length.toLocaleString()}`;
+      cluster.label.font = 'bold 12px system-ui, sans-serif';
+      cluster.label.fillColor = Cesium.Color.WHITE;
+      cluster.label.style = Cesium.LabelStyle.FILL_AND_OUTLINE;
+      cluster.label.outlineWidth = 3;
+      cluster.label.outlineColor = Cesium.Color.BLACK;
+      cluster.label.horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
+      cluster.label.verticalOrigin = Cesium.VerticalOrigin.CENTER;
+
+      cluster.billboard.show = false;
+      cluster.point.show = true;
+      cluster.point.color = Cesium.Color.fromCssColorString('rgba(220, 38, 38, 0.90)');
+      cluster.point.pixelSize = Math.min(48, Math.max(26, 22 + Math.log2(clusteredEntities.length) * 3));
+      cluster.point.outlineColor = Cesium.Color.WHITE;
+      cluster.point.outlineWidth = 2.5;
+      cluster.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
+
+      cluster.point.id = clusteredEntities;
+      cluster.label.id = clusteredEntities;
+    });
+
+    // Grouping by unique coordinates to eliminate duplicate overlapping entities
+    const coordEventMap = new Map<string, typeof filteredHistorico>();
+    filteredHistorico.forEach((ev) => {
+      if (!ev.lat || !ev.lon) return;
+      const key = `${Number(ev.lat).toFixed(5)},${Number(ev.lon).toFixed(5)}`;
+      const list = coordEventMap.get(key);
+      if (list) {
+        list.push(ev);
+      } else {
+        coordEventMap.set(key, [ev]);
+      }
+    });
+
+    // WebGL Safety Cap (if 'TODOS' is chosen with ~18,997 events, cap to 3,500 representative points)
+    const MAX_POINTS_TO_RENDER = 3500;
+    let entries = Array.from(coordEventMap.entries());
+    if (entries.length > MAX_POINTS_TO_RENDER) {
+      console.warn(`[Historico] Dataset excede límite seguro de WebGL (${entries.length} coords). Aplicando muestreo seguro de ${MAX_POINTS_TO_RENDER} puntos.`);
+      const priorityEntries: [string, typeof filteredHistorico][] = [];
+      const regularEntries: [string, typeof filteredHistorico][] = [];
+      entries.forEach(e => {
+        const hasImportant = e[1].some(ev => ev.aff === 'CONTACTO' || (ev.category && (ev.category.includes('COMBATE') || ev.category.includes('EXPLOSIV'))));
+        if (hasImportant) priorityEntries.push(e);
+        else regularEntries.push(e);
+      });
+      const remainingSlots = Math.max(0, MAX_POINTS_TO_RENDER - priorityEntries.length);
+      const step = Math.max(1, Math.floor(regularEntries.length / remainingSlots));
+      const sampledRegular = regularEntries.filter((_, idx) => idx % step === 0).slice(0, remainingSlots);
+      entries = [...priorityEntries, ...sampledRegular];
+    }
+
+    entries.forEach(([coordKey, eventsAtCoord]) => {
+      const ev = eventsAtCoord[0];
+      const count = eventsAtCoord.length;
+      const isMulti = count > 1;
+
+      let colorStr = '#DC2626'; // HOSTIL rojo (MTE 2-01.3 PICC)
+      let iconPath = '/files/hostil.png';
+
+      const hasCombat = eventsAtCoord.some(e => e.aff === 'CONTACTO' || e.category?.includes('COMBATE'));
+      const hasExplosive = eventsAtCoord.some(e => e.category && (e.category.includes('EXPLOSIV') || e.category.includes('TERRORIS')));
+      const hasDepot = eventsAtCoord.some(e => e.category && (e.category.includes('DEPÓSITO') || e.category.includes('CALETA')));
+
+      if (historicoDoctrinalMode === 'DOCTRINAL_RED') {
+        // MODO DOCTRINAL PICC / S2 (Cap. 5 y 6 MTE 2-01.3): Toda presencia hostil en rojo
+        colorStr = '#DC2626';
+        iconPath = hasCombat ? '/files/desconocido.png' : '/files/hostil.png';
+      } else {
+        // MODO CLASIFICACIÓN KMZ (Multicolor OTAN):
+        if (hasCombat) {
+          colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
+          iconPath = '/files/desconocido.png';
+        } else if (ev.aff === 'AMIGO') {
+          colorStr = '#2563EB'; // AMIGO azul
+          iconPath = '/files/amigo.png';
+        } else if (ev.aff === 'NEUTRO') {
+          colorStr = '#16A34A'; // NEUTRO verde
+          iconPath = '/files/neutro.png';
+        } else {
+          colorStr = '#DC2626';
+          iconPath = '/files/hostil.png';
+        }
+      }
+
+      const color = Cesium.Color.fromCssColorString(colorStr);
+
+      let tooltipTitle = '';
+      let tooltipDetails: string[] = [];
+
+      if (isMulti) {
+        tooltipTitle = `Sector ${ev.mun || ev.place || 'Rural'}: ${count} Factores de Inestabilidad`;
+        tooltipDetails.push(`📍 Total Hechos Registrados en este Punto: ${count}`);
+        tooltipDetails.push(`Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : '🎨 Simbología OTAN'}`);
+        tooltipDetails.push(`Ubicación: ${ev.mun || ''} (${ev.dept || 'Nariño'})`);
+        tooltipDetails.push('----------------------------------------');
+        eventsAtCoord.slice(0, 10).forEach((item) => {
+          const yr = item.date ? item.date.slice(0, 10) : 'S/F';
+          const cat = item.category || 'Hecho';
+          const grp = item.groupClean || item.group || 'Amenaza';
+          const res = item.resumen ? `"${item.resumen.slice(0, 80)}${item.resumen.length > 80 ? '...' : ''}"` : '';
+          tooltipDetails.push(`• [${yr}] ${cat} (${grp}) ${res}`);
+        });
+        if (count > 10) {
+          tooltipDetails.push(`... y ${count - 10} hechos operacionales adicionales registrados.`);
+        }
+      } else {
+        tooltipTitle = `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.category || ev.mun || ''}`;
+        tooltipDetails = [
+          `Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : `Afiliación KMZ: ${ev.aff}`}`,
+          `Tipo de Hecho / Categoría: ${ev.category || ev.desc || 'Factor de Inestabilidad'}`,
+          `Afiliación de Origen: ${ev.aff} (Simbología OTAN / APP-6)`,
+          `Fecha del Hecho: ${ev.date || 'Sin fecha registrada'}`,
+          `Ubicación: ${ev.place || ev.mun || 'Sector rural'} - ${ev.mun || ''} (${ev.dept || 'Nariño'})`,
+          `Estructura Amenaza: ${ev.group || ev.desc || 'No determinada'}`,
+          `Misión/Operación: ${ev.type_op || 'Control Territorial'} ${ev.oper ? `(${ev.oper})` : ''}`,
+          `Unidad Empeñada: ${ev.unit || 'Fuerza Pública'} - ${ev.brigade || 'BR23'} (${ev.div || 'DIV03'})`,
+          ev.ordop ? `ORDOP UT: ${ev.ordop}` : '',
+          ev.terrain ? `Terreno / Relieve: ${ev.terrain} (Clima: ${ev.weather || 'Variable'})` : '',
+          ev.field ? `Ambiente Operacional: ${ev.field}` : '',
+          ev.boletin ? `Boletín Operacional: ${ev.boletin} | HR: ${ev.hr || 'S/N'}` : '',
+          ev.resumen ? `Resumen: ${ev.resumen}` : ''
+        ].filter(Boolean);
+      }
+
+      const labelText = isMulti
+        ? `📍 [${count}] ${hasCombat ? '⚔️ Combates' : hasExplosive ? '💣 Explosivos' : ev.category || 'Hechos'}`
+        : (hasCombat || hasExplosive || hasDepot)
+        ? `${hasCombat ? '⚔️ Combate' : hasExplosive ? '💣 Artefacto Explosivo' : '📦 Depósito/Caleta'} [${ev.date ? ev.date.slice(0, 4) : ''}]`
+        : undefined;
+
+      historicoDataSource.entities.add({
+        id: `hist-3d-${coordKey.replace('.', '_').replace(',', '_')}`,
+        name: isMulti ? `HISTÓRICO (${count} Hechos): ${ev.mun || ev.place}` : `HISTÓRICO ${ev.aff}: ${ev.category || ev.desc || ev.oper || ev.mun}`,
+        position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
+        billboard: {
+          image: iconPath,
+          width: isMulti ? 24 : (hasCombat ? 22 : 18),
+          height: isMulti ? 24 : (hasCombat ? 22 : 18),
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(10.0, 450000.0)
+        },
+        point: {
+          pixelSize: isMulti ? 14 : (hasCombat ? 12 : 9),
+          color: color,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: isMulti ? 3 : 2,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(450000.0, 2500000.0)
+        },
+        properties: new Cesium.PropertyBag({
+          tooltipTitle: tooltipTitle,
+          tooltipDetails: tooltipDetails
+        }),
+        label: labelText ? {
+          text: labelText,
+          font: 'bold 9px system-ui, sans-serif',
+          fillColor: hasCombat ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          pixelOffset: new Cesium.Cartesian2(0, -14),
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(50.0, 150000.0)
+        } : undefined
+      });
+    });
+
+    viewer.dataSources.add(historicoDataSource);
+    viewer.scene.requestRender();
+
+    return () => {
+      if (viewer && !viewer.isDestroyed() && historicoDataSourceRef.current && viewer.dataSources.contains(historicoDataSourceRef.current)) {
+        viewer.dataSources.remove(historicoDataSourceRef.current, true);
+        historicoDataSourceRef.current = null;
+      }
+    };
+  }, [
+    showHistoricoBr23Layer,
+    historicoEvents,
+    selectedHistoricoAff,
+    selectedHistoricoYear,
+    selectedHistoricoStructure,
+    selectedHistoricoCategory,
+    historicoDoctrinalMode
   ]);
 
   // Helper to safely clear LOS entities
@@ -3963,14 +4060,14 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                       onChange={e => setSelectedHistoricoYear(e.target.value)}
                       className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer"
                     >
-                      <option value="TODOS">Todos los años (2015-2021)</option>
-                      <option value="2021">2021 (1.673)</option>
-                      <option value="2020">2020 (3.109)</option>
-                      <option value="2019">2019 (4.561)</option>
-                      <option value="2018">2018 (3.398)</option>
-                      <option value="2017">2017 (2.861)</option>
-                      <option value="2016">2016 (2.455)</option>
-                      <option value="2015">2015 (1.926)</option>
+                      <option value="2021">2021 (1.531 hechos - Rápido)</option>
+                      <option value="2020">2020 (2.891 hechos)</option>
+                      <option value="2019">2019 (4.290 hechos)</option>
+                      <option value="2018">2018 (3.132 hechos)</option>
+                      <option value="2017">2017 (2.831 hechos)</option>
+                      <option value="2016">2016 (2.420 hechos)</option>
+                      <option value="2015">2015 (1.902 hechos)</option>
+                      <option value="TODOS">Todos los años (18.997 - Agrupado Seguro)</option>
                     </select>
                   </div>
 
