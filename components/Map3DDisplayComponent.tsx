@@ -180,9 +180,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showSatDefensoriaLayer, setShowSatDefensoriaLayer] = useState<boolean>(true);
   const [selectedSatYear, setSelectedSatYear] = useState<string>('TODOS');
   const [showHistoricoBr23Layer, setShowHistoricoBr23Layer] = useState<boolean>(true);
+  const [historicoDoctrinalMode, setHistoricoDoctrinalMode] = useState<'DOCTRINAL_RED' | 'NATO_AFFILIATION'>('DOCTRINAL_RED');
   const [selectedHistoricoAff, setSelectedHistoricoAff] = useState<string>('TODOS');
   const [selectedHistoricoYear, setSelectedHistoricoYear] = useState<string>('TODOS');
   const [selectedHistoricoStructure, setSelectedHistoricoStructure] = useState<string>('TODOS');
+  const [selectedHistoricoCategory, setSelectedHistoricoCategory] = useState<string>('TODOS');
   const [historicoEvents, setHistoricoEvents] = useState<any[]>([]);
   const [showS2COALayer, setShowS2COALayer] = useState<boolean>(true);
   const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(true);
@@ -2393,6 +2395,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         if (selectedHistoricoAff !== 'TODOS' && h.aff !== selectedHistoricoAff) return false;
         if (selectedHistoricoYear !== 'TODOS' && (h.year || h.date?.slice(0, 4)) !== selectedHistoricoYear) return false;
         if (selectedHistoricoStructure !== 'TODOS' && h.groupClean !== selectedHistoricoStructure) return false;
+        if (selectedHistoricoCategory !== 'TODOS' && h.category !== selectedHistoricoCategory) return false;
         return true;
       });
 
@@ -2401,20 +2404,32 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
         let colorStr = '#DC2626'; // HOSTIL rojo
         let iconPath = '/files/hostil.png';
-        if (ev.aff === 'AMIGO') {
-          colorStr = '#2563EB'; // AMIGO azul
-          iconPath = '/files/amigo.png';
-        } else if (ev.aff === 'CONTACTO') {
-          colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
-          iconPath = '/files/desconocido.png';
-        } else if (ev.aff === 'NEUTRO') {
-          colorStr = '#16A34A'; // NEUTRO verde
-          iconPath = '/files/neutro.png';
+
+        if (historicoDoctrinalMode === 'DOCTRINAL_RED') {
+          // MODO DOCTRINAL PICC / S2 (Cap. 5 y 6 MTE 2-01.3):
+          // En el Calco de la Amenaza, TODA la actividad del enemigo (incluso donde hubo captura, destrucción o combate)
+          // se grafica en ROJO como factor de inestabilidad y presencia hostil activa en el área de operaciones.
+          colorStr = '#DC2626';
+          iconPath = '/files/hostil.png';
+        } else {
+          // MODO CLASIFICACIÓN KMZ (Multicolor OTAN):
+          if (ev.aff === 'AMIGO') {
+            colorStr = '#2563EB'; // AMIGO azul
+            iconPath = '/files/amigo.png';
+          } else if (ev.aff === 'CONTACTO') {
+            colorStr = '#EAB308'; // CONTACTO / COMBATE amarillo
+            iconPath = '/files/desconocido.png';
+          } else if (ev.aff === 'NEUTRO') {
+            colorStr = '#16A34A'; // NEUTRO verde
+            iconPath = '/files/neutro.png';
+          }
         }
 
         const color = Cesium.Color.fromCssColorString(colorStr);
         const tooltipDetails = [
-          `Afiliación Doctrinal: ${ev.aff} (Simbología OTAN / APP-6)`,
+          `Modo Doctrinal: ${historicoDoctrinalMode === 'DOCTRINAL_RED' ? '🔴 Amenaza / Factor de Inestabilidad S2 (MTE 2-01.3)' : `Afiliación KMZ: ${ev.aff}`}`,
+          `Tipo de Hecho / Categoría: ${ev.category || ev.desc || 'Factor de Inestabilidad'}`,
+          `Afiliación de Origen: ${ev.aff} (Simbología OTAN / APP-6)`,
           `Fecha del Hecho: ${ev.date || 'Sin fecha registrada'}`,
           `Ubicación: ${ev.place || ev.mun || 'Sector rural'} - ${ev.mun || ''} (${ev.dept || 'Nariño'})`,
           `Estructura Amenaza: ${ev.group || ev.desc || 'No determinada'}`,
@@ -2427,21 +2442,25 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           ev.resumen ? `Resumen: ${ev.resumen}` : ''
         ].filter(Boolean);
 
+        const isCombat = ev.aff === 'CONTACTO' || ev.category === 'COMBATES';
+        const isExplosive = ev.category && (ev.category.includes('EXPLOSIV') || ev.category.includes('TERRORIS'));
+        const isDepot = ev.category && (ev.category.includes('DEPÓSITO') || ev.category.includes('CALETA'));
+
         addTacticalEntity({
           id: `hist-3d-${ev.id}`,
-          name: `HISTÓRICO ${ev.aff}: ${ev.desc || ev.oper || ev.mun}`,
+          name: `HISTÓRICO ${ev.aff}: ${ev.category || ev.desc || ev.oper || ev.mun}`,
           position: Cesium.Cartesian3.fromDegrees(ev.lon, ev.lat),
           billboard: {
             image: iconPath,
-            width: ev.aff === 'CONTACTO' ? 22 : 18,
-            height: ev.aff === 'CONTACTO' ? 22 : 18,
+            width: isCombat ? 22 : 18,
+            height: isCombat ? 22 : 18,
             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(10.0, 450000.0)
           },
           point: {
-            pixelSize: ev.aff === 'CONTACTO' ? 12 : 9,
+            pixelSize: isCombat ? 12 : 9,
             color: color,
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 2,
@@ -2449,13 +2468,13 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(450000.0, 2500000.0)
           },
           properties: {
-            tooltipTitle: `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.mun || ''}`,
+            tooltipTitle: `Histórico Factores de Inestabilidad (${ev.aff}): ${ev.category || ev.mun || ''}`,
             tooltipDetails: tooltipDetails
           },
-          label: (ev.aff === 'CONTACTO' || (ev.desc && ['CALETA', 'CAMPAMENTOS', 'ACTIVACIÓN_ARTEFACTO_EXPLOSIVO'].includes(ev.desc))) ? {
-            text: `${ev.aff === 'CONTACTO' ? '⚔️ Combate' : '💣 ' + (ev.desc || '')} [${ev.date ? ev.date.slice(0, 4) : ''}]`,
+          label: (isCombat || isExplosive || isDepot) ? {
+            text: `${isCombat ? '⚔️ Combate' : isExplosive ? '💣 Artefacto Explosivo' : '📦 Depósito/Caleta'} [${ev.date ? ev.date.slice(0, 4) : ''}]`,
             font: 'bold 9px system-ui, sans-serif',
-            fillColor: ev.aff === 'CONTACTO' ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
+            fillColor: isCombat ? Cesium.Color.YELLOW : Cesium.Color.WHITE,
             outlineColor: Cesium.Color.BLACK,
             outlineWidth: 2,
             pixelOffset: new Cesium.Cartesian2(0, -14),
@@ -3160,9 +3179,11 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     showSatDefensoriaLayer,
     selectedSatYear,
     showHistoricoBr23Layer,
+    historicoDoctrinalMode,
     selectedHistoricoAff,
     selectedHistoricoYear,
     selectedHistoricoStructure,
+    selectedHistoricoCategory,
     historicoEvents,
     showS2COALayer,
     showPiccGraphicsLayer,
@@ -3789,6 +3810,38 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               </div>
               {showHistoricoBr23Layer && (
                 <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800/50">
+                  {/* Selector de Modo Doctrinal (PICC Rojo vs Multicolor KMZ) */}
+                  <div className="flex flex-col gap-1 bg-slate-950/80 p-1.5 rounded border border-slate-800">
+                    <span className="text-[10px] text-amber-400 font-semibold tracking-wider uppercase">Modo Doctrinal:</span>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setHistoricoDoctrinalMode('DOCTRINAL_RED')}
+                        className={`px-1.5 py-1 text-[9px] font-bold rounded text-center transition-all ${
+                          historicoDoctrinalMode === 'DOCTRINAL_RED'
+                            ? 'bg-red-700 text-white shadow-sm ring-1 ring-red-400'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        }`}
+                        title="Doctrina MTE 2-01.3: Toda la actividad del enemigo (incluso donde hubo captura o combate) se grafica en ROJO como factor de inestabilidad / presencia hostil"
+                      >
+                        🔴 PICC S2 (Rojo)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHistoricoDoctrinalMode('NATO_AFFILIATION')}
+                        className={`px-1.5 py-1 text-[9px] font-bold rounded text-center transition-all ${
+                          historicoDoctrinalMode === 'NATO_AFFILIATION'
+                            ? 'bg-blue-700 text-white shadow-sm ring-1 ring-blue-400'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        }`}
+                        title="Clasificación original del KMZ por actor del resultado (Hostil rojo, Amigo azul, Combate amarillo, Neutro verde)"
+                      >
+                        🎨 OTAN KMZ
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filtro por Afiliación (solo relevante o modificable si está en modo KMZ o para filtrar subset) */}
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-[10px] text-slate-400 font-mono">Afiliación:</span>
                     <select
@@ -3798,9 +3851,41 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
                     >
                       <option value="TODOS">Todas las afiliaciones</option>
                       <option value="HOSTIL">🔴 HOSTIL (10.081)</option>
-                      <option value="AMIGO">🔵 AMIGO (9.283)</option>
-                      <option value="CONTACTO">⚔️ CONTACTO / COMBATE (301)</option>
-                      <option value="NEUTRO">🟢 NEUTRO (319)</option>
+                      <option value="AMIGO">🔵 AMIGO / OP PROPIAS (9.283)</option>
+                      <option value="CONTACTO">⚔️ CONTACTO / COMBATES (301)</option>
+                      <option value="NEUTRO">🟢 NEUTRO / CIVILES (319)</option>
+                    </select>
+                  </div>
+
+                  {/* Filtro por Categoría / Tipo de Hecho */}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono">Tipo Hecho:</span>
+                    <select
+                      value={selectedHistoricoCategory}
+                      onChange={e => setSelectedHistoricoCategory(e.target.value)}
+                      className="bg-slate-950 text-slate-200 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-medium outline-none focus:border-amber-500 cursor-pointer max-w-[155px] truncate"
+                    >
+                      <option value="TODOS">Todos los tipos de hecho</option>
+                      <option value="NARCOTRAFICO">Narcotráfico (6.943)</option>
+                      <option value="CAPTURA PERSONA">Captura de Persona (3.177)</option>
+                      <option value="DESTRUCCIÓN">Destrucción Material (2.536)</option>
+                      <option value="DEPÓSITO ILEGAL">Depósito Ilegal (2.467)</option>
+                      <option value="NEUTRALIZACIÓN ARTEFACTO EXPLOSIVO">Neutraliz. Artefacto Explosivo (1.395)</option>
+                      <option value="NEUTRALIZACIÓN ACCION CONTRA INFRAESTRUCTURA">Neutraliz. Contra Infraestructura (1.069)</option>
+                      <option value="INCAUTACIÓN">Incautación (699)</option>
+                      <option value="CONTRABANDO">Contrabando (303)</option>
+                      <option value="COMBATES">⚔️ Combates (301)</option>
+                      <option value="PRESENTACION VOLUNTARIA">Presentación Voluntaria (246)</option>
+                      <option value="RECUPERADO">Recuperado (177)</option>
+                      <option value="CALETA">Caleta (81)</option>
+                      <option value="NEUTRALIZACIONES ACCIONES TERRORISTAS">Neutraliz. Acciones Terroristas (81)</option>
+                      <option value="EXPLORACIÓN Y EXPLOTACIÓN ILÍCITA">Minería / Explotación Ilícita (70)</option>
+                      <option value="SOMETIMIENTO A LA JUSTICIA">Sometimiento Justicia (70)</option>
+                      <option value="ACTIVACIÓN ARTEFACTO EXPLOSIVO">💣 Activación Explosivo (68)</option>
+                      <option value="ACTO TERRORISMO">💥 Acto de Terrorismo (66)</option>
+                      <option value="ATAQUE FUERZA PUBLICA">Ataque Fuerza Pública (47)</option>
+                      <option value="CAMPAMENTOS">Campamentos Enemigos (35)</option>
+                      <option value="BLOQUEOS DISTURBIOS Y MANIFESTACIONES">Disturbios / Bloqueos (22)</option>
                     </select>
                   </div>
 
