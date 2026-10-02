@@ -263,6 +263,9 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [isHistoricoLoading, setIsHistoricoLoading] = useState<boolean>(false);
   const [showS2COALayer, setShowS2COALayer] = useState<boolean>(false);
   const [showPiccGraphicsLayer, setShowPiccGraphicsLayer] = useState<boolean>(false);
+  const [showRutasAmenazaLayer, setShowRutasAmenazaLayer] = useState<boolean>(false);
+  const [rutasAmenazaFeatures, setRutasAmenazaFeatures] = useState<any[]>([]);
+  const [isRutasAmenazaLoading, setIsRutasAmenazaLoading] = useState<boolean>(false);
   const [showUnitsLayer, setShowUnitsLayer] = useState<boolean>(true);
   const [showIntelligenceLayer, setShowIntelligenceLayer] = useState<boolean>(false);
   const [showHotspotsLayer, setShowHotspotsLayer] = useState<boolean>(false);
@@ -1642,6 +1645,25 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     }
   }, [showHistoricoBr23Layer, historicoEvents.length, isHistoricoLoading]);
 
+  // Cargar Capa de Rutas y Corredores de la Amenaza BR23 bajo demanda
+  useEffect(() => {
+    if (showRutasAmenazaLayer && rutasAmenazaFeatures.length === 0 && !isRutasAmenazaLoading) {
+      setIsRutasAmenazaLoading(true);
+      fetch('/rutas_amenaza_br23.json')
+        .then(res => res.json())
+        .then(data => {
+          if (data && Array.isArray(data.features)) {
+            setRutasAmenazaFeatures(data.features);
+          }
+          setIsRutasAmenazaLoading(false);
+        })
+        .catch(err => {
+          console.warn("Fallo cargando rutas de la amenaza:", err);
+          setIsRutasAmenazaLoading(false);
+        });
+    }
+  }, [showRutasAmenazaLayer, rutasAmenazaFeatures.length, isRutasAmenazaLoading]);
+
   useEffect(() => {
     if (!eventBus) return;
 
@@ -2656,6 +2678,114 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       });
     }
 
+    // 11d. Render Rutas y Corredores de Movilidad de la Amenaza PICC 2026 BR23
+    if (showRutasAmenazaLayer && rutasAmenazaFeatures.length > 0) {
+      rutasAmenazaFeatures.forEach((feat, fIdx) => {
+        try {
+          const props = feat.properties || {};
+          const geom = feat.geometry;
+          if (!geom || !geom.coordinates) return;
+
+          const isPolygon = geom.type === 'Polygon';
+          const isLine = geom.type === 'LineString';
+          const folUpper = (props.folder || '').toUpperCase();
+          const nameUpper = (props.name || '').toUpperCase();
+
+          // Identificar si es corredor estratégico, confrontación o ruta táctica
+          const isEstrategico = folUpper.includes('ESTRATEGICO') || nameUpper.includes('ESTRATEGICO');
+          const isConfrontacion = folUpper.includes('CONFRONTACION') || nameUpper.includes('VS');
+
+          // Estilo Doctrinal Militar: Rojo Hostil (#DC2626) para la amenaza, Ámbar para confrontaciones
+          const strokeColor = isConfrontacion 
+            ? Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.9)
+            : (isEstrategico ? Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.95) : Cesium.Color.fromCssColorString('#DC2626').withAlpha(0.85));
+
+          const polyWidth = isEstrategico ? 4.5 : 3.0;
+
+          if (isLine) {
+            const coords = geom.coordinates;
+            if (coords.length < 2) return;
+            const positions = coords.map(([lon, lat]: [number, number]) => Cesium.Cartesian3.fromDegrees(lon, lat));
+
+            addTacticalEntity({
+              id: `threat-route-${fIdx}`,
+              name: `Ruta Amenaza: ${props.name || 'Corredor Táctico'}`,
+              properties: new Cesium.PropertyBag({
+                tooltipTitle: props.name || 'Corredor de Movilidad de la Amenaza',
+                tooltipDetails: [
+                  `Carpeta: ${props.folder || 'PICC 2026'}`,
+                  `Tipo: ${isEstrategico ? 'Corredor de Movilidad Estratégico' : (isConfrontacion ? 'Eje de Confrontación' : 'Ruta Táctica Amenaza')}`,
+                  props.desc ? `Detalle: ${props.desc}` : 'Ruta activa identificada por Inteligencia Militar (BR23)'
+                ]
+              }),
+              polyline: {
+                positions: positions,
+                width: polyWidth,
+                material: new Cesium.PolylineDashMaterialProperty({
+                  color: strokeColor,
+                  dashLength: isEstrategico ? 16.0 : 12.0
+                }),
+                clampToGround: true
+              }
+            });
+
+            // Etiqueta identificadora en el tramo medio si tiene nombre destacado
+            if (props.name && props.name !== '0' && !props.name.includes('sin título') && coords.length >= 3) {
+              const midIdx = Math.floor(coords.length / 2);
+              const [mLon, mLat] = coords[midIdx];
+              addTacticalEntity({
+                id: `threat-route-lbl-${fIdx}`,
+                name: props.name,
+                position: Cesium.Cartesian3.fromDegrees(mLon, mLat),
+                label: {
+                  text: `🔴 ${props.name}`,
+                  font: 'bold 10px system-ui, sans-serif',
+                  fillColor: Cesium.Color.WHITE,
+                  outlineColor: Cesium.Color.fromCssColorString('#7F1D1D'),
+                  outlineWidth: 2,
+                  showBackground: true,
+                  backgroundColor: Cesium.Color.fromCssColorString('#991B1B').withAlpha(0.8),
+                  backgroundPadding: new Cesium.Cartesian2(4, 2),
+                  pixelOffset: new Cesium.Cartesian2(0, -10),
+                  heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                  distanceDisplayCondition: new Cesium.DistanceDisplayCondition(100.0, 500000.0)
+                }
+              });
+            }
+          } else if (isPolygon) {
+            const rings = geom.coordinates;
+            if (!rings || !rings[0] || rings[0].length < 3) return;
+            const positions = rings[0].map(([lon, lat]: [number, number]) => Cesium.Cartesian3.fromDegrees(lon, lat));
+
+            addTacticalEntity({
+              id: `threat-area-${fIdx}`,
+              name: `Área Amenaza: ${props.name || 'Área Táctica'}`,
+              properties: new Cesium.PropertyBag({
+                tooltipTitle: props.name || 'Área de Interés de la Amenaza',
+                tooltipDetails: [
+                  `Carpeta: ${props.folder || 'PICC 2026'}`,
+                  `Tipo: ${isConfrontacion ? 'Área de Confrontación Activa' : 'Área de Influencia Hostil'}`,
+                  props.desc ? `Detalle: ${props.desc}` : 'Delimitación operacional enemiga (PICC 2026)'
+                ]
+              }),
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(positions),
+                material: isConfrontacion 
+                  ? Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.25)
+                  : Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.25),
+                outline: true,
+                outlineColor: strokeColor,
+                outlineWidth: 2.0,
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+              }
+            });
+          }
+        } catch (rErr) {
+          console.warn("Error renderizando ruta de amenaza:", rErr);
+        }
+      });
+    }
+
     // 12. Render Loaded PICC operational graphics
     if (showPiccGraphicsLayer) {
       loadedPiccGraphics.forEach(graphic => {
@@ -3294,6 +3424,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     showPiccGraphicsLayer,
     showUnitsLayer,
     showHydrographyLayer,
+    showRutasAmenazaLayer,
+    rutasAmenazaFeatures,
     showRoadsLayer,
     showCmocTransitLayer,
     showIntelligenceLayer,
@@ -4226,6 +4358,32 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-300">✏️ Gráficos PICC</span>
               <input type="checkbox" checked={showPiccGraphicsLayer} onChange={e => setShowPiccGraphicsLayer(e.target.checked)} className="w-4 h-4 accent-blue-500 rounded cursor-pointer" />
+            </div>
+
+            {/* Capa Rutas y Corredores de Movilidad de la Amenaza (PICC 2026 BR23) */}
+            <div className="flex flex-col gap-1 py-1 px-1.5 bg-slate-900/60 rounded border border-red-950/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-red-300">🚩 Rutas Amenaza (PICC)</span>
+                  {isRutasAmenazaLoading && (
+                    <span className="text-[9px] text-amber-400 font-mono animate-pulse">Cargando...</span>
+                  )}
+                  {showRutasAmenazaLayer && rutasAmenazaFeatures.length > 0 && (
+                    <span className="text-[9px] text-red-400 font-mono">({rutasAmenazaFeatures.length})</span>
+                  )}
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={showRutasAmenazaLayer} 
+                  onChange={e => setShowRutasAmenazaLayer(e.target.checked)} 
+                  className="w-4 h-4 accent-red-600 rounded cursor-pointer" 
+                />
+              </div>
+              {showRutasAmenazaLayer && (
+                <p className="text-[8.5px] text-slate-400 leading-tight">
+                  Corredores estratégicos, avenidas de aproximación tácticas y áreas de confrontación activa de la amenaza.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between">
