@@ -1216,13 +1216,21 @@ class ProactiveRequest(BaseModel):
 
 @app.post("/api/v1/intelligence/proactive")
 def proactive_analysis(req: ProactiveRequest):
-    prompt = f"""Eres SIMCOP AI. Detecta riesgos inminentes basándote en:
-Unidades Amigas: {req.unidades}
-OSINT: {req.osint}
-Alertas Críticas: {req.alertas}
+    ocopa = OCOPATerrainAnalyzer.analyze(None, "", req.osint)
+    prompt = f"""Eres el Oficial de Inteligencia Militar (G2) del Ejército de Colombia en el sistema SIMCOP.
+Emite una APRECIACIÓN TÁCTICA DE SITUACIÓN MILITAR bajo doctrina MFRE 2-0 / MTE 2-01.3:
 
-Salida esperada: Una lista de 3 a 5 puntos concisos (usando guiones - de Markdown) que identifiquen riesgos y oportunidades.
-Cero texto introductorio, cero conclusiones largas, cero encabezados. Solo las viñetas."""
+DATOS OPERACIONALES:
+- Unidades Propias: {req.unidades}
+- Inteligencia y Amenazas: {req.osint}
+- Alertas y Novedades: {req.alertas}
+- Análisis de Terreno OCOPA: {ocopa['sintesis_comandante']}
+
+REGLAS DE MANDO OBLIGATORIAS:
+1. PROHIBICIÓN ESTRICTA DE CLICHÉS: Queda TERMINANTEMENTE PROHIBIDO usar frases vacías como "se encuentra en una posición estratégica", "permite una rápida respuesta" o repetir el mismo texto en varias unidades.
+2. CADA PUNTO DEBE SER CONCRETO Y OPERACIONAL: Identifica la unidad por su indicativo exacto, su vulnerabilidad específica en el terreno (desenfilada, falta de apoyo de fuegos, aislamiento táctico), la amenaza hostil inminente y la acción inmediata recomendada (ej. 'reforzar eje fluvial', 'ocupar cresta militar', 'establecer puesto de observación').
+3. DOCTRINA OCOPA: Aplica conceptos de terreno: contrapendiente, cursos de agua, transitabilidad y campos de tiro.
+4. FORMATO: Emite entre 3 y 5 viñetas tácticas concisas usando guiones ('-'). Cero rodeos introductorios."""
     return {"analysis": run_inference(prompt, expect_json=False).strip()}
 
 # 6. Análisis Topográfico, Climático y Táctico
