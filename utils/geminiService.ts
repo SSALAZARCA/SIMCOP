@@ -1429,7 +1429,9 @@ Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
       const data = await callNativeAI('/wargaming/generate_coa', {
         objetivo: objective,
         unidades_amigas: unitContext,
-        inteligencia_enemiga: intelContext
+        inteligencia_enemiga: intelContext,
+        geo_prompt: geoPrompt,
+        geo_context: geoContext
       });
       const coaPlan = normalizeCOAPlan(data);
       updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });

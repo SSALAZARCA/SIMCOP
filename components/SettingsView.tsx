@@ -355,7 +355,7 @@ const SettingsView: React.FC = () => {
                             onClick={() => {
                                 setAiProvider('NATIVE_SIMCOP');
                                 setLocalEndpoint('/ai_api');
-                                setLocalModel('simcop_nlp_weights_quantized_int8.pth');
+                                setLocalModel('gemma-4-e2b-it-Q4_K_M.gguf');
                             }}
                             style={{
                                 display: 'flex',
@@ -373,7 +373,7 @@ const SettingsView: React.FC = () => {
                             }}
                         >
                             <Server size={18} />
-                            IA Nativa SIMCOP
+                            IA Soberana (Gemma 4 & OCOPA)
                         </button>
                     </div>
                 </div>

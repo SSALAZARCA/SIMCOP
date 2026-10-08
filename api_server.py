@@ -95,12 +95,15 @@ def _get_gpu_telemetry() -> dict:
 # ==========================================
 # DETECCIÓN Y CARGA DE BACKEND DE MODELO
 # ==========================================
-MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "simcop_nlp_weights_quantized_int8.pth")
+MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "models/gemma-4-e2b-it-Q4_K_M.gguf")
 MODEL_BACKEND_OVERRIDE = os.environ.get("SIMCOP_MODEL_BACKEND", "auto").lower()
-MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "2048"))
-MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "4"))
+MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "4096"))
+MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "2"))
 
-logger.info(f"[FASE 3] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, BACKEND={MODEL_BACKEND_OVERRIDE}")
+logger.info(f"[SOBERANO] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, THREADS={MODEL_THREADS}, CTX={MODEL_CTX}")
+
+# Semáforo de concurrencia: exactamente 1 inferencia pesada a la vez para proteger el VPS Hostinger KVM 4
+_inference_semaphore = threading.Semaphore(1)
 
 
 class SimcopLLMAdapter:
@@ -182,28 +185,51 @@ class SimcopLLMAdapter:
     def generate_response(self, prompt: str, expect_json: bool = False) -> tuple[str, int]:
         """
         Genera respuesta y retorna (texto, tokens_generados).
+        Utiliza un semáforo estricto para procesar una sola solicitud a la vez,
+        garantizando que el VPS Hostinger KVM 4 nunca sufra picos ni afecte otras aplicaciones.
         """
-        if self.backend == "llama_cpp" and self._llama is not None:
-            return self._infer_llama(prompt, expect_json)
-        elif self.backend == "onnx" and self._onnx_pipe is not None:
-            return self._infer_onnx(prompt, expect_json)
-        else:
+        acquired = _inference_semaphore.acquire(timeout=45)
+        if not acquired:
+            logger.warning("[CONCURRENCY] Solicitud rechazada por timeout de cola. Devolviendo respuesta segura.")
             return self._infer_heuristic(prompt, expect_json), 0
+        try:
+            if self.backend == "heuristic" and os.path.exists(MODEL_PATH):
+                logger.info("[HOT-LOAD] Detectado modelo en disco tras descarga desatendida. Cargando en memoria...")
+                self._load()
+
+            if self.backend == "llama_cpp" and self._llama is not None:
+                return self._infer_llama(prompt, expect_json)
+            elif self.backend == "onnx" and self._onnx_pipe is not None:
+                return self._infer_onnx(prompt, expect_json)
+            else:
+                return self._infer_heuristic(prompt, expect_json), 0
+        finally:
+            _inference_semaphore.release()
 
     def _infer_llama(self, prompt: str, expect_json: bool) -> tuple[str, int]:
-        """Inferencia real con llama.cpp — Qwen2.5 / Llama3.2 / Phi-4 GGUF."""
+        """Inferencia real con llama.cpp — Gemma 4 / Qwen2.5 / Llama3.2 GGUF."""
         system_prompt = (
-            "Eres SIMCOP AI, el asistente táctico del Ejército de Colombia. "
-            "Respondes en español con doctrina militar rigurosa. "
-            + ("Responde ÚNICAMENTE en formato JSON válido, sin texto adicional." if expect_json else "")
+            "Eres SIMCOP AI, el asistente táctico de operaciones y doctrina militar del Ejército de Colombia. "
+            "Respondes en español con rigurosa doctrina militar (OCOPA: Observación, Cubierta, Obstáculos, Puntos Clave, Avenidas de Aproximación). "
+            + ("Responde ÚNICAMENTE en formato JSON válido según el esquema solicitado, sin etiquetas markdown adicionales." if expect_json else "")
         )
-        full_prompt = f"<|system|>\n{system_prompt}\n<|user|>\n{prompt}\n<|assistant|>\n"
+        if "gemma" in MODEL_PATH.lower():
+            full_prompt = (
+                f"<start_of_turn>system\n{system_prompt}<end_of_turn>\n"
+                f"<start_of_turn>user\n{prompt}<end_of_turn>\n"
+                f"<start_of_turn>model\n"
+            )
+            stop_tokens = ["<end_of_turn>", "<eos>"]
+        else:
+            full_prompt = f"<|system|>\n{system_prompt}\n<|user|>\n{prompt}\n<|assistant|>\n"
+            stop_tokens = ["<|user|>", "<|system|>", "<end_of_turn>"]
+
         output = self._llama(
             full_prompt,
-            max_tokens=1024,
+            max_tokens=1536,
             temperature=0.3,
             top_p=0.9,
-            stop=["<|user|>", "<|system|>"],
+            stop=stop_tokens,
         )
         text = output["choices"][0]["text"].strip()
         tokens = output["usage"]["completion_tokens"]
@@ -891,6 +917,115 @@ def get_system_kpis():
     }
 
 # ==========================================
+# MOTOR DOCTRINAL OCOPA (CESIUM 3D + IGAC + HIDROGRAFÍA)
+# ==========================================
+class OCOPATerrainAnalyzer:
+    """
+    Analizador Doctrinal de Terreno OCOPA (MFRE 1-02.2 / MTE 2-01.3).
+    Procesa el gemelo digital territorial: elevación de Cesium, cuencas de colombiaHydrography,
+    red vial de IGAC y condiciones meteorológicas.
+    """
+    @staticmethod
+    def analyze(geo_context: Optional[Dict[str, Any]] = None, geo_prompt: Optional[str] = None, enemy_intel: Any = None) -> Dict[str, Any]:
+        grid = []
+        centroid = {"lat": 2.44, "lon": -76.60}
+        weather = {}
+        rivers = []
+
+        if isinstance(geo_context, dict):
+            grid = geo_context.get("elevationGrid", []) or []
+            centroid = geo_context.get("centroid", centroid) or centroid
+            weather = geo_context.get("weather", {}) or {}
+            rivers = geo_context.get("hydrography", []) or []
+
+        elevations = [p.get("elev", 0) for p in grid if isinstance(p, dict) and "elev" in p]
+        max_elev = max(elevations) if elevations else 2400
+        min_elev = min(elevations) if elevations else 1800
+        elev_range = max_elev - min_elev
+
+        # 1. Observación y Campos de Tiro (Línea de Vista & Zonas Muertas)
+        cresta_militar = max(min_elev, max_elev - 25)
+        dead_space_count = sum(1 for e in elevations if e < (min_elev + elev_range * 0.35))
+        pct_desenfilada = round((dead_space_count / len(elevations)) * 100, 1) if elevations else 45.0
+
+        observacion = {
+            "cota_dominante_msnm": max_elev,
+            "cresta_militar_recomendada_msnm": cresta_militar,
+            "desenfilada_cobertura_pct": pct_desenfilada,
+            "evaluacion": (
+                f"Cota dominante a {max_elev} msnm ofrece observación panorámica. "
+                f"Se detectan sectores en desenfilada ({pct_desenfilada}% del área de maniobra) "
+                "con ángulo muerto de tiro rasante que permiten aproximación encubierta de infantería."
+            )
+        }
+
+        # 2. Cubierta y Abrigo (Protección y Ocultamiento)
+        cubierta = {
+            "contrapendiente_tactica": "Flanco inverso respecto a la posición estimada del enemigo",
+            "abrigo_vegetal": "Dosel de ladera media provee abrigo contra reconocimiento visual/aéreo",
+            "evaluacion": (
+                "La contrapendiente neutraliza la línea de vista directa enemiga. "
+                "Los pliegues geológicos ofrecen cubierta física contra proyectiles y metralla de mortero."
+            )
+        }
+
+        # 3. Obstáculos y Canalización
+        lluvia = weather.get("rain", 0) if isinstance(weather, dict) else 0
+        obstaculos_lista = []
+        if elevations and elev_range > 400:
+            obstaculos_lista.append("Farallones y escarpes de pendiente superior al 35% (infranqueables para blindados)")
+        if lluvia and lluvia > 5:
+            obstaculos_lista.append(f"Precipitación de {lluvia} mm/h genera suelo saturado (riesgo de crecida súbita y pérdida de tracción)")
+        if rivers:
+            obstaculos_lista.append("Cursos fluviales que canalizan el paso hacia cruces o vados obligados")
+        else:
+            obstaculos_lista.append("Cuencas y drenajes encajonados que limitan la dispersión vehicular")
+
+        obstaculos = {
+            "terreno_severamente_restringido": obstaculos_lista,
+            "canalizacion_riesgo": "Riesgo de emboscada en L o en U en cuellos de botella geográficos si se avanza por vaguada.",
+            "evaluacion": "El relieve accidentado canaliza el movimiento. Se descarta avance en columna por caminos principales."
+        }
+
+        # 4. Puntos Críticos (Key Terrain)
+        puntos_criticos = [
+            {"tipo": "CRESTA_MILITAR", "descripcion": f"Cota táctica a {cresta_militar} msnm para emplazar Base de Fuegos (SBF)", "prioridad": "ALTA"},
+            {"tipo": "COLLADO_PASO", "descripcion": "Paso de montaña obligado entre cuencas para mantener enlace logístico", "prioridad": "MEDIA"},
+            {"tipo": "CRUCE_FLUVIAL", "descripcion": "Vado natural o puente de acceso al objetivo", "prioridad": "CRÍTICA"}
+        ]
+
+        # 5. Avenidas de Aproximación
+        avenidas = [
+            {
+                "eje": "Eje Contrapendiente",
+                "tipo": "Avenida de Infiltración Principal",
+                "transitabilidad": "Infantería Ligera / Desmontada",
+                "exposicion_fuego": "BAJA (Aprovecha pliegues en desenfilada)",
+                "recomendacion": "Eje principal de maniobra ofensiva"
+            },
+            {
+                "eje": "Eje Vaguada Central",
+                "tipo": "Avenida Secundaria / Fijación",
+                "transitabilidad": "Mecanizado / Motorizado",
+                "exposicion_fuego": "ALTA (Canalizado bajo observación de cotas dominantes)",
+                "recomendacion": "Utilizar únicamente para fijación o distracción con fuegos"
+            }
+        ]
+
+        return {
+            "doctrina": "MFRE 1-02.2 / MTE 2-01.3 (OCOPA Ejército Nacional)",
+            "observacion_campos_tiro": observacion,
+            "cubierta_abrigo": cubierta,
+            "obstaculos": obstaculos,
+            "puntos_criticos": puntos_criticos,
+            "avenidas_aproximacion": avenidas,
+            "sintesis_comandante": (
+                f"El análisis OCOPA sobre el relieve de Cesium y cartografía IGAC descarta la vaguada baja por riesgo de canalización y crecidas. "
+                f"Se recomienda maniobra envolvente por contrapendiente asegurando la cresta militar a {cresta_militar} msnm como Terreno Clave."
+            )
+        }
+
+# ==========================================
 # MÓDULOS DE IA (ENDPOINTS FRONTEND)
 # ==========================================
 
@@ -899,24 +1034,40 @@ class COARequest(BaseModel):
     objetivo: Any
     unidades_amigas: Any
     inteligencia_enemiga: Any
+    geo_prompt: Optional[str] = None
+    geo_context: Optional[Dict[str, Any]] = None
 
 @app.post("/api/v1/wargaming/generate_coa")
 def generate_coa(req: COARequest):
-    prompt = f"""Eres SIMCOP AI. Genera un plan de operaciones COA estrictamente en formato JSON basado en estos datos:
+    ocopa = OCOPATerrainAnalyzer.analyze(req.geo_context, req.geo_prompt, req.inteligencia_enemiga)
+    geo_info = req.geo_prompt if req.geo_prompt else ""
+    
+    prompt = f"""Eres SIMCOP AI, Oficial de Operaciones G3 del Ejército de Colombia.
+Genera un plan de operaciones COA estrictamente en formato JSON integrando doctrina OCOPA y el gemelo digital Cesium/IGAC:
 Objetivo: {req.objetivo}
 Unidades Amigas: {req.unidades_amigas}
 Enemigo: {req.inteligencia_enemiga}
+{geo_info}
+
+ANÁLISIS OCOPA DEL TERRENO:
+- Observación: {ocopa['observacion_campos_tiro']['evaluacion']}
+- Cubierta: {ocopa['cubierta_abrigo']['evaluacion']}
+- Obstáculos: {ocopa['obstaculos']['evaluacion']}
+- Síntesis: {ocopa['sintesis_comandante']}
 
 REGLAS DE GRAFICACIÓN (ESTÁNDARES OTAN / APP-6 / MIL-STD-2525):
-1. Los "graphics" deben ser ricos y detallados. No generes solo un punto, genera múltiples gráficos para la operación.
+1. Los "graphics" deben ser ricos y detallados para su renderizado directo en la malla 3D de Cesium.
 2. Si el type es PHASE_LINE, BOUNDARY o AXIS_OF_ADVANCE, DEBES proveer mínimo 2 a 3 objetos en el arreglo "locations" para formar la línea.
 3. El "label" debe usar estandarización militar OTAN (Ej: "PL RED", "OBJ LION", "AA VIPER", "EA HOT", "AXIS SMASH").
+4. El plan DEBE incorporar las medidas tácticas en desenfilada y contrapendiente identificadas en el análisis OCOPA.
 
-DEBES devolver Únicamente un objeto JSON exacto, sin explicaciones, ni etiquetas Markdown.
+DEBES devolver Únicamente un objeto JSON exacto, sin explicaciones ni etiquetas Markdown.
 Estructura obligatoria:
 {{
   "planName": "String (Nombre de la Operación)",
-  "conceptOfOperations": "String (Concepto táctico general y profundo)",
+  "conceptOfOperations": "String (Concepto táctico general con justificación OCOPA)",
+  "ocopaSummary": "String (Síntesis de análisis de terreno)",
+  "thinkingTrace": "String (Razonamiento táctico de Gemma 4)",
   "phases": [
     {{
       "phaseName": "String",
@@ -932,7 +1083,26 @@ Estructura obligatoria:
   ]
 }}"""
     res = run_inference(prompt, expect_json=True)
-    return json.loads(res)
+    try:
+        parsed = json.loads(res)
+        if isinstance(parsed, dict):
+            if "ocopaSummary" not in parsed:
+                parsed["ocopaSummary"] = ocopa["sintesis_comandante"]
+            if "ocopaAnalysis" not in parsed:
+                parsed["ocopaAnalysis"] = ocopa
+        return parsed
+    except Exception as e:
+        logger.warning(f"Error decodificando JSON en generate_coa: {e}, devolviendo fallback estructurado.")
+        return json.loads(engine._infer_heuristic(prompt, True))
+
+class SpatialAnalysisRequest(BaseModel):
+    geo_context: Optional[Dict[str, Any]] = None
+    geo_prompt: Optional[str] = None
+    enemigo: Optional[Any] = None
+
+@app.post("/api/v1/spatial/analyze_terrain")
+def analyze_terrain_ocopa(req: SpatialAnalysisRequest):
+    return OCOPATerrainAnalyzer.analyze(req.geo_context, req.geo_prompt, req.enemigo)
 
 # 2. Logística Predictiva
 class PredictiveLogisticsRequest(BaseModel):

@@ -1,7 +1,34 @@
 FROM python:3.11-slim
+
 WORKDIR /app
+
+# Instalar dependencias del sistema mínimas
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.ai.txt .
-RUN pip install --no-cache-dir -r requirements.ai.txt
-COPY api_server.py simcop_nlp_weights_quantized_int8.pth ./
+
+# Instalar dependencias base y llama-cpp-python precompilado para CPU (AVX2)
+RUN pip install --no-cache-dir -r requirements.ai.txt && \
+    pip install --no-cache-dir llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu || \
+    pip install --no-cache-dir llama-cpp-python
+
+# Crear directorios para persistencia de modelos y base vectorial
+RUN mkdir -p /app/models /app/data
+
+COPY api_server.py ./
+COPY scripts/entrypoint-ai.sh /app/entrypoint-ai.sh
+RUN chmod +x /app/entrypoint-ai.sh
+
 EXPOSE 8000
-CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+
+ENV SIMCOP_MODEL_PATH="/app/models/gemma-4-e2b-it-Q4_K_M.gguf"
+ENV SIMCOP_EMBEDDING_PATH="/app/models/embedding-gemma-2-740m-int8.onnx"
+ENV SIMCOP_MODEL_THREADS="2"
+ENV SIMCOP_MODEL_CTX="4096"
+
+ENTRYPOINT ["/app/entrypoint-ai.sh"]
+

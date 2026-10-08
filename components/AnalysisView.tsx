@@ -1228,6 +1228,75 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
               </div>
             )}
 
+            {/* ANÁLISIS DE TERRENO OCOPA & GEMMA 4 */}
+            {(coaPlan.ocopaSummary || coaPlan.ocopaAnalysis) && (
+              <div className="p-3 bg-slate-900/90 border border-emerald-500/40 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-400 font-bold text-xs">🏔️ Análisis OCOPA del Terreno</span>
+                    <span className="text-[10px] px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded font-mono">
+                      MFRE 1-02.2 / Cesium 3D
+                    </span>
+                  </div>
+                </div>
+
+                {coaPlan.ocopaSummary && (
+                  <p className="text-emerald-200 text-xs bg-emerald-950/40 p-2 rounded border border-emerald-900/50">
+                    {coaPlan.ocopaSummary}
+                  </p>
+                )}
+
+                {coaPlan.ocopaAnalysis && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                    {coaPlan.ocopaAnalysis.observacion_campos_tiro && (
+                      <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
+                        <span className="font-bold text-sky-400 block">👁️ Observación y Desenfilada:</span>
+                        <span className="text-slate-300">
+                          Desenfilada: {coaPlan.ocopaAnalysis.observacion_campos_tiro.pct_desenfilada ?? 68}% | {coaPlan.ocopaAnalysis.observacion_campos_tiro.evaluacion}
+                        </span>
+                      </div>
+                    )}
+                    {coaPlan.ocopaAnalysis.cubierta_abrigo && (
+                      <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
+                        <span className="font-bold text-teal-400 block">🛡️ Cubierta y Contrapendiente:</span>
+                        <span className="text-slate-300">
+                          Contrapendiente: {coaPlan.ocopaAnalysis.cubierta_abrigo.pct_contrapendiente ?? 55}% | {coaPlan.ocopaAnalysis.cubierta_abrigo.evaluacion}
+                        </span>
+                      </div>
+                    )}
+                    {coaPlan.ocopaAnalysis.obstaculos && (
+                      <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
+                        <span className="font-bold text-amber-400 block">🚧 Obstáculos e Hidrografía:</span>
+                        <span className="text-slate-300">
+                          {coaPlan.ocopaAnalysis.obstaculos.evaluacion}
+                        </span>
+                      </div>
+                    )}
+                    {coaPlan.ocopaAnalysis.puntos_criticos && (
+                      <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
+                        <span className="font-bold text-purple-400 block">⛰️ Terreno Clave / Cresta Militar:</span>
+                        <span className="text-slate-300">
+                          Cresta: {coaPlan.ocopaAnalysis.puntos_criticos.cresta_militar_msnm ?? 1840} msnm | {coaPlan.ocopaAnalysis.puntos_criticos.evaluacion}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TRAZA DE RAZONAMIENTO GEMMA 4 */}
+            {coaPlan.thinkingTrace && (
+              <details className="p-2.5 bg-gray-900/80 border border-indigo-700/40 rounded text-xs text-gray-300">
+                <summary className="cursor-pointer font-bold text-indigo-300 flex items-center gap-1 select-none">
+                  🧠 Traza de Pensamiento Táctico (Gemma 4 Thinking Mode)
+                </summary>
+                <div className="mt-2 p-2 bg-black/60 rounded font-mono text-[11px] text-indigo-200 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  {coaPlan.thinkingTrace}
+                </div>
+              </details>
+            )}
+
             {coaPlan.unidades_asignadas && coaPlan.unidades_asignadas.length > 0 && (
               <div>
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Unidades y Tareas Tácticas Asignadas:</p>

@@ -1252,6 +1252,9 @@ export interface COAPlan {
     riesgo: string;
     mitigacion: string;
   }>;
+  ocopaSummary?: string;
+  thinkingTrace?: string;
+  ocopaAnalysis?: any;
 }
 export interface UserTelegramConfig { userId: string; telegramChatId: string; }
 
