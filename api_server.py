@@ -1217,20 +1217,24 @@ class ProactiveRequest(BaseModel):
 @app.post("/api/v1/intelligence/proactive")
 def proactive_analysis(req: ProactiveRequest):
     ocopa = OCOPATerrainAnalyzer.analyze(None, "", req.osint)
-    prompt = f"""Eres el Oficial de Inteligencia Militar (G2) del Ejército de Colombia en el sistema SIMCOP.
-Emite una APRECIACIÓN TÁCTICA DE SITUACIÓN MILITAR bajo doctrina MFRE 2-0 / MTE 2-01.3:
+    prompt = f"""Eres el Oficial de Operaciones e Inteligencia (G2/G3) del Ejército de Colombia en el sistema SIMCOP.
+Tu misión es generar una APRECIACIÓN TÁCTICA INTEGRAL aplicando los factores de la decisión militar (METT-TC: Misión, Enemigo, Terreno/Clima, Tropas, Tiempo, Población Civil):
 
-DATOS OPERACIONALES:
-- Unidades Propias: {req.unidades}
-- Inteligencia y Amenazas: {req.osint}
-- Alertas y Novedades: {req.alertas}
-- Análisis de Terreno OCOPA: {ocopa['sintesis_comandante']}
+SITUACIÓN OPERACIONAL EN EL TEATRO:
+- DISPOSITIVO DE TROPAS PROPIAS: {req.unidades}
+- AMENAZAS HOSTILES E INTELIGENCIA (OSINT/ENLACE): {req.osint}
+- ALERTAS OPERACIONALES, SAT Y NOVEDADES: {req.alertas}
+- ANÁLISIS DE RELIEVE, RÍOS Y TERRENO: {ocopa['sintesis_comandante']}
 
 REGLAS DE MANDO OBLIGATORIAS:
-1. PROHIBICIÓN ESTRICTA DE CLICHÉS: Queda TERMINANTEMENTE PROHIBIDO usar frases vacías como "se encuentra en una posición estratégica", "permite una rápida respuesta" o repetir el mismo texto en varias unidades.
-2. CADA PUNTO DEBE SER CONCRETO Y OPERACIONAL: Identifica la unidad por su indicativo exacto, su vulnerabilidad específica en el terreno (desenfilada, falta de apoyo de fuegos, aislamiento táctico), la amenaza hostil inminente y la acción inmediata recomendada (ej. 'reforzar eje fluvial', 'ocupar cresta militar', 'establecer puesto de observación').
-3. DOCTRINA OCOPA: Aplica conceptos de terreno: contrapendiente, cursos de agua, transitabilidad y campos de tiro.
-4. FORMATO: Emite entre 3 y 5 viñetas tácticas concisas usando guiones ('-'). Cero rodeos introductorios."""
+1. ANÁLISIS INTEGRAL (TODO EL CONTEXTO OPERACIONAL): NO te limites únicamente al terreno. Debes cruzar obligatoriamente:
+   • FACTOR ENEMIGO / AMENAZA: Intención hostil, riesgo de emboscadas, corredores de infiltración o presencia de IEDs/minas contra las unidades.
+   • FACTOR TERRENO Y CLIMA: Cómo influye la visibilidad, lluvia, crecidas de ríos y pliegues del terreno en el combate y el apoyo aéreo/UAV.
+   • FACTOR TROPAS PROPIAS: Unidades en riesgo de aislamiento, necesidad de fuegos de cobertura o enlace radial entre escalones.
+   • FACTOR TIEMPO Y ESPACIO: Ventanas de oportunidad táctica, tiempos de reacción y control de líneas de fase.
+   • FACTOR POBLACIÓN CIVIL: Protección a comunidades bajo alertas SAT de la Defensoría del Pueblo.
+2. PROHIBICIÓN RADICAL DE CLICHÉS: Prohibido decir "se encuentra en una posición estratégica", "permite una rápida respuesta" o frases genéricas repetidas. Cada viñeta debe nombrar la unidad por su indicativo real (ej. ASTRO 1, Vigesimonovena Brigada, etc.), contrastarla contra una amenaza concreta y ordenar una acción táctica resolutiva.
+3. FORMATO: Emite entre 3 y 5 viñetas tácticas contundentes con guiones ('-'). Sé directo, incisivo y con lenguaje militar profesional de Estado Mayor. Cero introducciones."""
     return {"analysis": run_inference(prompt, expect_json=False).strip()}
 
 # 6. Análisis Topográfico, Climático y Táctico
