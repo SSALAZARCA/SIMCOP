@@ -105,7 +105,11 @@ services:
       - 4000
     environment:
       - PORT=4000
-      - SPRING_DATASOURCE_URL=jdbc:h2:file:/app/data/sigep-db;AUTO_SERVER=TRUE
+      - SPRING_DATASOURCE_URL=${SIGEP_DATASOURCE_URL:-jdbc:h2:file:/app/data/sigep-db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1}
+      - SPRING_DATASOURCE_USERNAME=${SIGEP_DATASOURCE_USERNAME:-sa}
+      - SPRING_DATASOURCE_PASSWORD=${SIGEP_DATASOURCE_PASSWORD:-}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-}
       - SIMCOP_API_URL=http://backend:8080/api
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - SIGEP_JWT_SECRET=${SIGEP_JWT_SECRET:-SigepSecretKeyForMilitaryPersonnelManagementVerySecureKey20261234567890}
@@ -116,6 +120,13 @@ services:
       - AI_MODEL=${AI_MODEL:-omni-default}
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 256M
     volumes:
       - sigep_data:/app/data
     depends_on:
