@@ -101,15 +101,23 @@ services:
       context: ./SIGEP/backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
     expose:
       - 4000
     environment:
       - PORT=4000
       - SPRING_DATASOURCE_URL=${SIGEP_DATASOURCE_URL:-jdbc:h2:file:/app/data/sigep-db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1}
       - SPRING_DATASOURCE_USERNAME=${SIGEP_DATASOURCE_USERNAME:-sa}
-      - SPRING_DATASOURCE_PASSWORD=${SIGEP_DATASOURCE_PASSWORD:-}
+      - SPRING_DATASOURCE_PASSWORD=${SIGEP_DATASOURCE_PASSWORD:-${DB_PASSWORD:-password}}
       - DB_USERNAME=${DB_USERNAME:-sa}
-      - DB_PASSWORD=${DB_PASSWORD:-}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
       - SIMCOP_API_URL=http://backend:8080/api
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - SIGEP_JWT_SECRET=${SIGEP_JWT_SECRET:-SigepSecretKeyForMilitaryPersonnelManagementVerySecureKey20261234567890}
