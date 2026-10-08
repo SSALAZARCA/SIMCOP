@@ -120,18 +120,10 @@ services:
       - AI_MODEL=${AI_MODEL:-omni-default}
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          memory: 256M
     volumes:
       - sigep_data:/app/data
     depends_on:
-      backend:
-        condition: service_started
+      - backend
     networks:
       - simcop_internal
 
@@ -150,8 +142,7 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      sigep_backend:
-        condition: service_started
+      - sigep_backend
     networks:
       - coolify
       - simcop_internal
