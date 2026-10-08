@@ -182,6 +182,10 @@ class SimcopLLMAdapter:
 
         logger.info("[INFO] Modo heurístico determinista activo — sin modelo neuronal externo.")
 
+    def _load(self):
+        """Alias de compatibilidad para carga dinámica."""
+        self._detect_and_load()
+
     def generate_response(self, prompt: str, expect_json: bool = False) -> tuple[str, int]:
         """
         Genera respuesta y retorna (texto, tokens_generados).
@@ -195,7 +199,10 @@ class SimcopLLMAdapter:
         try:
             if self.backend == "heuristic" and os.path.exists(MODEL_PATH):
                 logger.info("[HOT-LOAD] Detectado modelo en disco tras descarga desatendida. Cargando en memoria...")
-                self._load()
+                try:
+                    self._detect_and_load()
+                except Exception as load_err:
+                    logger.error(f"[HOT-LOAD] Error cargando modelo en caliente: {load_err}")
 
             if self.backend == "llama_cpp" and self._llama is not None:
                 return self._infer_llama(prompt, expect_json)
