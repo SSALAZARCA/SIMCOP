@@ -489,7 +489,7 @@ const SettingsView: React.FC = () => {
                         </div>
 
                         <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>
-                            {aiProvider === 'OMNIROUTE' ? 'Enruta consultas tácticas y de combate a través del gateway OmniRoute (compatible con endpoints OpenAI / DeepSeek / Claude / GPT / LLaMA). Permite balanceo inteligente y modelos de última generación con cifrado de transporte.' : aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : aiProvider === 'NATIVE_SIMCOP' ? 'Conéctate directamente al motor de inteligencia artificial especializado FastAPI + PyTorch de SIMCOP. Para el VPS, asegúrate de ingresar la IP o URL del backend (ej: http://TU_IP_DEL_VPS/api/v1).' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
+                            {aiProvider === 'OMNIROUTE' ? 'Enruta consultas tácticas y de combate a través del gateway OmniRoute (compatible con endpoints OpenAI / DeepSeek / Claude / GPT / LLaMA). Permite balanceo inteligente y modelos de última generación con cifrado de transporte.' : aiProvider === 'LOCAL_LMLink' ? 'Conéctate a tu PC remoto con GPU mediante la red Mesh P2P de LM Studio. Las peticiones irán por un túnel cifrado WireGuard de extremo a extremo garantizando máxima privacidad y baja latencia, sin exponer puertos al internet público.' : aiProvider === 'NATIVE_SIMCOP' ? 'Conéctate directamente al motor soberano SIMCOP AI (FastAPI + Gemma 4 / llama.cpp) con doctrina OCOPA. En el VPS opera en el endpoint local /ai_api protegido por límites de recursos para blindar tus demás aplicaciones.' : 'Conéctate a una IA alojada localmente en tu propia máquina mediante Ollama. Esto garantiza 100% de soberanía, privacidad de datos y no requiere conexión a Internet.'}
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -528,13 +528,13 @@ const SettingsView: React.FC = () => {
                                     fontWeight: '500',
                                     fontSize: '0.875rem'
                                 }}>
-                                    {aiProvider === 'OMNIROUTE' ? 'Modelo OmniRoute (ej. omni-default, deepseek-r1)' : aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : aiProvider === 'NATIVE_SIMCOP' ? 'Modelo Quantizado PTH' : 'Modelo Ollama a Utilizar'}
+                                    {aiProvider === 'OMNIROUTE' ? 'Modelo OmniRoute (ej. omni-default, deepseek-r1)' : aiProvider === 'LOCAL_LMLink' ? 'Modelo LMLink a Utilizar' : aiProvider === 'NATIVE_SIMCOP' ? 'Modelo Soberano (GGUF / ONNX)' : 'Modelo Ollama a Utilizar'}
                                 </label>
                                 <input
                                     type="text"
                                     value={localModel}
                                     onChange={(e) => setLocalModel(e.target.value)}
-                                    placeholder={aiProvider === 'OMNIROUTE' ? 'omni-default' : aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : aiProvider === 'NATIVE_SIMCOP' ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3'}
+                                    placeholder={aiProvider === 'OMNIROUTE' ? 'omni-default' : aiProvider === 'LOCAL_LMLink' ? 'gemma4-damasco' : aiProvider === 'NATIVE_SIMCOP' ? 'gemma-4-e2b-it-Q4_K_M.gguf' : 'llama3'}
                                     disabled={loading}
                                     style={{
                                         width: '100%',
@@ -622,7 +622,7 @@ const SettingsView: React.FC = () => {
                             marginTop: '0.5rem'
                         }}>
                             <p style={{ margin: 0, color: '#a7f3d0', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                                💡 <strong>Requisito:</strong> {aiProvider === 'OMNIROUTE' ? 'OmniRoute AI Gateway configurado. Las consultas operacionales se enrutan de forma segura hacia el router multimodelo con autenticación Bearer y saneamiento de tokens de razonamiento.' : aiProvider === 'LOCAL_LMLink' ? 'Asegúrate de haber iniciado el túnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviará las peticiones a tu localhost y el agente lms las cifrará y enviará por la red Mesh (Wireguard) hacia tu GPU central.' : 'Asegúrate de que Ollama esté ejecutándose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
+                                💡 <strong>Requisito:</strong> {aiProvider === 'OMNIROUTE' ? 'OmniRoute AI Gateway configurado. Las consultas operacionales se enrutan de forma segura hacia el router multimodelo con autenticación Bearer y saneamiento de tokens de razonamiento.' : aiProvider === 'LOCAL_LMLink' ? 'Asegúrate de haber iniciado el túnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviará las peticiones a tu localhost y el agente lms las cifrará y enviará por la red Mesh (Wireguard) hacia tu GPU central.' : aiProvider === 'NATIVE_SIMCOP' ? 'El motor nativo soberano corre en el contenedor Docker (/ai_api) con límites de CPU (2 núcleos) y RAM (3.5 GB). Si los pesos de Gemma 4 GGUF están descargándose en segundo plano, responderá en modo heurístico OCOPA hasta completar la descarga.' : 'Asegúrate de que Ollama esté ejecutándose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
                             </p>
                         </div>
                     </div>
