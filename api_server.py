@@ -97,7 +97,7 @@ def _get_gpu_telemetry() -> dict:
 # ==========================================
 MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "models/gemma-4-e2b-it-Q4_K_M.gguf")
 MODEL_BACKEND_OVERRIDE = os.environ.get("SIMCOP_MODEL_BACKEND", "auto").lower()
-MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "4096"))
+MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "2048"))
 MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "2"))
 
 logger.info(f"[SOBERANO] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, THREADS={MODEL_THREADS}, CTX={MODEL_CTX}")
@@ -231,9 +231,10 @@ class SimcopLLMAdapter:
             full_prompt = f"<|system|>\n{system_prompt}\n<|user|>\n{prompt}\n<|assistant|>\n"
             stop_tokens = ["<|user|>", "<|system|>", "<end_of_turn>"]
 
+        tokens_budget = 768 if expect_json else 320
         output = self._llama(
             full_prompt,
-            max_tokens=1536,
+            max_tokens=tokens_budget,
             temperature=0.3,
             top_p=0.9,
             stop=stop_tokens,

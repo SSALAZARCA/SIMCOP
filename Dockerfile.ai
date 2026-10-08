@@ -28,7 +28,7 @@ EXPOSE 8000
 ENV SIMCOP_MODEL_PATH="/app/models/gemma-4-e2b-it-Q4_K_M.gguf"
 ENV SIMCOP_EMBEDDING_PATH="/app/models/embedding-gemma-2-740m-int8.onnx"
 ENV SIMCOP_MODEL_THREADS="2"
-ENV SIMCOP_MODEL_CTX="4096"
+ENV SIMCOP_MODEL_CTX="2048"
 
 ENTRYPOINT ["/app/entrypoint-ai.sh"]
 
