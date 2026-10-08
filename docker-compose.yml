@@ -73,6 +73,7 @@ services:
     environment:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site,https://sigep.site}
       - SIMCOP_MODEL_PATH=/app/models/gemma-4-e2b-it-Q4_K_M.gguf
+      - SIMCOP_EMBEDDING_PATH=/app/models/embedding-gemma-2-740m-int8.onnx
       - SIMCOP_MODEL_THREADS=2
       - SIMCOP_MODEL_CTX=4096
     volumes:
