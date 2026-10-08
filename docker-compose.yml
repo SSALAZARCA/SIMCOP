@@ -75,7 +75,7 @@ services:
       - SIMCOP_MODEL_PATH=/app/models/gemma-4-e2b-it-Q4_K_M.gguf
       - SIMCOP_EMBEDDING_PATH=/app/models/embedding-gemma-2-740m-int8.onnx
       - SIMCOP_MODEL_THREADS=2
-      - SIMCOP_MODEL_CTX=2048
+      - SIMCOP_MODEL_CTX=4096
     volumes:
       - ai_models:/app/models
       - ai_data:/app/data

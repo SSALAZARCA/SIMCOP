@@ -97,7 +97,7 @@ def _get_gpu_telemetry() -> dict:
 # ==========================================
 MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "models/gemma-4-e2b-it-Q4_K_M.gguf")
 MODEL_BACKEND_OVERRIDE = os.environ.get("SIMCOP_MODEL_BACKEND", "auto").lower()
-MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "2048"))
+MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "4096"))
 MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "2"))
 
 logger.info(f"[SOBERANO] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, THREADS={MODEL_THREADS}, CTX={MODEL_CTX}")
@@ -231,7 +231,36 @@ class SimcopLLMAdapter:
             full_prompt = f"<|system|>\n{system_prompt}\n<|user|>\n{prompt}\n<|assistant|>\n"
             stop_tokens = ["<|user|>", "<|system|>", "<end_of_turn>"]
 
-        tokens_budget = 768 if expect_json else 320
+        ctx_limit = MODEL_CTX
+        try:
+            if hasattr(self._llama, "n_ctx"):
+                val = self._llama.n_ctx() if callable(self._llama.n_ctx) else self._llama.n_ctx
+                if isinstance(val, int) and val > 0:
+                    ctx_limit = val
+        except Exception:
+            ctx_limit = MODEL_CTX
+
+        desired_budget = 768 if expect_json else 320
+        # Tokenización defensiva para ajustar el prompt y tokens_budget a la ventana de contexto
+        try:
+            p_tokens = self._llama.tokenize(full_prompt.encode("utf-8"))
+            num_tokens = len(p_tokens)
+            
+            # Si el prompt + desired_budget excede la ventana, recortamos el prompt conservando sistema y final
+            if num_tokens + desired_budget >= ctx_limit:
+                available_for_prompt = max(256, ctx_limit - desired_budget - 32)
+                if num_tokens > available_for_prompt:
+                    head_size = min(400, available_for_prompt // 3)
+                    tail_size = available_for_prompt - head_size
+                    trimmed_tokens = p_tokens[:head_size] + p_tokens[-tail_size:]
+                    full_prompt = self._llama.detokenize(trimmed_tokens).decode("utf-8", errors="ignore")
+                    num_tokens = len(trimmed_tokens)
+            
+            tokens_budget = max(64, min(desired_budget, ctx_limit - num_tokens - 16))
+        except Exception as tok_err:
+            logger.warning(f"[TOKENIZER] Fallo en ajuste predictivo de tokens ({tok_err}), aplicando margen por defecto.")
+            tokens_budget = min(desired_budget, 256)
+
         output = self._llama(
             full_prompt,
             max_tokens=tokens_budget,
