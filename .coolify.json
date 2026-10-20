@@ -1,0 +1,216 @@
+{
+  "name": "SIMCOP AI Sovereign",
+  "description": "Sistema SIMCOP con IA Soberana Local (Gemma 4 E2B + EmbeddingGemma 2)",
+  "logo": "https://simcop.site/logo.png",
+  "env": [
+    {
+      "name": "SPRING_DATASOURCE_URL",
+      "value": "jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "SPRING_DATASOURCE_USERNAME",
+      "value": "root",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "SPRING_DATASOURCE_PASSWORD",
+      "value": "",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "SPRING_JPA_HIBERNATE_DDL_AUTO",
+      "value": "update",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "JWT_SECRET",
+      "value": "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "SIMCOP_SUPERADMIN_PASSWORD",
+      "value": "",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "SIMCOP_SERVICE_TOKEN",
+      "value": "simcop-tactical-m2m-secure-token-2026",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "OSINT_WEBHOOK_SECRET",
+      "value": "simcop-secure-webhook-secret-2026",
+      "scope": "service",
+      "service": "backend"
+    },
+    {
+      "name": "CORS_ORIGINS",
+      "value": "http://localhost,http://frontend,https://simcop.site,https://sigep.site",
+      "scope": "service",
+      "service": "ai_engine"
+    },
+    {
+      "name": "SIMCOP_MODEL_PATH",
+      "value": "/app/models/gemma-4-e2b-it-Q4_K_M.gguf",
+      "scope": "service",
+      "service": "ai_engine"
+    },
+    {
+      "name": "SIMCOP_EMBEDDING_PATH",
+      "value": "/app/models/embedding-gemma-2-740m-int8.onnx",
+      "scope": "service",
+      "service": "ai_engine"
+    },
+    {
+      "name": "SIMCOP_MODEL_THREADS",
+      "value": "2",
+      "scope": "service",
+      "service": "ai_engine"
+    },
+    {
+      "name": "SIMCOP_MODEL_CTX",
+      "value": "4096",
+      "scope": "service",
+      "service": "ai_engine"
+    },
+    {
+      "name": "AI_PROVIDER",
+      "value": "NATIVE_SIMCOP",
+      "scope": "service",
+      "service": "sigep_backend"
+    },
+    {
+      "name": "AI_API_URL",
+      "value": "http://ai_engine:8000/v1",
+      "scope": "service",
+      "service": "sigep_backend"
+    }
+  ],
+  "services": [
+    {
+      "name": "frontend",
+      "type": "stack",
+      "stack": "nginx",
+      "build": {
+        "path": ".",
+        "dockerfile": "Dockerfile"
+      },
+      "env": [
+        {
+          "name": "VITE_API_BASE_URL",
+          "value": "http://backend:8080/api"
+        }
+      ],
+      "ports": [
+        {
+          "port": 80,
+          "Exposed": true
+        }
+      ]
+    },
+    {
+      "name": "backend",
+      "type": "stack",
+      "stack": "java",
+      "build": {
+        "path": "./backend",
+        "dockerfile": "Dockerfile"
+      },
+      "env": [],
+      "ports": [
+        {
+          "port": 8080,
+          "Exposed": false
+        }
+      ]
+    },
+    {
+      "name": "ai_engine",
+      "type": "stack",
+      "stack": "python",
+      "build": {
+        "path": ".",
+        "dockerfile": "Dockerfile.ai"
+      },
+      "env": [],
+      "ports": [
+        {
+          "port": 8000,
+          "Exposed": false
+        }
+      ],
+      "resources": {
+        "cpus": 2,
+        "memory": "4096MB"
+      }
+    },
+    {
+      "name": "mysql",
+      "type": "database",
+      "database": "mysql",
+      "version": "8",
+      "env": [
+        {
+          "name": "MYSQL_DATABASE",
+          "value": "simcop"
+        },
+        {
+          "name": "MYSQL_ROOT_PASSWORD",
+          "value": "",
+          "type": "password"
+        },
+        {
+          "name": "MYSQL_PASSWORD",
+          "value": "",
+          "type": "password"
+        }
+      ],
+      "ports": [
+        {
+          "port": 3306,
+          "Exposed": false
+        }
+      ]
+    },
+    {
+      "name": "sigep_backend",
+      "type": "stack",
+      "stack": "java",
+      "build": {
+        "path": "./SIGEP/backend",
+        "dockerfile": "Dockerfile"
+      },
+      "env": [],
+      "ports": [
+        {
+          "port": 4000,
+          "Exposed": false
+        }
+      ]
+    },
+    {
+      "name": "sigep_frontend",
+      "type": "stack",
+      "stack": "nginx",
+      "build": {
+        "path": "./SIGEP/frontend",
+        "dockerfile": "Dockerfile"
+      },
+      "env": [],
+      "ports": [
+        {
+          "port": 3000,
+          "Exposed": true
+        }
+      ]
+    }
+  ]
+}

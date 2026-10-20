@@ -86,7 +86,7 @@ public class ConfigurationService {
     public String getAIProvider() {
         return configRepository.findByConfigKey(AI_PROVIDER_CONFIG)
                 .map(AppConfiguration::getConfigValue)
-                .orElse("GEMINI");
+                .orElse("NATIVE_SIMCOP");
     }
 
     @Transactional
@@ -138,7 +138,7 @@ public class ConfigurationService {
                 .orElseGet(() -> {
                     if ("OMNIROUTE".equalsIgnoreCase(provider)) return "omni-default";
                     if ("LOCAL_LMLINK".equalsIgnoreCase(provider)) return "gemma4-damasco";
-                    if ("NATIVE_SIMCOP".equalsIgnoreCase(provider)) return "simcop_nlp_weights_quantized_int8.pth";
+                    if ("NATIVE_SIMCOP".equalsIgnoreCase(provider)) return "gemma-4-e2b-it-Q4_K_M.gguf";
                     return "llama3";
                 });
     }

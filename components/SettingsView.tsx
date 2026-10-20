@@ -5,9 +5,9 @@ import { initializeApiKey, updateRuntimeAIConfig } from '../utils/geminiService'
 import NativeAITelemetry from './NativeAITelemetry';
 
 const SettingsView: React.FC = () => {
-    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink' | 'NATIVE_SIMCOP' | 'OMNIROUTE'>('GEMINI');
-    const [localEndpoint, setLocalEndpoint] = useState('http://localhost:11434');
-    const [localModel, setLocalModel] = useState('llama3');
+    const [aiProvider, setAiProvider] = useState<'GEMINI' | 'LOCAL_OLLAMA' | 'LOCAL_LMLink' | 'NATIVE_SIMCOP' | 'OMNIROUTE'>('NATIVE_SIMCOP');
+    const [localEndpoint, setLocalEndpoint] = useState('/ai_api');
+    const [localModel, setLocalModel] = useState('gemma-4-e2b-it-Q4_K_M.gguf');
     const [geminiApiKey, setGeminiApiKey] = useState('');
     const [savedKey, setSavedKey] = useState('');
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -31,9 +31,9 @@ const SettingsView: React.FC = () => {
                 // Load AI Provider Config
                 const aiConfig = await configService.getAIProviderConfig();
                 if (aiConfig) {
-                    const prov = (aiConfig.provider || 'GEMINI') as any;
+                    const prov = (aiConfig.provider || 'NATIVE_SIMCOP') as any;
                     setAiProvider(prov);
-                    if (aiConfig.localEndpoint) {
+                    if (aiConfig.localEndpoint && aiConfig.localEndpoint !== '[CONFIGURED_INTERNAL]') {
                         setLocalEndpoint(aiConfig.localEndpoint);
                     } else {
                         if (prov === 'OMNIROUTE') setLocalEndpoint('https://api.omniroute.ai/v1');
@@ -41,12 +41,12 @@ const SettingsView: React.FC = () => {
                         else if (prov === 'NATIVE_SIMCOP') setLocalEndpoint('/ai_api');
                         else setLocalEndpoint('http://localhost:11434');
                     }
-                    if (aiConfig.localModel) {
+                    if (aiConfig.localModel && aiConfig.localModel !== 'simcop_nlp_weights_quantized_int8.pth') {
                         setLocalModel(aiConfig.localModel);
                     } else {
                         if (prov === 'OMNIROUTE') setLocalModel('omni-default');
                         else if (prov === 'LOCAL_LMLink') setLocalModel('gemma4-damasco');
-                        else if (prov === 'NATIVE_SIMCOP') setLocalModel('simcop_nlp_weights_quantized_int8.pth');
+                        else if (prov === 'NATIVE_SIMCOP') setLocalModel('gemma-4-e2b-it-Q4_K_M.gguf');
                         else setLocalModel('llama3');
                     }
                 }
@@ -159,19 +159,19 @@ const SettingsView: React.FC = () => {
             // Delete key from backend
             try {
                 await configService.deleteGeminiApiKey();
-                // Reset provider to Gemini default
-                await configService.saveAIProviderConfig('GEMINI', 'http://localhost:11434', 'llama3');
+                // Reset provider to Sovereign Native AI (Gemma 4 E2B + EmbeddingGemma 2) default
+                await configService.saveAIProviderConfig('NATIVE_SIMCOP', '/ai_api', 'gemma-4-e2b-it-Q4_K_M.gguf');
             } catch (backendErr) {
                 console.warn('[Settings] Advertencia al resetear backend:', backendErr);
             }
-            updateRuntimeAIConfig('GEMINI', 'http://localhost:11434', 'llama3', '');
+            updateRuntimeAIConfig('NATIVE_SIMCOP', '/ai_api', 'gemma-4-e2b-it-Q4_K_M.gguf', '');
             await initializeApiKey();
             
             setGeminiApiKey('');
             setSavedKey('');
-            setAiProvider('GEMINI');
-            setLocalEndpoint('http://localhost:11434');
-            setLocalModel('llama3');
+            setAiProvider('NATIVE_SIMCOP');
+            setLocalEndpoint('/ai_api');
+            setLocalModel('gemma-4-e2b-it-Q4_K_M.gguf');
             setSaveStatus('success');
             setErrorMessage('');
 
@@ -484,7 +484,7 @@ const SettingsView: React.FC = () => {
                         }}>
                             <Server size={22} color={aiProvider === 'OMNIROUTE' ? '#8b5cf6' : '#10b981'} />
                             <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc' }}>
-                                {aiProvider === 'OMNIROUTE' ? 'Proveedor OmniRoute AI (Router Multi-Modelo)' : aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : aiProvider === 'NATIVE_SIMCOP' ? 'Motor Nativo SIMCOP AI (PyTorch)' : 'Servidor Local de IA (Ollama)'}
+                                {aiProvider === 'OMNIROUTE' ? 'Proveedor OmniRoute AI (Router Multi-Modelo)' : aiProvider === 'LOCAL_LMLink' ? 'Servidor Local de IA (LMLink)' : aiProvider === 'NATIVE_SIMCOP' ? 'Motor Soberano SIMCOP AI (Gemma 4 E2B + EmbeddingGemma 2)' : 'Servidor Local de IA (Ollama)'}
                             </h3>
                         </div>
 
@@ -622,7 +622,7 @@ const SettingsView: React.FC = () => {
                             marginTop: '0.5rem'
                         }}>
                             <p style={{ margin: 0, color: '#a7f3d0', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                                💡 <strong>Requisito:</strong> {aiProvider === 'OMNIROUTE' ? 'OmniRoute AI Gateway configurado. Las consultas operacionales se enrutan de forma segura hacia el router multimodelo con autenticación Bearer y saneamiento de tokens de razonamiento.' : aiProvider === 'LOCAL_LMLink' ? 'Asegúrate de haber iniciado el túnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviará las peticiones a tu localhost y el agente lms las cifrará y enviará por la red Mesh (Wireguard) hacia tu GPU central.' : aiProvider === 'NATIVE_SIMCOP' ? 'El motor nativo soberano corre en el contenedor Docker (/ai_api) con límites de CPU (2 núcleos) y RAM (4 GB). Si los pesos de Gemma 4 GGUF están descargándose en segundo plano, responderá en modo heurístico OCOPA hasta completar la descarga.' : 'Asegúrate de que Ollama esté ejecutándose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
+                                💡 <strong>Requisito:</strong> {aiProvider === 'OMNIROUTE' ? 'OmniRoute AI Gateway configurado. Las consultas operacionales se enrutan de forma segura hacia el router multimodelo con autenticación Bearer y saneamiento de tokens de razonamiento.' : aiProvider === 'LOCAL_LMLink' ? 'Asegúrate de haber iniciado el túnel ejecutando `lms link connect` en esta misma terminal. SIMCOP enviará las peticiones a tu localhost y el agente lms las cifrará y enviará por la red Mesh (Wireguard) hacia tu GPU central.' : aiProvider === 'NATIVE_SIMCOP' ? 'El motor nativo soberano opera en el contenedor Docker (/ai_api) ejecutando la dupla neuronal Gemma 4 E2B Instruct (GGUF) + EmbeddingGemma 2 (ONNX) con doctrina MFRE 1-02.2 y OCOPA.' : 'Asegúrate de que Ollama esté ejecutándose localmente (`ollama serve`) y que hayas descargado el modelo especificado ejecutando `ollama pull llama3` en tu terminal.'}
                             </p>
                         </div>
                     </div>

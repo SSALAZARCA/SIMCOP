@@ -11,7 +11,7 @@ import { apiClient } from './apiClient';
 const getStoredAIConfig = () => {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const p = localStorage.getItem('simcop_ai_provider');
+      const p = localStorage.getItem('simcop_ai_provider') || 'NATIVE_SIMCOP';
       const e = localStorage.getItem('simcop_ai_endpoint');
       const m = localStorage.getItem('simcop_ai_model');
       const k = localStorage.getItem('simcop_ai_key');
@@ -20,16 +20,17 @@ const getStoredAIConfig = () => {
                               (p === 'NATIVE_SIMCOP') ? '/ai_api' : 'http://localhost:11434';
       const defaultModel = (p === 'OMNIROUTE') ? 'omni-default' :
                            (p === 'LOCAL_LMLink') ? 'gemma4-damasco' :
-                           (p === 'NATIVE_SIMCOP') ? 'simcop_nlp_weights_quantized_int8.pth' : 'llama3';
+                           (p === 'NATIVE_SIMCOP') ? 'gemma-4-e2b-it-Q4_K_M.gguf' : 'llama3';
+      const cleanModel = (m === 'simcop_nlp_weights_quantized_int8.pth') ? 'gemma-4-e2b-it-Q4_K_M.gguf' : m;
       return {
-        provider: p || 'GEMINI',
+        provider: p,
         endpoint: e || defaultEndpoint,
-        model: m || defaultModel,
+        model: cleanModel || defaultModel,
         key: k || undefined
       };
     }
   } catch (err) {}
-  return { provider: 'GEMINI', endpoint: 'http://localhost:11434', model: 'llama3', key: undefined };
+  return { provider: 'NATIVE_SIMCOP', endpoint: '/ai_api', model: 'gemma-4-e2b-it-Q4_K_M.gguf', key: undefined };
 };
 
 const initialAIConfig = getStoredAIConfig();
@@ -338,21 +339,43 @@ export const initializeApiKey = async (): Promise<void> => {
 /**
  * Helper to call Native PyTorch SIMCOP AI
  */
-const callNativeAI = async (endpointPath: string, body: any): Promise<any> => {
+const callNativeAI = async (endpointPath: string, body: any, maxRetries = 3): Promise<any> => {
   const baseUrl = localEndpoint.endsWith('/') ? localEndpoint.slice(0, -1) : localEndpoint;
   const url = `${baseUrl}/api/v1${endpointPath}`;
   
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Error en IA Nativa SIMCOP: ${response.statusText} - ${errText}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Error en IA Nativa SIMCOP [${response.status}]: ${response.statusText} - ${errText}`);
+      }
+      
+      // Try JSON first, fallback to text
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.warn(`[callNativeAI] Response no es JSON valido para ${endpointPath}, usando texto`);
+        return await response.text();
+      }
+      
+      return data;
+    } catch (error: any) {
+      if (attempt === maxRetries) {
+        throw new Error(`Error en IA Nativa SIMCOP después de ${maxRetries + 1} intentos: ${error.message}`);
+      }
+      // Exponential backoff
+      const delay = 2 ** attempt * 1000;
+      console.warn(`[callNativeAI] Intento ${attempt + 1} fallido para ${endpointPath}. Retraso: ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
-  return await response.json();
 };
 
 /**
@@ -641,8 +664,17 @@ const getBearingCardinal = (lat1: number, lon1: number, lat2: number, lon2: numb
 };
 
 const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceReport[] = []): string => {
-  if (units.length === 0) return "Actualmente no se reportan unidades amigas.";
-  return units.slice(0, 15).map(u => {
+  // GeoJSON Validation - Filter units with invalid coordinates
+  const validUnits = units?.filter(u => {
+    if (!u.location || !u.location.lat || !u.location.lon) return false;
+    // Validate coordinate ranges
+    const lat = Number(u.location.lat);
+    const lon = Number(u.location.lon);
+    return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  }) || [];
+  
+  if (validUnits.length === 0) return "Actualmente no se reportan unidades amigas.";
+  return validUnits.slice(0, 15).map(u => {
     const totalPersonnel = (u.personnelBreakdown?.officers || 0) + (u.personnelBreakdown?.ncos || 0) + (u.personnelBreakdown?.professionalSoldiers || 0) + (u.personnelBreakdown?.slRegulars || 0);
     const translatedType = translateUnitType(u.type);
     const translatedStatus = translateUnitStatus(u.status);
@@ -812,15 +844,15 @@ export const getProactiveAnalysis = async (
 
   await ensureInitialized();
 
-  const unitContext = formatUnitsForPrompt(units);
+  const validUnitsContext = formatUnitsForPrompt(units, intelligenceReports);
   const intelContext = formatIntelForPrompt(intelligenceReports);
   const alertContext = formatAlertsForPrompt(alerts);
-
+  
   if (aiProvider === 'NATIVE_SIMCOP') {
     try {
       updateTaskState('proactiveAnalysis', { status: 'RUNNING', error: null });
       const data = await callNativeAI('/intelligence/proactive', {
-        unidades: unitContext,
+        unidades: validUnitsContext,
         osint: intelContext,
         alertas: alertContext
       });
@@ -843,7 +875,7 @@ export const getProactiveAnalysis = async (
   const fullPrompt = `
 DATOS OPERACIONALES:
 Unidades Amigas:
-${unitContext}
+${validUnitsContext}
 
 Inteligencia Reciente:
 ${intelContext}
@@ -902,16 +934,16 @@ export const getGeminiAnalysis = async (
 ): Promise<GeminiAnalysisResult> => {
   await ensureInitialized();
 
-  const unitContext = formatUnitsForPrompt(units, intelReports);
+  const validUnitsContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
-
-  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor integrado a la plataforma SIMCOP. Tu función es asesorar directamente al Comandante resolviendo consultas operacionales mediante el análisis de la telemetría del sistema, el cuadro de unidades propias en el mapa, la capa de inteligencia y las condiciones del entorno geoespacial.
+  
+  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor del sistema SIMCOP. Tu función es asesorear directamente al Comandante resolviendo consultas operacionales mediante el análisis de la telemetría del sistema, el cuadro de unidades propias en el mapa, la capa de inteligencia y las condiciones del entorno geoespacial.
 
 REGLAS DE ACTUACIÓN OBLIGATORIAS:
 1. ANCLAJE ESTRICTO AL CONTEXTO DEL MAPA (PROHIBIDO ALUCINAR O INVENTAR):
    - Actúa como si estuvieras observando directamente la pantalla y el mapa táctico de SIMCOP en tiempo real: utiliza ÚNICAMENTE las unidades, ubicaciones geográficas exactas, coordenadas GPS/DMS, reportes de inteligencia/OSINT y variables de clima/terreno provistas en este contexto.
-   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares, municipios o sectores distintos a los registrados en su telemetría real del mapa. Si una unidad está en una coordenada específica, esa es su única posición verídica.
-   - Si se requiere evaluar una unidad, cruza rigurosamente sus datos reales provistos: efectivos orgánicos, armamento/equipo (visión nocturna, tiradores de alta precisión, medios UAS), capacidades de entrenamiento, estado logístico (munición/combustible) y su distancia y tiempo real de aproximación al objetivo o sector.
+   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares, municipalities o sectores distintos a los registrados en su telemetría real del mapa. Si una unidad está en una coordenada específica, esa es su única ubicación verídica.
+   - Si se requiere evaluar una unidad, cruza rigurosamente sus datos reales provistos: efectiva orgánicos, armamento/equipo (visión nocturna, tiradores de alta precisión, medios UAS), capacidades de entrenamiento, estado logístico (munición/combustible) y su distancia y tiempo real de aproximación al objetivo o sector.
 
 2. ADAPTABILIDAD AL TIPO DE REQUERIMIENTO:
    Detecta la intención de la orden o pregunta del Comandante y responde con la estructura correspondiente:
@@ -1119,7 +1151,7 @@ ${geoContext.hydrographySummary ? `\nRED HIDROGRÁFICA Y CURSOS FLUVIALES (OBST�
   const fullPrompt = `INFORMACIÓN OPERACIONAL DEL SISTEMA SIMCOP:${geoPrompt}
 
 UNIDADES AMIGAS:
-${unitContext}
+${validUnitsContext}
 
 INTELIGENCIA DISPONIBLE:
 ${intelContext}
@@ -1133,7 +1165,7 @@ ${escapeTemplateLiteralContent(query)}`;
       updateTaskState('generalAnalysis', { status: 'RUNNING', error: null });
       const data = await callNativeAI('/intelligence/terrain_weather', {
         query: query,
-        unidades_amigas: unitContext,
+        unidades_amigas: validUnitsContext,
         inteligencia: intelContext,
         geoContext: geoPrompt,
         enemyLayerActive: enemyLayerActive
@@ -1311,7 +1343,7 @@ export const generateCOAPlan = async (
     throw new Error("Gemini AI client no inicializado. Por favor, configure la API key en Configuración.");
   }
 
-  const unitContext = formatUnitsForPrompt(units, intelReports);
+  const validUnitsContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
   
   let geoPrompt = '';
@@ -1413,7 +1445,7 @@ OBJETIVO Y PROPÓSITO DE LA OPERACIÓN:
 ${escapeTemplateLiteralContent(objective)}
 
 FUERZAS AMIGAS DISPONIBLES EN EL MAPA:
-${unitContext}
+${validUnitsContext}
 
 INTELIGENCIA Y AMENAZAS EN EL MAPA:
 ${intelContext}
@@ -1428,7 +1460,7 @@ Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
       updateTaskState('coaGeneration', { status: 'RUNNING', error: null, result: null });
       const data = await callNativeAI('/wargaming/generate_coa', {
         objetivo: objective,
-        unidades_amigas: unitContext,
+        unidades_amigas: validUnitsContext,
         inteligencia_enemiga: intelContext,
         geo_prompt: geoPrompt,
         geo_context: geoContext
@@ -1745,13 +1777,13 @@ export const getPredictiveLogisticsAnalysis = async (units: MilitaryUnit[], bypa
     }
   }
 
-  const unitContext = formatUnitsForLogisticsPrompt(units);
+  const validUnitsContext = formatUnitsForLogisticsPrompt(units);
 
   const systemInstruction = "Eres un oficial de logística (S4/G4). Analiza el estado logístico de las unidades proporcionadas y predice las 3 necesidades logísticas más urgentes. Considera niveles de munición, combustible y días de suministro en relación con el estado operacional de la unidad (ej. 'En Combate' consume más). Responde únicamente con un array JSON de objetos. Los items deben ser 'Clase I (Raciones)', 'Clase III (Combustible)', o 'Clase V (Munición)'. La urgencia debe ser 'ALTA', 'MEDIA', o 'BAJA'.";
 
   const prompt = `
 DATOS LOGÍSTICOS DE UNIDADES:
-${unitContext}
+${validUnitsContext}
 
 ---
 SOLICITUD:
@@ -1960,7 +1992,7 @@ export const simulateCOAOutcome = async (
     }
   }
 
-  const unitContext = formatUnitsForPrompt(units, intelReports);
+  const validUnitsContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
 
   const systemInstruction = `Eres el Oficial de Simulación, Juegos de Guerra (Wargaming) y Modelado Táctico del sistema SIMCOP. Tu tarea es someter el Curso de Acción (COA) propuesto a una simulación de combate rigurosa contra las capacidades reales del adversario, aplicando doctrina militar y evaluación cuantitativa de atrición.
@@ -2054,7 +2086,7 @@ ${(coaPlan.riesgo_y_mitigacion || []).map(r => `- Riesgo: ${r.riesgo} -> Mitigac
 
 ---
 FUERZAS AMIGAS DISPONIBLES EN EL TEATRO (TELEMETRÍA, ARMAS Y POSICIONES REALES):
-${unitContext}
+${validUnitsContext}
 
 ---
 INTELIGENCIA ADVERSARIA Y AMENAZA GANE/GAO (HISTÓRICO Y CONTACTOS RECIENTES):

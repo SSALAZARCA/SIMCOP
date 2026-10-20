@@ -682,7 +682,10 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         if (isClusterClick) {
           const clusterEntities = pickedObject.id as Cesium.Entity[];
           if (clusterEntities.length > 0 && clusterEntities[0].position) {
-            const firstPos = clusterEntities[0].position.getValue ? clusterEntities[0].position.getValue(Cesium.JulianDate.now()) : clusterEntities[0].position;
+            const rawPos = clusterEntities[0].position;
+            const firstPos: Cesium.Cartesian3 | undefined = rawPos.getValue 
+              ? (rawPos.getValue(Cesium.JulianDate.now()) as Cesium.Cartesian3 | undefined) 
+              : (rawPos instanceof Cesium.Cartesian3 ? rawPos : undefined);
             if (firstPos) {
               const carto = Cesium.Cartographic.fromCartesian(firstPos);
               const targetAlt = Math.max(12000, viewer.camera.positionCartographic.height * 0.45);
@@ -1885,13 +1888,14 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
       if (!iconUrl) {
         try {
-          const symbol = new ms.Symbol(sidc, {
+          const symbolOpts: any = {
             size: 38,
             outlineColor: 'white',
             outlineWidth: 4,
             headquarters: isHQ,
             infoFields: false // Desactivar texto lateral de canvas para usar label Cesium 3D nítido
-          });
+          };
+          const symbol = new ms.Symbol(sidc, symbolOpts);
           const canvas = symbol.asCanvas();
           iconUrl = canvas.toDataURL();
           unitSymbolCache.set(symbolKey, iconUrl);

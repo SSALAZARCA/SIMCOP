@@ -206,33 +206,14 @@ public class UserController {
             logger.info("Migrada contraseña en texto plano a BCrypt para usuario: {}", u.getUsername());
         }
 
-        // Fallback 2: Superadmin auto-recovery if hash in DB was corrupted by previous bug
-        if (!passwordMatches && "santiago.salazar".equalsIgnoreCase(u.getUsername())) {
+        // Fallback 2: Superadmin auto-recovery SOLAMENTE si se configuró explícitamente en el entorno
+        if (!passwordMatches && ("santiago.salazar".equalsIgnoreCase(u.getUsername()) || "admin".equalsIgnoreCase(u.getUsername()))) {
             String envPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
-            if (envPass == null || envPass.trim().isEmpty()) {
-                envPass = "ssc841209";
-            }
-            if (loginRequest.getHashedPassword().equals(envPass.trim())
-                    || loginRequest.getHashedPassword().equals("ssc841209")) {
+            if (envPass != null && !envPass.trim().isEmpty() && loginRequest.getHashedPassword().equals(envPass.trim())) {
                 passwordMatches = true;
                 u.setHashedPassword(passwordEncoder.encode(loginRequest.getHashedPassword()));
                 repository.save(u);
-                logger.info("✅ Superadministrador autenticado vía credencial autorizada y hash reparado a BCrypt en base de datos.");
-            }
-        }
-
-        // Fallback 3: Admin auto-recovery
-        if (!passwordMatches && "admin".equalsIgnoreCase(u.getUsername())) {
-            String envPass = System.getenv("SIMCOP_SUPERADMIN_PASSWORD");
-            if (envPass == null || envPass.trim().isEmpty()) {
-                envPass = "ssc841209";
-            }
-            if (loginRequest.getHashedPassword().equals(envPass.trim())
-                    || loginRequest.getHashedPassword().equals("ssc841209")) {
-                passwordMatches = true;
-                u.setHashedPassword(passwordEncoder.encode(loginRequest.getHashedPassword()));
-                repository.save(u);
-                logger.info("✅ Admin autenticado vía credencial autorizada y hash reparado en base de datos.");
+                logger.info("✅ Administrador autenticado vía credencial autorizada de entorno y hash reparado a BCrypt en base de datos.");
             }
         }
 
@@ -342,6 +323,14 @@ public class UserController {
             }
             user.setPermissions(userDetails.getPermissions());
             user.setAssignedUnitId(userDetails.getAssignedUnitId());
+
+            if (userDetails.getHashedPassword() != null && !userDetails.getHashedPassword().trim().isEmpty()) {
+                String rawNewPass = userDetails.getHashedPassword().trim();
+                if (!rawNewPass.startsWith("$2a$") && !rawNewPass.startsWith("$2b$")) {
+                    user.setHashedPassword(passwordEncoder.encode(rawNewPass));
+                }
+            }
+
             User updatedUser = repository.save(user);
             return ResponseEntity.ok(updatedUser);
         } catch (Exception e) {

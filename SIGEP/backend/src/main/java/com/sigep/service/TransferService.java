@@ -132,7 +132,8 @@ public class TransferService {
             payload.put("payload", eventPayload);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-            restTemplate.postForEntity(simcopWebhookUrl, entity, String.class);
+            RestTemplate client = this.restTemplate != null ? this.restTemplate : new RestTemplate();
+            client.postForEntity(simcopWebhookUrl, entity, String.class);
             logger.info("[WEBHOOK_M2M] Traslado del soldado {} notificado a SIMCOP exitosamente.", transfer.getSoldierId());
         } catch (Exception e) {
             logger.error("[WEBHOOK_M2M] Error al notificar traslado a SIMCOP (no bloquea SIGEP): {}", e.getMessage());

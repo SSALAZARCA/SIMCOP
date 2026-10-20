@@ -109,12 +109,14 @@ export const PICCWorkflowAssistant: React.FC<PICCWorkflowAssistantProps> = ({
 
   // Antecedentes de combate relevantes (AAR)
   const combatAARs = useMemo(() => {
-    return afterActionReports.filter(a => 
-      a.engagementResult?.toLowerCase().includes('contacto') || 
-      a.engagementResult?.toLowerCase().includes('combate') ||
-      (a.enemyCasualties && a.enemyCasualties > 0) ||
-      (a.friendlyWia && a.friendlyWia > 0)
-    );
+    return afterActionReports.filter(a => {
+      const summaryText = (a.summary || '').toLowerCase();
+      const hasCasualties = (a.casualtiesWia && a.casualtiesWia > 0) || 
+                            (a.casualtiesKia && a.casualtiesKia > 0) ||
+                            ((a.enemyCasualtiesKia ?? 0) > 0) ||
+                            ((a.enemyCasualtiesWia ?? 0) > 0);
+      return summaryText.includes('contacto') || summaryText.includes('combate') || hasCasualties;
+    });
   }, [afterActionReports]);
 
   const handleGraficarMedidasS2 = async () => {
@@ -135,7 +137,7 @@ export const PICCWorkflowAssistant: React.FC<PICCWorkflowAssistantProps> = ({
     // 2. Construir medidas doctrinales completas S2 (MFRE 1-02.2)
     const s2COAPlan: COAPlan = {
       planName: 'Calco S2 - MLCOA / MDCOA (MFRE 1-02.2)',
-      unitId: units[0]?.id || 's2-intel',
+      createdByUserId: units[0]?.id || 's2-intel',
       conceptOfOperations: 'Medidas de Control de Inteligencia y Cursos de Acción del Enemigo (MLCOA/MDCOA) conforme al manual MFRE 1-02.2.',
       phases: [
         {

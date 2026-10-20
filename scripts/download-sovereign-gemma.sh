@@ -22,12 +22,12 @@ echo ""
 # Consumo en ejecución: ~1.8 GB - 2.2 GB RAM | Inferencia estimada: ~12-18 t/s en 3 vCPUs
 
 GEMMA4_FILE="$MODELS_DIR/gemma-4-e2b-it-Q4_K_M.gguf"
-GEMMA4_URL="https://huggingface.co/google/gemma-4-e2b-it-GGUF/resolve/main/gemma-4-e2b-it-Q4_K_M.gguf"
+GEMMA4_URL="https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
 
 if [ -f "$GEMMA4_FILE" ]; then
     echo "✅ [SKIP] Gemma 4 E2B ya existe: $GEMMA4_FILE"
 else
-    echo "⬇️  [DESCARGANDO] Gemma 4 E2B Instruct Q4_K_M (~1.5 GB)..."
+    echo "⬇️  [DESCARGANDO] Gemma 4 E2B Instruct Q4_K_M (~3.4 GB)..."
     curl -L --progress-bar -o "$GEMMA4_FILE" "$GEMMA4_URL" || {
         echo "⚠️  Nota: Si el enlace directo requiere autenticación de Hugging Face, descargue el GGUF manualmente a: $GEMMA4_FILE"
     }
@@ -42,14 +42,20 @@ echo ""
 # Consumo en ejecución: ~850 MB - 1.1 GB RAM
 
 EG2_FILE="$MODELS_DIR/embedding-gemma-2-740m-int8.onnx"
-EG2_URL="https://huggingface.co/google/embeddinggemma-2-740m-onnx/resolve/main/model_quantized.onnx"
+EG2_URL="https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/main/onnx/model_quantized.onnx"
+EG2_DATA_FILE="$MODELS_DIR/model_quantized.onnx_data"
+EG2_DATA_URL="https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/main/onnx/model_quantized.onnx_data"
+EG2_TOK_FILE="$MODELS_DIR/tokenizer.json"
+EG2_TOK_URL="https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/main/tokenizer.json"
 
 if [ -f "$EG2_FILE" ]; then
     echo "✅ [SKIP] EmbeddingGemma 2 ya existe: $EG2_FILE"
 else
-    echo "⬇️  [DESCARGANDO] EmbeddingGemma 2 740M Multimodal INT8 (~900 MB)..."
-    curl -L --progress-bar -o "$EG2_FILE" "$EG2_URL" || {
-        echo "⚠️  Nota: Si el enlace directo requiere autenticación de Hugging Face, descargue el modelo a: $EG2_FILE"
+    echo "⬇️  [DESCARGANDO] EmbeddingGemma 2 740M Multimodal INT8 (~315 MB)..."
+    curl -L --progress-bar -o "$EG2_FILE" "$EG2_URL" && \
+    curl -L --progress-bar -o "$EG2_DATA_FILE" "$EG2_DATA_URL" && \
+    curl -L --progress-bar -o "$EG2_TOK_FILE" "$EG2_TOK_URL" || {
+        echo "⚠️  Nota: Descargue el modelo ONNX manualmente a: $EG2_FILE"
     }
     echo "✅ [OK] EmbeddingGemma 2 preparado en: $EG2_FILE"
 fi

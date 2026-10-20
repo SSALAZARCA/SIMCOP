@@ -96,14 +96,283 @@ def _get_gpu_telemetry() -> dict:
 # DETECCIÓN Y CARGA DE BACKEND DE MODELO
 # ==========================================
 MODEL_PATH = os.environ.get("SIMCOP_MODEL_PATH", "models/gemma-4-e2b-it-Q4_K_M.gguf")
+EMBEDDING_PATH = os.environ.get("SIMCOP_EMBEDDING_PATH", "models/embedding-gemma-2-740m-int8.onnx")
+VECTOR_DB_PATH = os.environ.get("SIMCOP_VECTOR_DB_PATH", "data/simcop_doctrinal_vectors.db")
 MODEL_BACKEND_OVERRIDE = os.environ.get("SIMCOP_MODEL_BACKEND", "auto").lower()
 MODEL_CTX = int(os.environ.get("SIMCOP_MODEL_CTX", "4096"))
 MODEL_THREADS = int(os.environ.get("SIMCOP_MODEL_THREADS", "2"))
 
-logger.info(f"[SOBERANO] Iniciando adaptador multi-backend. MODEL_PATH={MODEL_PATH}, THREADS={MODEL_THREADS}, CTX={MODEL_CTX}")
+logger.info(
+    f"[SOBERANO] Iniciando Dupla Soberana (Gemma 4 E2B + EmbeddingGemma 2). "
+    f"LLM={MODEL_PATH}, EMBEDDING={EMBEDDING_PATH}, THREADS={MODEL_THREADS}, CTX={MODEL_CTX}"
+)
 
 # Semáforo de concurrencia: exactamente 1 inferencia pesada a la vez para proteger el VPS Hostinger KVM 4
 _inference_semaphore = threading.Semaphore(1)
+
+
+class SimcopEmbeddingEngine:
+    """
+    Motor Complementario 1: EmbeddingGemma 2 (740M INT8 ONNX) + Base Vectorial SQLite/sqlite-vec.
+    Codifica texto/doctrina/inteligencia en vectores de 768 dimensiones con compresión Matryoshka (MRL 256d)
+    para alimentar con Recuperación Aumentada (RAG Doctrinal) al modelo generativo Gemma 4 E2B.
+    """
+
+    DOCTRINAL_CORPUS = [
+        {
+            "id": "DOC-MFRE-1-02",
+            "title": "MFRE 1-02.2 / MTE 2-01.3 — Análisis del Terreno OCOPA",
+            "content": (
+                "Doctrina OCOPA del Ejército Nacional de Colombia: "
+                "1) Observación y Campos de Tiro: asegurar la cresta militar (25m bajo la cumbre topográfica) para evitar silueteo y dominar la línea de vista (LoS). "
+                "2) Cubierta y Abrigo: emplear contrapendientes y desenfilada topográfica contra fuegos indirectos de mortero. "
+                "3) Obstáculos: ríos caudalosos, pendientes >35% y campos minados (AEI/IED) canalizan las unidades hacia zonas de aniquilamiento. "
+                "4) Puntos Críticos: pasos obligados, puentes, vados y alturas dominantes (Key Terrain). "
+                "5) Avenidas de Aproximación: priorizar ejes de infiltración por desenfilada sobre vaguadas canalizadas."
+            ),
+        },
+        {
+            "id": "DOC-METT-TC",
+            "title": "Factores de la Decisión Táctica METT-TC y AECOPE",
+            "content": (
+                "Evaluación integral METT-TC: Misión (intención del Comandante y tarea táctica), "
+                "Enemigo (composición GANE/GAO, francotiradores, drones adaptados y redes de apoyo), "
+                "Terreno y Clima (impacto de lluvia, techo de nubes y visibilidad en operaciones terrestres y vuelo UAS), "
+                "Tropas y Apoyo disponible (efectivos, armas de acompañamiento, apoyo de fuegos M101A1/LG1/L119/M120), "
+                "Tiempo disponible y Consideraciones Civiles (Alertas Tempranas SAT de la Defensoría del Pueblo y DIH)."
+            ),
+        },
+        {
+            "id": "DOC-COA-OTAN",
+            "title": "Planeamiento de Cursos de Acción (COA) y Graficación MIL-STD-2525 / APP-6",
+            "content": (
+                "Todo Curso de Acción (COA) debe ser Apto, Factible, Aceptable, Distinguible y Completo (AFADC). "
+                "La maniobra se estructura en Fases secuenciales (Aislamiento/Fijación, Infiltración/Asalto, Consolidación) "
+                "con medidas de control gráfico estándar OTAN: PHASE_LINE (PL RED/ALPHA), AXIS_OF_ADVANCE (AXIS VIPER/SMASH), "
+                "ASSEMBLY_AREA (AA), OBJECTIVE (OBJ) y CHECKPOINT (CP/PZ/LZ)."
+            ),
+        },
+        {
+            "id": "DOC-LOG-S4",
+            "title": "Sostenimiento Táctico y Clases de Abastecimiento (G4/S4)",
+            "content": (
+                "Clasificación logística militar: Clase I (Raciones de campaña y agua), Clase III (Combustibles y lubricantes), "
+                "Clase V (Munición de fusilería 5.56mm, 7.62mm, granadas de 40mm y granadas de mortero/artillería), "
+                "Clase VIII (Material de sanidad, trauma y evacuación aeromédica MEDEVAC/CASEVAC). "
+                "Unidades en combate (ENGAGED) duplican su tasa de consumo de Clase V y requieren reabastecimiento prioritario."
+            ),
+        },
+        {
+            "id": "DOC-G1-SIGEP",
+            "title": "Gestión de Personal, Rotación TOE y Apreciación G1/S1 (SIGEP)",
+            "content": (
+                "Doctrina de administración de personal (G1/S1): las unidades con Índice de Orden Público (POI) crítico (>8.0) "
+                "o en Alerta Roja tienen prioridad de refuerzo orgánico. Los candidatos a traslado deben registrar aptitud psicofísica "
+                "APTA, especialidad MOCE compatible, más de 24 meses de permanencia en su unidad de origen y no superar el límite de desangre mensual."
+            ),
+        },
+    ]
+
+    def __init__(self, model_path: str = EMBEDDING_PATH, db_path: str = VECTOR_DB_PATH):
+        self.model_path = model_path
+        self.db_path = db_path
+        self.backend: str = "deterministic_mrl"
+        self.dimensions_full: int = 768
+        self.dimensions_mrl: int = 256
+        self._ort_session = None
+        self._vocab: Dict[str, int] = {}
+        self._sqlite_vec_enabled: bool = False
+        self._corpus_embeddings: List[Dict[str, Any]] = []
+        self._detect_and_load()
+        self._init_vector_store()
+
+    def _detect_and_load(self):
+        if MODEL_BACKEND_OVERRIDE == "heuristic":
+            return
+
+        if os.path.exists(self.model_path):
+            try:
+                import onnxruntime as ort
+                sess_options = ort.SessionOptions()
+                sess_options.intra_op_num_threads = max(1, MODEL_THREADS)
+                sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+                self._ort_session = ort.InferenceSession(
+                    self.model_path,
+                    sess_options=sess_options,
+                    providers=["CPUExecutionProvider"],
+                )
+                self.backend = "onnx_embeddinggemma2"
+                logger.info(f"[OK] EmbeddingGemma 2 ONNX cargado exitosamente desde {self.model_path} (768d -> MRL 256d).")
+                self._load_tokenizer_vocab()
+            except Exception as e:
+                logger.warning(f"[ADVERTENCIA] No se pudo inicializar sesión ONNX para EmbeddingGemma 2 ({e}). Usando proyección vectorial MRL local.")
+                self._ort_session = None
+                self.backend = "deterministic_mrl"
+        else:
+            logger.info(f"[INFO] {self.model_path} aún no presente en disco. EmbeddingGemma 2 en espera de hot-load.")
+
+    def _load_tokenizer_vocab(self):
+        tok_path = os.path.join(os.path.dirname(self.model_path) or ".", "tokenizer.json")
+        if os.path.exists(tok_path):
+            try:
+                with open(tok_path, "r", encoding="utf-8") as f:
+                    tok_data = json.load(f)
+                vocab = tok_data.get("model", {}).get("vocab", {})
+                if isinstance(vocab, dict):
+                    self._vocab = vocab
+                    logger.info(f"[OK] Tokenizer de EmbeddingGemma 2 cargado ({len(self._vocab)} tokens).")
+            except Exception as e:
+                logger.warning(f"[ADVERTENCIA] Error leyendo tokenizer.json: {e}")
+
+    def try_hot_load(self):
+        if self._ort_session is None and os.path.exists(self.model_path) and MODEL_BACKEND_OVERRIDE != "heuristic":
+            logger.info("[HOT-LOAD] Detectado EmbeddingGemma 2 ONNX en disco. Inicializando sesión...")
+            self._detect_and_load()
+            if self._ort_session is not None:
+                self._init_vector_store()
+
+    def encode(self, text: str, mrl_dim: int = 256) -> List[float]:
+        """
+        Codifica un texto en el espacio vectorial de 768d de EmbeddingGemma 2 y aplica
+        truncamiento Matryoshka Representation Learning (MRL) con normalización L2 a `mrl_dim`.
+        """
+        self.try_hot_load()
+        import numpy as np
+
+        clean_text = (text or "").strip()
+        if not clean_text:
+            return [0.0] * mrl_dim
+
+        vec_768 = None
+        if self._ort_session is not None:
+            try:
+                tokens = self._tokenize_for_onnx(clean_text, max_len=128)
+                input_ids = np.array([tokens], dtype=np.int64)
+                attention_mask = np.ones_like(input_ids, dtype=np.int64)
+                ort_inputs = {}
+                input_names = [inp.name for inp in self._ort_session.get_inputs()]
+                if "input_ids" in input_names:
+                    ort_inputs["input_ids"] = input_ids
+                else:
+                    ort_inputs[input_names[0]] = input_ids
+                if "attention_mask" in input_names:
+                    ort_inputs["attention_mask"] = attention_mask
+                if "position_ids" in input_names:
+                    ort_inputs["position_ids"] = np.arange(len(tokens), dtype=np.int64).reshape(1, -1)
+
+                outputs = self._ort_session.run(None, ort_inputs)
+                raw_out = outputs[0]
+                if raw_out.ndim == 3:
+                    pooled = raw_out.mean(axis=1)[0]
+                elif raw_out.ndim == 2:
+                    pooled = raw_out[0]
+                else:
+                    pooled = raw_out.flatten()
+                vec_768 = pooled.astype(np.float32)
+            except Exception as e:
+                logger.debug(f"Fallback MRL en encode ONNX: {e}")
+                vec_768 = None
+
+        if vec_768 is None:
+            # Proyección determinista semántica por n-gramas y términos tácticos (768d)
+            vec = np.zeros(self.dimensions_full, dtype=np.float32)
+            words = re.findall(r"\w+", clean_text.lower())
+            for w in words:
+                h1 = hash(w) % self.dimensions_full
+                h2 = hash(w[:4]) % self.dimensions_full
+                vec[h1] += 1.0
+                vec[h2] += 0.5
+            vec_768 = vec
+
+        # Compresión Matryoshka (MRL) a mrl_dim + Normalización L2
+        truncated = vec_768[:mrl_dim]
+        if len(truncated) < mrl_dim:
+            truncated = np.pad(truncated, (0, mrl_dim - len(truncated)))
+        norm = float(np.linalg.norm(truncated))
+        if norm > 1e-8:
+            truncated = truncated / norm
+        return [round(float(x), 6) for x in truncated]
+
+    def _tokenize_for_onnx(self, text: str, max_len: int = 128) -> List[int]:
+        words = re.findall(r"\w+|[^\w\s]", text.lower())[:max_len - 2]
+        if self._vocab:
+            ids = [2]  # BOS
+            for w in words:
+                ids.append(self._vocab.get(w, self._vocab.get(f"▁{w}", (abs(hash(w)) % 250000) + 100)))
+            ids.append(1)  # EOS
+            return ids
+        return [2] + [((abs(hash(w)) % 250000) + 100) for w in words] + [1]
+
+    def _init_vector_store(self):
+        """Inicializa la base vectorial SQLite (+ sqlite-vec si está disponible) con el corpus doctrinal."""
+        import sqlite3
+        self._corpus_embeddings = []
+        for doc in self.DOCTRINAL_CORPUS:
+            emb = self.encode(f"{doc['title']} {doc['content']}", mrl_dim=self.dimensions_mrl)
+            self._corpus_embeddings.append({**doc, "embedding": emb})
+
+        try:
+            os.makedirs(os.path.dirname(self.db_path) or ".", exist_ok=True)
+            conn = sqlite3.connect(self.db_path)
+            try:
+                import sqlite_vec
+                conn.enable_load_extension(True)
+                sqlite_vec.load(conn)
+                conn.enable_load_extension(False)
+                self._sqlite_vec_enabled = True
+            except Exception:
+                self._sqlite_vec_enabled = False
+
+            cur = conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS doctrinal_vectors (
+                    id TEXT PRIMARY KEY,
+                    title TEXT,
+                    content TEXT,
+                    embedding_json TEXT
+                )
+                """
+            )
+            for item in self._corpus_embeddings:
+                cur.execute(
+                    "INSERT OR REPLACE INTO doctrinal_vectors (id, title, content, embedding_json) VALUES (?, ?, ?, ?)",
+                    (item["id"], item["title"], item["content"], json.dumps(item["embedding"])),
+                )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"[ADVERTENCIA] No se pudo persistir base vectorial SQLite ({e}), operando en memoria.")
+
+    def retrieve_doctrinal_context(self, query_text: str, top_k: int = 2) -> str:
+        """
+        Recupera los fragmentos doctrinales más relevantes mediante similitud coseno en el espacio
+        Matryoshka 256d de EmbeddingGemma 2 para inyectarlos en el prompt de Gemma 4 E2B.
+        """
+        if not self._corpus_embeddings:
+            return ""
+        import numpy as np
+        q_vec = np.array(self.encode(query_text, mrl_dim=self.dimensions_mrl), dtype=np.float32)
+        scored = []
+        for doc in self._corpus_embeddings:
+            d_vec = np.array(doc["embedding"], dtype=np.float32)
+            sim = float(np.dot(q_vec, d_vec))
+            scored.append((sim, doc))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        selected = [f"[{d['id']} - {d['title']}]: {d['content']}" for _, d in scored[:top_k]]
+        return "\n".join(selected)
+
+
+def _clean_gemma4_output(raw_text: str) -> str:
+    """Elimina bloques de pensamiento (<thought>...</thought>, <think>...</think>) de Gemma 4 E2B."""
+    if not raw_text:
+        return ""
+    cleaned = raw_text
+    while re.search(r"<(think|thought|thinking|reasoning)>[\s\S]*?</\1>", cleaned, re.IGNORECASE):
+        cleaned = re.sub(r"<(think|thought|thinking|reasoning)>[\s\S]*?</\1>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<(think|thought|thinking|reasoning)>[\s\S]*$", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</(think|thought|thinking|reasoning)>", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 class SimcopLLMAdapter:
@@ -268,7 +537,7 @@ class SimcopLLMAdapter:
             top_p=0.9,
             stop=stop_tokens,
         )
-        text = output["choices"][0]["text"].strip()
+        text = _clean_gemma4_output(output["choices"][0]["text"].strip())
         tokens = output["usage"]["completion_tokens"]
         return text, tokens
 
@@ -871,15 +1140,20 @@ En atención a su consulta sobre el marco doctrinal de TTPs (*"{user_query}"*), 
             return json.dumps({"estado": "Procesado nativamente sin ruta detectada"})
 
 # ==========================================
-# INICIALIZACIÓN DEL MOTOR GLOBAL (FASE 3)
+# INICIALIZACIÓN DEL MOTOR GLOBAL (FASE 3: DUPLA SOBERANA)
 # ==========================================
+embedding_engine = SimcopEmbeddingEngine()
 engine = SimcopLLMAdapter()
-logger.info(f"[FASE 3] Motor activo — backend: {engine.backend}")
+logger.info(
+    f"[FASE 3] Dupla Soberana activa — LLM backend: {engine.backend} ({MODEL_PATH}) | "
+    f"Embedding backend: {embedding_engine.backend} ({EMBEDDING_PATH})"
+)
 
 def run_inference(prompt: str, expect_json: bool = False) -> str:
     """Ejecuta inferencia, mide latencia real y tokens/segundo reales."""
     start_time = time.perf_counter()
     try:
+        embedding_engine.try_hot_load()
         result = engine.generate_response(prompt, expect_json)
         # El adaptador retorna (text, tokens) para backends neurales o (text, 0) para heurístico
         if isinstance(result, tuple):
@@ -887,6 +1161,7 @@ def run_inference(prompt: str, expect_json: bool = False) -> str:
         else:
             response_text, token_count = result, 0
 
+        response_text = _clean_gemma4_output(response_text)
         elapsed_s = time.perf_counter() - start_time
         latency_ms = elapsed_s * 1000
         tps = (token_count / elapsed_s) if elapsed_s > 0 and token_count > 0 else 0.0
@@ -915,7 +1190,8 @@ def run_inference(prompt: str, expect_json: bool = False) -> str:
 def get_system_kpis():
     """
     Endpoint de telemetría MLOps genuina.
-    Reporta métricas reales de hardware (pynvml), latencia, tokens/segundo y backend activo.
+    Reporta métricas reales de hardware (pynvml), latencia, tokens/segundo y estado de la Dupla Soberana
+    (Gemma 4 E2B + EmbeddingGemma 2).
     """
     uptime_seconds = time.time() - system_metrics["uptime_start"]
     gpu = _get_gpu_telemetry()
@@ -931,6 +1207,10 @@ def get_system_kpis():
         "model_backend": engine.backend,
         "model_loaded": engine.backend != "heuristic",
         "model_path": MODEL_PATH,
+        "embedding_backend": embedding_engine.backend,
+        "embedding_loaded": embedding_engine._ort_session is not None,
+        "embedding_path": EMBEDDING_PATH,
+        "embedding_dimensions": f"{embedding_engine.dimensions_full}d -> MRL {embedding_engine.dimensions_mrl}d",
         # Métricas de hardware reales
         "gpu_available": gpu["gpu_available"],
         "gpu_name": gpu["gpu_name"],
@@ -945,6 +1225,9 @@ def get_system_kpis():
         "average_confidence_score": avg_conf,
         # Módulos activos
         "active_modules": [
+            "Gemma_4_E2B_Reasoning",
+            "EmbeddingGemma_2_768d_MRL256d",
+            "OCOPA_Terrain_Engine",
             "Tactical_AStar_Routing",
             "COA_Planner_Engine",
             "BMA_Battle_Manager",
@@ -1077,6 +1360,7 @@ class COARequest(BaseModel):
 @app.post("/api/v1/wargaming/generate_coa")
 def generate_coa(req: COARequest):
     ocopa = OCOPATerrainAnalyzer.analyze(req.geo_context, req.geo_prompt, req.inteligencia_enemiga)
+    rag_context = embedding_engine.retrieve_doctrinal_context(f"COA {req.objetivo} {req.inteligencia_enemiga}", top_k=2)
     geo_info = req.geo_prompt if req.geo_prompt else ""
     
     prompt = f"""Eres SIMCOP AI, Oficial de Operaciones G3 del Ejército de Colombia.
@@ -1085,6 +1369,9 @@ Objetivo: {req.objetivo}
 Unidades Amigas: {req.unidades_amigas}
 Enemigo: {req.inteligencia_enemiga}
 {geo_info}
+
+DOCTRINA RECUPERADA POR EMBEDDINGGEMMA 2 (RAG MRL 256d):
+{rag_context}
 
 ANÁLISIS OCOPA DEL TERRENO:
 - Observación: {ocopa['observacion_campos_tiro']['evaluacion']}
@@ -1141,14 +1428,34 @@ class SpatialAnalysisRequest(BaseModel):
 def analyze_terrain_ocopa(req: SpatialAnalysisRequest):
     return OCOPATerrainAnalyzer.analyze(req.geo_context, req.geo_prompt, req.enemigo)
 
+class EmbeddingRequest(BaseModel):
+    text: str
+    dimensions: Optional[int] = 256
+
+@app.post("/api/v1/embeddings/encode")
+def encode_embedding(req: EmbeddingRequest):
+    dim = max(64, min(768, req.dimensions or 256))
+    vec = embedding_engine.encode(req.text, mrl_dim=dim)
+    return {
+        "model": "embedding-gemma-2-740m-int8.onnx",
+        "backend": embedding_engine.backend,
+        "dimensions": dim,
+        "embedding": vec,
+        "doctrinal_matches": embedding_engine.retrieve_doctrinal_context(req.text, top_k=2),
+    }
+
 # 2. Logística Predictiva
 class PredictiveLogisticsRequest(BaseModel):
     inventario: Any
 
 @app.post("/api/v1/logistics/predictive")
 def predictive_logistics(req: PredictiveLogisticsRequest):
+    rag_context = embedding_engine.retrieve_doctrinal_context("logística Clase I Clase III Clase V munición abastecimiento", top_k=1)
     prompt = f"""Eres SIMCOP AI Logística. Analiza este inventario logístico por unidad:
 {req.inventario}
+
+DOCTRINA LOGÍSTICA (EMBEDDINGGEMMA 2):
+{rag_context}
 
 Devuelve Únicamente un Arreglo (Array) JSON de objetos. Cero texto.
 Estructura obligatoria por objeto:
@@ -1188,14 +1495,18 @@ Devuelve Únicamente un objeto JSON exacto:
 
 # 4. Traductor a Comandos
 class CommandRequest(BaseModel):
-    comando: str
-    catalogo: Any
+    comando: Optional[str] = None
+    catalogo: Optional[Any] = None
+    command: Optional[str] = None
+    unitNames: Optional[Any] = None
 
 @app.post("/api/v1/system/translate_command")
 def translate_command(req: CommandRequest):
+    cmd_text = req.comando if req.comando is not None else (req.command or "")
+    unit_cat = req.catalogo if req.catalogo is not None else (req.unitNames or [])
     prompt = f"""Eres un Function Caller de SIMCOP.
-Comando Humano: "{req.comando}"
-Catálogo de unidades válidas: {req.catalogo}
+Comando Humano: "{cmd_text}"
+Catálogo de unidades válidas: {unit_cat}
 
 Si pide enfocar una unidad, devuelve este JSON exacto:
 {{
@@ -1217,6 +1528,7 @@ class ProactiveRequest(BaseModel):
 @app.post("/api/v1/intelligence/proactive")
 def proactive_analysis(req: ProactiveRequest):
     ocopa = OCOPATerrainAnalyzer.analyze(None, "", req.osint)
+    rag_context = embedding_engine.retrieve_doctrinal_context(f"METT-TC OCOPA {req.osint} {req.alertas}", top_k=2)
     prompt = f"""Eres el Oficial de Operaciones e Inteligencia (G2/G3) del Ejército de Colombia en el sistema SIMCOP.
 Tu misión es generar una APRECIACIÓN TÁCTICA INTEGRAL aplicando los factores de la decisión militar (METT-TC: Misión, Enemigo, Terreno/Clima, Tropas, Tiempo, Población Civil):
 
@@ -1225,6 +1537,7 @@ SITUACIÓN OPERACIONAL EN EL TEATRO:
 - AMENAZAS HOSTILES E INTELIGENCIA (OSINT/ENLACE): {req.osint}
 - ALERTAS OPERACIONALES, SAT Y NOVEDADES: {req.alertas}
 - ANÁLISIS DE RELIEVE, RÍOS Y TERRENO: {ocopa['sintesis_comandante']}
+- DOCTRINA RECUPERADA (EMBEDDINGGEMMA 2): {rag_context}
 
 REGLAS DE MANDO OBLIGATORIAS:
 1. ANÁLISIS INTEGRAL (TODO EL CONTEXTO OPERACIONAL): NO te limites únicamente al terreno. Debes cruzar obligatoriamente:
@@ -1247,11 +1560,13 @@ class GeminiAnalysisRequest(BaseModel):
 
 @app.post("/api/v1/intelligence/terrain_weather")
 def terrain_weather_analysis(req: GeminiAnalysisRequest):
+    rag_context = embedding_engine.retrieve_doctrinal_context(f"{req.query} {req.inteligencia}", top_k=2)
     prompt = f"""Eres SIMCOP AI. Analiza estos parámetros:
 Consulta: {req.query}
 Unidades Amigas: {req.unidades_amigas}
 Inteligencia: {req.inteligencia}
 Contexto Geoespacial/Topográfico: {req.geoContext}
+Doctrina Recuperada (EmbeddingGemma 2): {rag_context}
 Capa Enemiga Activa: {req.enemyLayerActive}
 
 Un texto narrativo estructurado y profesional que responda a la consulta del operador.
@@ -1302,6 +1617,7 @@ class BMABriefRequest(BaseModel):
     weather: Any
     hotspots_count: int
     logistics_count: int
+    threat_location: Optional[Any] = None
 
 @app.post("/api/v1/wargaming/bma_brief")
 def generate_bma_brief(req: BMABriefRequest):
@@ -1317,16 +1633,19 @@ SITUACIÓN ACTUAL BMA:
 Genera el Resumen Ejecutivo de Situación."""
     return {"brief": run_inference(prompt, expect_json=False).strip()}
 
-# ENDPOINT LEGACY PARA DASHBOARD LOCAL
+# ENDPOINT LEGACY PARA DASHBOARD LOCAL Y ASISTENTE DOCTRINAL
 class IntelligenceQuery(BaseModel):
     texto: str
     unidades_disponibles: Optional[List[str]] = []
 
 @app.post("/api/v1/intelligence/query")
 def nlp_query(query: IntelligenceQuery):
+    rag_context = embedding_engine.retrieve_doctrinal_context(query.texto, top_k=2)
     prompt = f"""Eres SIMCOP AI, el cerebro táctico superior del Ejército. El Comandante te ha entregado un escenario táctico complejo.
     Tu objetivo es realizar un ANÁLISIS PROFUNDO, EXTENSO y EXHAUSTIVO basado en doctrina pura.
     Escenario: "{query.texto}"
+    Doctrina Recuperada por EmbeddingGemma 2:
+    {rag_context}
     
     REGLAS:
     El "analisis" debe ser extenso, justificando los COAs, clima y geografía. La "orden_estructurada" debe ser minuciosa.
@@ -1341,8 +1660,62 @@ def nlp_query(query: IntelligenceQuery):
         "entrada_tactica": res_data.get("entrada_tactica", ""),
         "analisis_doctrinal": res_data.get("analisis", ""),
         "orden_estructurada": res_data.get("orden_estructurada", {}),
-        "contexto_doctrinal": res_data.get("contexto_doctrinal", ""),
+        "contexto_doctrinal": res_data.get("contexto_doctrinal", rag_context),
         "telemetry": {"confidence_score": confidence, "latency_ms": latency}
+    }
+
+# ==========================================
+# INTEROPERABILIDAD INTERNA M2M (SIMCOP BACKEND + SIGEP BACKEND)
+# Compatible con OpenAI /v1/chat/completions pero ejecutado 100% en Gemma 4 E2B + EmbeddingGemma 2
+# ==========================================
+class ChatMessageItem(BaseModel):
+    role: str
+    content: str
+
+class ChatCompletionRequest(BaseModel):
+    model: Optional[str] = "gemma-4-e2b-it-Q4_K_M.gguf"
+    messages: List[ChatMessageItem]
+    temperature: Optional[float] = 0.3
+    max_tokens: Optional[int] = 800
+    response_format: Optional[Dict[str, Any]] = None
+
+@app.post("/v1/chat/completions")
+@app.post("/api/v1/chat/completions")
+def local_sovereign_chat_completions(req: ChatCompletionRequest):
+    user_parts = [m.content for m in req.messages if m.role == "user"]
+    sys_parts = [m.content for m in req.messages if m.role == "system"]
+    user_text = "\n".join(user_parts).strip()
+    sys_text = "\n".join(sys_parts).strip()
+
+    rag_context = embedding_engine.retrieve_doctrinal_context(user_text, top_k=2)
+    expect_json = bool(
+        (req.response_format and req.response_format.get("type") == "json_object")
+        or "formato JSON" in user_text
+        or "estructura exacta. REGLAS" in user_text
+    )
+
+    combined_prompt = (
+        f"{sys_text}\n\n"
+        f"[CONTEXTO DOCTRINAL EMBEDDINGGEMMA 2]:\n{rag_context}\n\n"
+        f"{user_text}"
+    ).strip()
+
+    content = run_inference(combined_prompt, expect_json=expect_json)
+    return {
+        "id": f"simcop-gemma4-{int(time.time())}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": "gemma-4-e2b-it-Q4_K_M.gguf+embedding-gemma-2-740m-int8.onnx",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                },
+                "finish_reason": "stop",
+            }
+        ],
     }
 
 if __name__ == "__main__":

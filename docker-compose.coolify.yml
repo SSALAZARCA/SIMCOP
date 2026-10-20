@@ -1,0 +1,175 @@
+# Docker Compose para SIMCOP AI Soberano
+# Optimizado para Coolify - Fully Automated Deploy
+
+version: '3.8'
+
+services:
+  # Frontend Principal (SIMCOP)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=""
+    restart: unless-stopped
+    expose:
+      - 80
+    depends_on:
+      - backend
+      - ai_engine
+    networks:
+      - coolify_network
+      - simcop_internal
+
+  # Backend Spring Boot
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 8080
+    ports:
+      - "8085:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/simcop?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-root}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}
+      - SPRING_DATASOURCE_DRIVER=${SPRING_DATASOURCE_DRIVER:-com.mysql.cj.jdbc.Driver}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQLDialect
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.MySQLDialect
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}}
+      - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
+      - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop-secure-webhook-secret-2026}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
+    depends_on:
+      - mysql
+    networks:
+      - simcop_internal
+
+  # AI Engine (Gemma 4 E2B + EmbeddingGemma 2)
+  ai_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4096M
+        reservations:
+          cpus: '0.2'
+          memory: 512M
+    expose:
+      - 8000
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://frontend,https://simcop.site,https://sigep.site}
+      - SIMCOP_MODEL_PATH=/app/models/gemma-4-e2b-it-Q4_K_M.gguf
+      - SIMCOP_EMBEDDING_PATH=/app/models/embedding-gemma-2-740m-int8.onnx
+      - SIMCOP_MODEL_THREADS=2
+      - SIMCOP_MODEL_CTX=4096
+    volumes:
+      - ai_models:/app/models
+      - ai_data:/app/data
+    networks:
+      - simcop_internal
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=128M
+      --max-connections=100
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-simcop}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - simcop_internal
+
+  # SIGEP Backend
+  sigep_backend:
+    build:
+      context: ./SIGEP/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    expose:
+      - 4000
+    environment:
+      - PORT=4000
+      - SPRING_DATASOURCE_URL=${SIGEP_DATASOURCE_URL:-jdbc:h2:file:/app/data/sigep-db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1}
+      - SPRING_DATASOURCE_USERNAME=${SIGEP_DATASOURCE_USERNAME:-sa}
+      - SPRING_DATASOURCE_PASSWORD=${SIGEP_DATASOURCE_PASSWORD:-${DB_PASSWORD:-password}}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - SIMCOP_API_URL=http://backend:8080/api
+      - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
+      - SIGEP_JWT_SECRET=${SIGEP_JWT_SECRET:-SigepSecretKeyForMilitaryPersonnelManagementVerySecureKey20261234567890}
+      - SIGEP_CORS_ALLOWED_ORIGINS=${SIGEP_CORS_ALLOWED_ORIGINS:-https://sigep.site,http://sigep.site,https://api.sigep.site,http://api.sigep.site,https://simcop.site,http://simcop.site,http://localhost:3000,http://localhost:5173,http://localhost:80,http://localhost:8080,http://localhost:8085}
+      - AI_PROVIDER=${AI_PROVIDER:-NATIVE_SIMCOP}
+      - AI_API_URL=${AI_API_URL:-http://ai_engine:8000/v1}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-gemma-4-e2b-it-Q4_K_M.gguf}
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - sigep_data:/app/data
+    depends_on:
+      - backend
+    networks:
+      - simcop_internal
+
+  # SIGEP Frontend
+  sigep_frontend:
+    build:
+      context: ./SIGEP/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_SIGEP_API_URL=${VITE_SIGEP_API_URL:-}
+    restart: unless-stopped
+    expose:
+      - 80
+    ports:
+      - "3000:80"
+    depends_on:
+      - sigep_backend
+    networks:
+      - coolify_network
+      - simcop_internal
+
+networks:
+  coolify_network:
+    # Este network sera gestionado por Coolify
+    external: true
+  simcop_internal:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  sigep_data:
+    driver: local
+  ai_models:
+    driver: local
+  ai_data:
+    driver: local

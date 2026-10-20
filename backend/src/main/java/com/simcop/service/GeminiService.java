@@ -138,6 +138,76 @@ public class GeminiService {
                 return "Error llamando a LMLink en " + url + ": " + e.getMessage();
             }
             return null;
+        } else if ("NATIVE_SIMCOP".equalsIgnoreCase(provider)) {
+            // NATIVE_SIMCOP uses the local ai_engine endpoint (http://ai_engine:8000/v1)
+            String endpoint = configService.getLocalAIEndpoint();
+            if (endpoint == null || endpoint.trim().isEmpty()) {
+                endpoint = "http://ai_engine:8000/v1";
+            }
+            endpoint = endpoint.trim().replaceAll("/+$", "");
+            String model = configService.getLocalAIModel();
+            if (model == null || model.trim().isEmpty()) {
+                model = "gemma-4-e2b-it-Q4_K_M.gguf";
+            } else {
+                model = model.trim();
+            }
+            
+            // Use Gemini API format for compatibility with the SimCOP API wrapper
+            String url = endpoint + "/chat/completions";
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            Optional<String> apiKeyOpt = configService.getGeminiApiKey();
+            if (apiKeyOpt.isPresent() && !apiKeyOpt.get().trim().isEmpty()) {
+                headers.setBearerAuth(apiKeyOpt.get().trim());
+            }
+            
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("temperature", 0.4);
+            
+            if (prompt != null && (prompt.contains("estructura exacta.") || prompt.contains("Responde en formato JSON"))) {
+                Map<String, Object> responseFormat = new HashMap<>();
+                responseFormat.put("type", "json_object");
+                requestBody.put("response_format", responseFormat);
+            }
+            
+            Map<String, Object> systemMessage = new HashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content", "You are an expert military tactical planner.");
+            
+            Map<String, Object> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", prompt);
+            
+            requestBody.put("messages", java.util.Arrays.asList(systemMessage, userMessage));
+            
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            
+            try {
+                @SuppressWarnings("null")
+                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(url,
+                        HttpMethod.POST, entity,
+                        new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                        });
+                Map<String, Object> body = response.getBody();
+                if (response.getStatusCode() == HttpStatus.OK && body != null) {
+                    @SuppressWarnings("unchecked")
+                    java.util.List<Map<String, Object>> choices = (java.util.List<Map<String, Object>>) body.get("choices");
+                    if (choices != null && !choices.isEmpty()) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                        if (message != null) {
+                            return stripReasoningTags((String) message.get("content"));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error calling NATIVE_SIMCOP AI engine at {}: {}", endpoint, e.getMessage());
+                return "Error llamando a NATIVE_SIMCOP en " + endpoint + ": " + e.getMessage();
+            }
+            return null;
         } else if ("OMNIROUTE".equalsIgnoreCase(provider)) {
             String endpoint = configService.getLocalAIEndpoint();
             if (endpoint == null || endpoint.trim().isEmpty()) {
