@@ -1356,19 +1356,21 @@ class COARequest(BaseModel):
     inteligencia_enemiga: Any
     geo_prompt: Optional[str] = None
     geo_context: Optional[Dict[str, Any]] = None
+    historico_amenaza: Optional[Any] = None
 
 @app.post("/api/v1/wargaming/generate_coa")
 def generate_coa(req: COARequest):
     ocopa = OCOPATerrainAnalyzer.analyze(req.geo_context, req.geo_prompt, req.inteligencia_enemiga)
     rag_context = embedding_engine.retrieve_doctrinal_context(f"COA {req.objetivo} {req.inteligencia_enemiga}", top_k=2)
     geo_info = req.geo_prompt if req.geo_prompt else ""
+    hist_info = f"\nANTECEDENTES HISTÓRICOS Y FACTORES DE INESTABILIDAD:\n{req.historico_amenaza}" if req.historico_amenaza else ""
     
     prompt = f"""Eres SIMCOP AI, Oficial de Operaciones G3 del Ejército de Colombia.
 Genera un plan de operaciones COA estrictamente en formato JSON integrando doctrina OCOPA y el gemelo digital Cesium/IGAC:
 Objetivo: {req.objetivo}
 Unidades Amigas: {req.unidades_amigas}
 Enemigo: {req.inteligencia_enemiga}
-{geo_info}
+{geo_info}{hist_info}
 
 DOCTRINA RECUPERADA POR EMBEDDINGGEMMA 2 (RAG MRL 256d):
 {rag_context}
@@ -1524,6 +1526,7 @@ class ProactiveRequest(BaseModel):
     unidades: Any
     osint: Any
     alertas: Any
+    historico: Optional[Any] = None
 
 @app.post("/api/v1/intelligence/proactive")
 def proactive_analysis(req: ProactiveRequest):
@@ -1557,6 +1560,7 @@ class GeminiAnalysisRequest(BaseModel):
     inteligencia: Any
     geoContext: Any
     enemyLayerActive: Any
+    historico: Optional[Any] = None
 
 @app.post("/api/v1/intelligence/terrain_weather")
 def terrain_weather_analysis(req: GeminiAnalysisRequest):
@@ -1566,6 +1570,7 @@ Consulta: {req.query}
 Unidades Amigas: {req.unidades_amigas}
 Inteligencia: {req.inteligencia}
 Contexto Geoespacial/Topográfico: {req.geoContext}
+Antecedentes Históricos y Factores de Inestabilidad: {req.historico or 'Sin registros previos en el cuadrante'}
 Doctrina Recuperada (EmbeddingGemma 2): {rag_context}
 Capa Enemiga Activa: {req.enemyLayerActive}
 
@@ -1597,12 +1602,14 @@ Escribe un texto conciso que contenga obligatoriamente estos 4 puntos:
 class WargamingRequest(BaseModel):
     coa: Any
     fuerzas_amigas_enemigas: Any
+    historico_contexto: Optional[Any] = None
 
 @app.post("/api/v1/wargaming/simulate_outcome")
 def simulate_outcome(req: WargamingRequest):
     prompt = f"""Eres el motor Wargaming de SIMCOP AI. Simula este choque:
 Plan COA: {req.coa}
 Estado Fuerzas: {req.fuerzas_amigas_enemigas}
+Antecedentes Históricos: {req.historico_contexto or 'No provisto'}
 
 Simula mentalmente el choque de fuerzas. Obligatoriamente debes escribir:
 1. Los puntos críticos donde el plan fracasará.

@@ -11,6 +11,7 @@ import { getGeminiAnalysis, generateCOAPlan, getDoctrinalAssistantResponse, simu
 import { weatherService } from '../services/weatherService';
 import { decimalToDMS } from '../utils/coordinateUtils';
 import { coaPlanService } from '../services/coaPlanService';
+import { historicalIntelligenceService } from '../services/historicalIntelligenceService';
 import { PICCWorkflowAssistant } from './PICCWorkflowAssistant';
 import { COLOMBIA_RIVER_NETWORKS } from '../constants/colombiaHydrography';
 
@@ -360,6 +361,35 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     eventBus.publish('clearLosLayer'); // Assuming you'll handle this event in map
   }, [distanceToolActive, aoiDrawingModeActive, elevationProfileActive, lineOfSightActive, slopeAnalysisActive, searchResults, setDistanceToolActive, setAoiDrawingModeActive, setElevationProfileActive, eventBus]);
 
+  // Resuelve el contexto histórico operacional (BR23 + Novedades de Cualquier Unidad + AARs + OSINT)
+  const resolveHistoricalContext = async (targetGeoContext?: AoiGeoContext): Promise<string> => {
+    let centroid = targetGeoContext?.centroid ? { lat: targetGeoContext.centroid.lat, lon: targetGeoContext.centroid.lon } : undefined;
+    if (!centroid && units.length > 0) {
+      const validUnits = units.filter(u => u.location && typeof u.location.lat === 'number' && typeof u.location.lon === 'number');
+      if (validUnits.length > 0) {
+        const avgLat = validUnits.reduce((acc, u) => acc + u.location!.lat, 0) / validUnits.length;
+        const avgLon = validUnits.reduce((acc, u) => acc + u.location!.lon, 0) / validUnits.length;
+        centroid = { lat: avgLat, lon: avgLon };
+      }
+    }
+
+    if (!centroid) return "";
+
+    try {
+      return await historicalIntelligenceService.getHistoricalTacticalContext({
+        centroid,
+        radiusKm: 30,
+        unitHistoryLog,
+        afterActionReports,
+        osintEvents,
+        maxIncidents: 8
+      });
+    } catch (histErr) {
+      console.warn("Fallo obteniendo contexto histórico espacial:", histErr);
+      return "";
+    }
+  };
+
   const handleSubmitAnalysis = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) {
@@ -513,8 +543,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
 
       }
 
-      setLoadingMessage("Encolando tarea en el servidor de IA...");
-      const result = await getGeminiAnalysis(query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, geoContext);
+      setLoadingMessage("Compilando antecedentes históricos y encolando tarea en el servidor de IA...");
+      const histContext = await resolveHistoricalContext(geoContext);
+      const result = await getGeminiAnalysis(query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, geoContext, histContext);
       setAnalysisResult(result);
     } catch (err: any) {
       setError(err.message || "Ocurrió un error inesperado durante el análisis.");
@@ -522,7 +553,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       setIsLoading(false);
       setLoadingMessage(null);
     }
-  }, [query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, finalizedAoiGeoJson, deactivateOtherTools]);
+  }, [query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, finalizedAoiGeoJson, deactivateOtherTools, unitHistoryLog, afterActionReports, osintEvents]);
 
   const handleSubmitCOA = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,8 +567,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     eventBus.publish('clearCOALayer');
 
     try {
-      // Generate COA with AI (informing terrain, river obstacles, and SAT alerts)
-      const result = await generateCOAPlan(coaObjective, units, intelligenceReports, currentGeoContext || undefined);
+      // Generate COA with AI (informing terrain, river obstacles, historical threats, and SAT alerts)
+      const histContext = await resolveHistoricalContext(currentGeoContext || undefined);
+      const result = await generateCOAPlan(coaObjective, units, intelligenceReports, currentGeoContext || undefined, histContext);
 
       // Save to database
       try {
@@ -569,7 +601,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     setSimulationResult(null);
 
     try {
-      const result = await simulateCOAOutcome(coaPlan, units, intelligenceReports, currentGeoContext || undefined);
+      const histContext = await resolveHistoricalContext(currentGeoContext || undefined);
+      const result = await simulateCOAOutcome(coaPlan, units, intelligenceReports, currentGeoContext || undefined, histContext);
       setSimulationResult(result);
     } catch (err: any) {
       setSimulationError(err.message || "Error al simular el resultado.");

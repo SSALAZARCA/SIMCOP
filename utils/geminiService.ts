@@ -834,7 +834,8 @@ export const getProactiveAnalysis = async (
   units: MilitaryUnit[],
   alerts: Alert[],
   intelligenceReports: IntelligenceReport[],
-  bypassCache = false
+  bypassCache = false,
+  historicalContext?: string
 ): Promise<GeminiAnalysisResult> => {
   // Check cache first (valid for 50 seconds to prevent double calls)
   if (!bypassCache && aiCache.proactiveAnalysis && (Date.now() - aiCache.proactiveAnalysis.timestamp < 50000)) {
@@ -854,7 +855,8 @@ export const getProactiveAnalysis = async (
       const data = await callNativeAI('/intelligence/proactive', {
         unidades: validUnitsContext,
         osint: intelContext,
-        alertas: alertContext
+        alertas: alertContext,
+        historico: historicalContext || ""
       });
       // La API devuelve un array JSON o un texto con las alertas. 
       // Si devuelve un objeto con un campo 'analysis' o similar (según la guía):
@@ -882,6 +884,7 @@ ${intelContext}
 
 Alertas de Alta Prioridad:
 ${alertContext}
+${historicalContext ? `\nANTECEDENTES HISTÓRICOS Y FACTORES DE INESTABILIDAD:\n${historicalContext}\n` : ''}
 
 ---
 SOLICITUD DE ANÁLISIS:
@@ -930,7 +933,8 @@ export const getGeminiAnalysis = async (
   intelReports: IntelligenceReport[],
   useGoogleSearch: boolean,
   enemyLayerActive: boolean,
-  geoContext?: AoiGeoContext
+  geoContext?: AoiGeoContext,
+  historicalContext?: string
 ): Promise<GeminiAnalysisResult> => {
   await ensureInitialized();
 
@@ -1155,7 +1159,7 @@ ${validUnitsContext}
 
 INTELIGENCIA DISPONIBLE:
 ${intelContext}
-
+${historicalContext ? `\n${historicalContext}\n` : ''}
 ---
 CONSULTA:
 ${escapeTemplateLiteralContent(query)}`;
@@ -1168,7 +1172,8 @@ ${escapeTemplateLiteralContent(query)}`;
         unidades_amigas: validUnitsContext,
         inteligencia: intelContext,
         geoContext: geoPrompt,
-        enemyLayerActive: enemyLayerActive
+        enemyLayerActive: enemyLayerActive,
+        historico: historicalContext || ""
       });
       const analysisText = typeof data === 'string' ? data : (data.analysis || JSON.stringify(data));
       const result = { text: analysisText };
@@ -1335,7 +1340,8 @@ export const generateCOAPlan = async (
   objective: string,
   units: MilitaryUnit[],
   intelReports: IntelligenceReport[],
-  geoContext?: AoiGeoContext
+  geoContext?: AoiGeoContext,
+  historicalContext?: string
 ): Promise<COAPlan> => {
   // Ensure AI client is initialized
   const isInitialized = await ensureInitialized();
@@ -1450,6 +1456,7 @@ ${validUnitsContext}
 INTELIGENCIA Y AMENAZAS EN EL MAPA:
 ${intelContext}
 ${geoPrompt}
+${historicalContext ? `\n${historicalContext}\n` : ''}
 ---
 SOLICITUD G3:
 Diseña el Curso de Acción (COA) táctico completo y genera simultáneamente las medidas de control gráfico táctico (puntos, líneas y polígonos) para su renderizado y calco directo en el mapa 3D de SIMCOP.
@@ -1463,7 +1470,8 @@ Responde ÚNICAMENTE con el objeto JSON según el esquema obligatorio.`;
         unidades_amigas: validUnitsContext,
         inteligencia_enemiga: intelContext,
         geo_prompt: geoPrompt,
-        geo_context: geoContext
+        geo_context: geoContext,
+        historico_amenaza: historicalContext || ""
       });
       const coaPlan = normalizeCOAPlan(data);
       updateTaskState('coaGeneration', { status: 'COMPLETED', result: coaPlan });
@@ -1960,7 +1968,8 @@ export const simulateCOAOutcome = async (
   coaPlan: COAPlan,
   units: MilitaryUnit[],
   intelReports: IntelligenceReport[],
-  geoContext?: AoiGeoContext
+  geoContext?: AoiGeoContext,
+  historicalContext?: string
 ): Promise<GeminiAnalysisResult> => {
   const isInitialized = await ensureInitialized();
   if (aiProvider === 'GEMINI' && (!isInitialized || !ai)) {
@@ -1972,7 +1981,8 @@ export const simulateCOAOutcome = async (
       updateTaskState('coaSimulation', { status: 'RUNNING', error: null, result: null });
       const data = await callNativeAI('/wargaming/simulate_outcome', {
         coa: JSON.stringify(coaPlan),
-        fuerzas_amigas_enemigas: `Amigas:\n${formatUnitsForPrompt(units, intelReports)}\n\nInteligencia Enemiga:\n${formatIntelForPrompt(intelReports)}`
+        fuerzas_amigas_enemigas: `Amigas:\n${formatUnitsForPrompt(units, intelReports)}\n\nInteligencia Enemiga:\n${formatIntelForPrompt(intelReports)}${historicalContext ? `\n\n${historicalContext}` : ''}`,
+        historico_contexto: historicalContext || ""
       });
       let parsedWargame: WargameSimulationResult | undefined = undefined;
       let resultText = "";
@@ -2091,6 +2101,7 @@ ${validUnitsContext}
 ---
 INTELIGENCIA ADVERSARIA Y AMENAZA GANE/GAO (HISTÓRICO Y CONTACTOS RECIENTES):
 ${intelContext}
+${historicalContext ? `\n${historicalContext}\n` : ''}
 ${geoContext ? `
 ---
 FACTOR TERRENO, RÍOS Y POBLACIÓN CIVIL EN EL AOI:
