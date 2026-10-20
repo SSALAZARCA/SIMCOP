@@ -7,3 +7,7 @@ target
 .env
 .env.*.local
 .agents
+SIGEP
+backend
+ai_models
+models

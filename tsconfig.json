@@ -31,7 +31,19 @@
   "include": [
     "src/**/*",
     "types/**/*",
-    "**/*.ts",
-    "**/*.tsx"
+    "components/**/*",
+    "services/**/*",
+    "utils/**/*",
+    "*.ts",
+    "*.tsx",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "SIGEP",
+    "backend",
+    "ai_models",
+    "models"
   ]
 }
