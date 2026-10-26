@@ -15,7 +15,7 @@ export type RotationStatus =
 export type RetentionVerdict = 
   | 'LIBRE_ROTACION' 
   | 'RETENER_TOE_CRITICO' 
-  | 'RETENER_EN_COMBATE' 
+  | 'PROGRAMADO_FIN_SITUACION' 
   | 'RETENER_MEMORIA_AAR';
 
 export interface SigepSoldierItem {
@@ -42,7 +42,8 @@ export interface PillarA_ToeBalance {
 export interface PillarB_CombatStatus {
   inCombat: boolean;
   activeOpord: string | null;
-  lockedForTransfers: boolean;
+  scheduledPostCombat: boolean;
+  executionTiming: 'INMEDIATO' | 'AL_TERMINO_DE_LA_SITUACION';
   verdictMessage: string;
 }
 

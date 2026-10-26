@@ -130,23 +130,26 @@ class SigepIntegrationService {
     };
 
     // 4. Evaluar PILAR B: ESTATUS OPERATIVO Y OPORD EN CURSO
+    // DOCTRINA: El combate NO es una restricción o veto; el trámite en SIGEP se aprueba y se programa
+    // para ejecutarse físicamente apenas concluya la situación operacional o cese el contacto hostil.
     const isEngagedInCombat = (unit.status as any) === 'ENGAGED' || (unit.status as any) === 'CONTACT' || (unit.status as any) === 'FIRING';
     const hasActiveMission = (unit as any).hasActiveMission || (unit as any).hasActiveOrder || isEngagedInCombat;
     const activeOpord = isEngagedInCombat 
       ? `ORDOP-042/26 "OPERACIÓN CORDILLERA SEGURA" (CONTACTO ACTIVO)` 
       : hasActiveMission ? `ORDOP-038/26 "CONTROL DE ÁREA Y CIERRE DE CORREDOR"` : null;
 
-    const lockedForTransfers = isEngagedInCombat || Boolean(activeOpord) || !pillarA.threshold80Met;
+    const scheduledPostCombat = isEngagedInCombat || Boolean(activeOpord);
 
     const pillarB: PillarB_CombatStatus = {
       inCombat: isEngagedInCombat,
       activeOpord: activeOpord,
-      lockedForTransfers: lockedForTransfers,
+      scheduledPostCombat: scheduledPostCombat,
+      executionTiming: scheduledPostCombat ? 'AL_TERMINO_DE_LA_SITUACION' : 'INMEDIATO',
       verdictMessage: isEngagedInCombat
-        ? 'RETENER EN LA UNIDAD - COMBATE EN CURSO (Prohibido todo movimiento de personal)'
+        ? 'OPERACIÓN EN CURSO: El combate no restringe el trámite; rotación aprobada y programada para ejecutarse apenas cese el contacto hostil.'
         : activeOpord
-        ? 'RETENER EN LA UNIDAD - OPORD ACTIVA EN TEATRO DE OPERACIONES'
-        : 'DISPOSICIÓN REGULAR DE SERVICIO'
+        ? 'OPORD ACTIVA: Trámite validado en SIGEP; ejecución de traslado programada al término de la fase táctica actual.'
+        : 'DISPOSICIÓN REGULAR: Trámite y ejecución inmediata según cronograma regular de rotación.'
     };
 
     // 5. Evaluar PILAR C: ADAPTACIÓN AL ENTORNO Y MEMORIA HISTÓRICA (AAR / Q5)
@@ -186,8 +189,8 @@ class SigepIntegrationService {
         actionReq = 'Prórroga de 6 meses solicitada ante G1 Brigada';
       } else if (months >= maxLimit) {
         status = isOfficerOrNco ? 'ELEGIBLE_ROTACION_24M' : 'ELEGIBLE_ROTACION_36M';
-        actionReq = lockedForTransfers 
-          ? 'Rotación forzada bloqueada por Pilares de Retención B/A (Requiere Prórroga Automática)'
+        actionReq = scheduledPostCombat 
+          ? 'Rotación aprobada; ejecución física programada apenas concluya la situación operacional'
           : 'Elegible para traslado rutinario en próximo plan de rotación';
       } else if (months >= 21) {
         status = 'PRE_ELEGIBLE_21M';

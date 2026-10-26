@@ -53,7 +53,7 @@ export interface StaffBriefing {
       toeCoveragePct: number;
       actualVsAuthorized: string;
       pillarA_Status: string;
-      pillarB_CombatLocked: boolean;
+      pillarB_ScheduledPostCombat: boolean;
       pillarC_MemoryRisk: string;
       rotationAlertsCount: number;
       retentionVerdict: string;
@@ -251,7 +251,7 @@ class StaffAgentService {
           toeCoveragePct: sigepSummary.pillarA.coveragePct,
           actualVsAuthorized: `${sigepSummary.totalActual} / ${sigepSummary.totalAuthorized}`,
           pillarA_Status: sigepSummary.pillarA.status,
-          pillarB_CombatLocked: sigepSummary.pillarB.lockedForTransfers,
+          pillarB_ScheduledPostCombat: sigepSummary.pillarB.scheduledPostCombat,
           pillarC_MemoryRisk: sigepSummary.pillarC.memoryRiskLevel,
           rotationAlertsCount: sigepSummary.rotationAlerts.length,
           retentionVerdict: sigepSummary.pillarB.verdictMessage

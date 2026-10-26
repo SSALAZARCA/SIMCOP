@@ -498,22 +498,22 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
                       </div>
 
                       {/* PILAR B */}
-                      <div className={`p-3 rounded-xl border ${
-                        sigepData?.pillarB.lockedForTransfers
-                          ? 'bg-amber-950/40 border-amber-500/50'
-                          : 'bg-slate-900/60 border-slate-800'
-                      }`}>
+                      <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[11px] font-bold text-amber-300 uppercase">Pilar B: Estatus Operativo</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-black bg-amber-500/20 text-amber-300">
-                            {sigepData?.pillarB.lockedForTransfers ? 'BLOQUEADO' : 'LIBRE'}
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black ${
+                            sigepData?.pillarB.scheduledPostCombat 
+                              ? 'bg-blue-500/20 text-cyan-300 border border-cyan-500/30' 
+                              : 'bg-emerald-500/20 text-emerald-300'
+                          }`}>
+                            {sigepData?.pillarB.scheduledPostCombat ? 'PROGRAMADO POST-OPERACIÓN' : 'DISPOSICIÓN REGULAR'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-300 leading-relaxed mb-2">
-                          {sigepData?.pillarB.verdictMessage || 'Unidad con OPORD activa en sector.'}
+                          {sigepData?.pillarB.verdictMessage || 'El combate no restringe el trámite de personal; se materializará al culminar la situación táctica.'}
                         </p>
                         <span className="text-[10px] text-slate-400 block font-mono">
-                          {sigepData?.pillarB.activeOpord || 'Sin contacto directo'}
+                          {sigepData?.pillarB.activeOpord || 'Sin contacto directo en curso'}
                         </span>
                       </div>
 
