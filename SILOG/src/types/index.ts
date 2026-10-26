@@ -192,7 +192,10 @@ export interface SilogUser {
   roleTitle: string;
   unit: string;
   unitName: string;
-  warehouseId?: string; // Si el custodio está restringido a un almacén particular
+  assignedUnitId: string; // ID exacto en la Estructura de Fuerza de SIMCOP
+  assignedEchelon: 'DIVISION' | 'BRIGADA' | 'BATALLON' | 'COMPANIA' | 'PELOTON';
+  warehouseId?: string; // Almacén primario asignado
+  allowedWarehouseIds: string[]; // Almacenes autorizados según posición en la Estructura de Fuerza
   securityClearance: 'SECRETO' | 'ULTRASECRETO' | 'RESERVADO';
   militaryId: string;
 }

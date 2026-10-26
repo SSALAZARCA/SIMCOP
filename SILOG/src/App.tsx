@@ -18,12 +18,16 @@ import { PazYSalvoModal } from './components/PazYSalvoModal';
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
   const warehouses = silogService.getWarehouses();
+  const allowedWarehouses = currentUser 
+    ? silogAuthService.getAllowedWarehouses(currentUser, warehouses)
+    : warehouses;
+
   const [selectedWarehouse, setSelectedWarehouse] = useState<MilitaryWarehouse>(() => {
     if (currentUser?.warehouseId) {
       const match = warehouses.find(w => w.id === currentUser.warehouseId);
       if (match) return match;
     }
-    return warehouses[0];
+    return allowedWarehouses[0] || warehouses[0];
   });
   const [activeTab, setActiveTab] = useState<string>('PANORAMA');
   const [pazYSalvoSoldierId, setPazYSalvoSoldierId] = useState<string | null>(null);
@@ -34,9 +38,13 @@ export const App: React.FC = () => {
       <LoginSILOG 
         onLoginSuccess={(user) => {
           setCurrentUser(user);
+          const userAllowed = silogAuthService.getAllowedWarehouses(user, warehouses);
           if (user.warehouseId) {
             const match = warehouses.find(w => w.id === user.warehouseId);
             if (match) setSelectedWarehouse(match);
+            else if (userAllowed.length > 0) setSelectedWarehouse(userAllowed[0]);
+          } else if (userAllowed.length > 0) {
+            setSelectedWarehouse(userAllowed[0]);
           }
           setActiveTab('PANORAMA');
         }} 
@@ -63,7 +71,7 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-[#070a0f] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       <NavbarSILOG
         selectedWarehouse={selectedWarehouse}
-        warehouses={warehouses}
+        warehouses={allowedWarehouses}
         onSelectWarehouse={setSelectedWarehouse}
         activeTab={activeTab}
         onSelectTab={setActiveTab}

@@ -16,11 +16,100 @@ import {
   PlatoonCombatCapability 
 } from '../types';
 
-// Almacenes Centralizadores (BASPC) y Depósitos de Batallón
+// Almacenes Centralizadores (BASPC) y Depósitos de Batallón concordantes con la Estructura de Fuerza SIMCOP
 const SEED_WAREHOUSES: MilitaryWarehouse[] = [
+  // --- 16ª BRIGADA (CASANARE - 8ª DIVISIÓN SIMCOP) ---
+  {
+    id: 'WH-BASPC-16',
+    name: 'Almacén General BASPC No. 16 (Centralizador 16ª Brigada)',
+    type: 'BASPC_CENTRAL',
+    unitId: 'BASPC-16',
+    unitName: 'Batallón de Apoyo y Servicios No. 16',
+    department: 'CASANARE',
+    municipality: 'YOPAL',
+    location: { lat: 5.3380, lon: -72.4000 },
+    commanderInCharge: 'TC. Andrés Villar',
+    storekeeperName: 'SM. Gómez Silva Hernán',
+    securityLevel: 'POLVORIN_BLINDADO',
+    capacityStatus: 'OPTIMO'
+  },
+  {
+    id: 'WH-BI-44',
+    name: 'Depósito Táctico - Batallón de Infantería No. 44',
+    type: 'BATALLON_DEPOSITO',
+    unitId: 'BI-44',
+    unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
+    department: 'CASANARE',
+    municipality: 'TAURAMENA',
+    location: { lat: 4.9520, lon: -72.7530 },
+    commanderInCharge: 'TC. Gustavo Adolfo Rodríguez',
+    storekeeperName: 'SS. Vargas Peña Milton',
+    securityLevel: 'ALTA_SEGURIDAD',
+    capacityStatus: 'DISPONIBLE'
+  },
+  {
+    id: 'WH-GM-16',
+    name: 'Depósito Táctico - Grupo de Caballería No. 16',
+    type: 'BATALLON_DEPOSITO',
+    unitId: 'GM-16',
+    unitName: 'Grupo de Caballería Montado No. 16 Guías del Casanare',
+    department: 'CASANARE',
+    municipality: 'YOPAL',
+    location: { lat: 5.3200, lon: -72.3800 },
+    commanderInCharge: 'TC. José Ramón Pérez',
+    storekeeperName: 'SV. Rentería Bravo Carlos',
+    securityLevel: 'ALTA_SEGURIDAD',
+    capacityStatus: 'DISPONIBLE'
+  },
+  {
+    id: 'WH-BEING-16',
+    name: 'Depósito Especial - Batallón de Ingenieros No. 16',
+    type: 'BATALLON_DEPOSITO',
+    unitId: 'BEING-16',
+    unitName: 'Batallón de Ingenieros No. 16 Rafael Navas Pardo',
+    department: 'CASANARE',
+    municipality: 'YOPAL',
+    location: { lat: 5.3350, lon: -72.3980 },
+    commanderInCharge: 'TC. Óscar Marín',
+    storekeeperName: 'SS. Belalcázar Jaime',
+    securityLevel: 'POLVORIN_BLINDADO',
+    capacityStatus: 'OPTIMO'
+  },
+
+  // --- 18ª BRIGADA (ARAUCA - 8ª DIVISIÓN SIMCOP) ---
+  {
+    id: 'WH-BI-24',
+    name: 'Depósito Táctico - Batallón de Infantería No. 24',
+    type: 'BATALLON_DEPOSITO',
+    unitId: 'BI-24',
+    unitName: 'Batallón de Infantería No. 24 Luis Tovar Lucero',
+    department: 'ARAUCA',
+    municipality: 'SARAVENA',
+    location: { lat: 7.0320, lon: -71.2720 },
+    commanderInCharge: 'TC. Juan Carlos Ortiz',
+    storekeeperName: 'SS. Roa Martínez David',
+    securityLevel: 'ALTA_SEGURIDAD',
+    capacityStatus: 'CRITICO'
+  },
+  {
+    id: 'WH-GM-18',
+    name: 'Depósito Táctico - Grupo de Caballería No. 18',
+    type: 'BATALLON_DEPOSITO',
+    unitId: 'GM-18',
+    unitName: 'Grupo de Caballería Mecanizado No. 18 Reveiz Pizarro',
+    department: 'ARAUCA',
+    municipality: 'TAME',
+    location: { lat: 6.9530, lon: -71.8790 },
+    commanderInCharge: 'TC. Edwin Torres',
+    storekeeperName: 'SV. Pinzón Álvaro',
+    securityLevel: 'ALTA_SEGURIDAD',
+    capacityStatus: 'DISPONIBLE'
+  },
+
+  // --- 23ª BRIGADA (NARIÑO - 3ª DIVISIÓN SIMCOP) ---
   {
     id: 'WH-BASPC-23',
-    name: 'Almacén General BASPC No. 23 "Pastos" (Centralizador de Brigada)',
+    name: 'Almacén General BASPC No. 23 "Pastos" (Centralizador 23ª Brigada)',
     type: 'BASPC_CENTRAL',
     unitId: 'BASPC-23',
     unitName: 'Batallón de Apoyo y Servicios para el Combate No. 23',

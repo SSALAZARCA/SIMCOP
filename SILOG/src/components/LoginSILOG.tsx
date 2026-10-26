@@ -9,10 +9,27 @@ interface LoginSILOGProps {
 export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedBrigade, setSelectedBrigade] = useState('ALL');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const predefinedAccounts = silogAuthService.getPredefinedAccounts();
+  const brigades = silogAuthService.getSimcopBrigades();
+
+  const filteredAccounts = selectedBrigade === 'ALL'
+    ? predefinedAccounts
+    : predefinedAccounts.filter(acc => {
+        if (selectedBrigade === '16-BRIG') {
+          return ['16-BRIG', 'BASPC-16', 'BI-44', 'GM-16', 'BEING-16'].includes(acc.user.assignedUnitId);
+        }
+        if (selectedBrigade === '18-BRIG') {
+          return ['18-BRIG', 'BI-24', 'GM-18', 'BA-18'].includes(acc.user.assignedUnitId);
+        }
+        if (selectedBrigade === 'BR23') {
+          return ['BR23', 'BASPC-23', 'BIP-09', 'PEL-AURA-1'].includes(acc.user.assignedUnitId);
+        }
+        return true;
+      });
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,24 +153,41 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
-          {/* Panel Derecho: Perfiles Logísticos Doctrinales (Acceso Rápido) */}
+          {/* Panel Derecho: Perfiles Logísticos Doctrinales Concordantes con SIMCOP */}
           <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                  Acceso Rápido Doctrinal (Selección por Rol)
+                <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>🏛️</span>
+                  Estructura de Fuerza SIMCOP (ORBAT Logístico)
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Seleccione el perfil logístico para ingresar con sus permisos específicos:
+                  Seleccione la unidad militar para ver los cargos y depósitos orgánicos asignados:
                 </p>
               </div>
-              <span className="text-[10px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
-                MFRE 4-0
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded">
+                ● VINCULADO M2M
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {predefinedAccounts.map(account => (
+            {/* Selector de Gran Unidad / Brigada de SIMCOP */}
+            <div className="flex items-center gap-2 bg-slate-950/90 border border-slate-800 p-2 px-3 rounded-xl">
+              <span className="text-xs text-slate-400 font-bold">Unidad SIMCOP:</span>
+              <select
+                value={selectedBrigade}
+                onChange={(e) => setSelectedBrigade(e.target.value)}
+                className="bg-transparent text-amber-300 font-bold text-xs focus:outline-none cursor-pointer flex-1"
+              >
+                {brigades.map(b => (
+                  <option key={b.id} value={b.id} className="bg-slate-950 text-slate-200">
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
+              {filteredAccounts.map(account => (
                 <div
                   key={account.user.id}
                   onClick={() => handleQuickLogin(account.user.id)}
@@ -179,10 +213,12 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                     {account.description}
                   </p>
 
-                  <div className="mt-2.5 pt-2 border-t border-slate-900 flex items-center justify-between text-[9px] font-mono text-slate-500">
-                    <span>Unidad: {account.user.unit}</span>
+                  <div className="mt-2.5 pt-2 border-t border-slate-900 flex flex-wrap items-center justify-between gap-1 text-[9px] font-mono">
+                    <span className="px-1.5 py-0.5 rounded bg-blue-950/60 border border-blue-500/40 text-blue-300 font-bold">
+                      {account.user.assignedUnitId} • {account.user.assignedEchelon}
+                    </span>
                     <span className="text-amber-400 font-bold group-hover:translate-x-0.5 transition-transform">
-                      Entrar →
+                      Ingresar Cargo →
                     </span>
                   </div>
                 </div>

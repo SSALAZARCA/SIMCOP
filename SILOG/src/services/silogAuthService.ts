@@ -12,103 +12,213 @@ interface PredefinedSilogCredential {
 }
 
 const PREDEFINED_USERS: PredefinedSilogCredential[] = [
+  // ==========================================================================
+  // DÉCIMA SEXTA BRIGADA (16-BRIG - CASANARE / 8ª DIVISIÓN SIMCOP)
+  // ==========================================================================
   {
     user: {
-      id: 'USR-S4-001',
-      username: 's4.br23',
+      id: 'USR-S4-BR16',
+      username: 's4.brig16',
       fullName: 'Mario Alberto Rodríguez Cárdenas',
       rank: 'TC.',
       role: 'OFICIAL_S4',
-      roleTitle: 'Oficial S-4 (Jefe Estado Mayor de Logística)',
-      unit: 'BR23',
-      unitName: 'Vigésima Tercera Brigada',
+      roleTitle: 'Oficial S-4 (Jefe Estado Mayor Logístico 16ª Brigada)',
+      unit: '16-BRIG',
+      unitName: 'Décima Sexta Brigada - Casanare',
+      assignedUnitId: '16-BRIG',
+      assignedEchelon: 'BRIGADA',
+      allowedWarehouseIds: ['WH-BASPC-16', 'WH-BI-44', 'WH-GM-16', 'WH-BEING-16'],
       securityClearance: 'SECRETO',
       militaryId: 'CC-98451204'
     },
     passwordHash: 'logistica2026',
-    description: 'Acceso total a todos los almacenes de la Brigada, aprobación de Paz y Salvo y cálculo de poder de combate'
+    description: 'Estado Mayor de Brigada: Mando y control logístico general sobre BASPC-16, BI-44, GM-16 y BEING-16'
   },
   {
     user: {
-      id: 'USR-BASPC-002',
-      username: 'cmdte.baspc23',
-      fullName: 'Juan Pablo Valderrama Mora',
-      rank: 'MY.',
+      id: 'USR-BASPC-16',
+      username: 'cmdte.baspc16',
+      fullName: 'Andrés Villar Hernández',
+      rank: 'TC.',
       role: 'COMANDANTE_BASPC',
-      roleTitle: 'Comandante BASPC No. 23',
-      unit: 'BASPC23',
-      unitName: 'Batallón de Apoyo y Servicios No. 23',
+      roleTitle: 'Comandante BASPC No. 16 (Almacén Centralizador)',
+      unit: 'BASPC-16',
+      unitName: 'Batallón de Apoyo y Servicios No. 16',
+      assignedUnitId: 'BASPC-16',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BASPC-16',
+      allowedWarehouseIds: ['WH-BASPC-16'],
       securityClearance: 'SECRETO',
       militaryId: 'CC-79812450'
     },
     passwordHash: 'baspc2026',
-    description: 'Control de Almacenes Centralizadores de Brigada, redistribución y convoyes de abastecimiento'
+    description: 'Almacén Centralizador de Casanare: Reserva de guerra de Brigada, polvorines y convoyes de reabastecimiento'
   },
   {
     user: {
-      id: 'USR-ARMAS-003',
-      username: 'almacen.armas',
-      fullName: 'Wilson Caicedo Mina',
+      id: 'USR-ARMAS-BI44',
+      username: 'almacen.armas.bi44',
+      fullName: 'Milton Vargas Peña',
       rank: 'SS.',
       role: 'ALMACENISTA_CLASE_V',
-      roleTitle: 'Custodio de Armamento y Municiones (Clase V)',
-      unit: 'BIP23',
-      unitName: 'Batallón de Infantería No. 23 Vencedores',
-      warehouseId: 'WH-BIP-DEP-01',
+      roleTitle: 'Custodio Armamento y Municiones - BI-44',
+      unit: 'BI-44',
+      unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
+      assignedUnitId: 'BI-44',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BI-44',
+      allowedWarehouseIds: ['WH-BI-44'],
       securityClearance: 'SECRETO',
       militaryId: 'CC-1085293401'
     },
     passwordHash: 'armamento2026',
-    description: 'Custodio del Depósito de Armamento: Fusiles, ametralladoras, morteros y lotes de munición'
+    description: 'Depósito Táctico Tauramena: Fusiles Galil, ametralladoras M-60 y lotes de munición del BI-44'
   },
   {
     user: {
-      id: 'USR-INT-004',
-      username: 'almacen.intendencia',
-      fullName: 'Edwin Morales Beltrán',
+      id: 'USR-INT-BI44',
+      username: 'almacen.int.bi44',
+      fullName: 'Carlos Rentería Bravo',
       rank: 'SV.',
       role: 'ALMACENISTA_CLASE_II_I',
-      roleTitle: 'Custodio de Intendencia y Subsistencias (Clase I y II)',
-      unit: 'BIP23',
-      unitName: 'Batallón de Infantería No. 23 Vencedores',
-      warehouseId: 'WH-BIP-DEP-01',
+      roleTitle: 'Custodio Intendencia y Subsistencias - BI-44',
+      unit: 'BI-44',
+      unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
+      assignedUnitId: 'BI-44',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BI-44',
+      allowedWarehouseIds: ['WH-BI-44'],
       securityClearance: 'RESERVADO',
       militaryId: 'CC-1087452119'
     },
     passwordHash: 'intendencia2026',
-    description: 'Custodio de Chalecos Nivel IV, cascos de Kevlar con seriales de placas cerámicas y raciones MRE'
+    description: 'Chalecos Nivel IV, cascos Kevlar con placas cerámicas y raciones MRE para las compañías del BI-44'
   },
+
+  // ==========================================================================
+  // DÉCIMA OCTAVA BRIGADA (18-BRIG - ARAUCA / 8ª DIVISIÓN SIMCOP)
+  // ==========================================================================
   {
     user: {
-      id: 'USR-S6-005',
-      username: 'comunicaciones.s6',
-      fullName: 'Andrés Felipe Pardo Gómez',
-      rank: 'CT.',
-      role: 'OFICIAL_COMUNICACIONES_S6',
-      roleTitle: 'Oficial S-6 (Comunicaciones y Criptografía)',
-      unit: 'BR23',
-      unitName: 'Vigésima Tercera Brigada',
-      securityClearance: 'ULTRASECRETO',
+      id: 'USR-S4-BR18',
+      username: 's4.brig18',
+      fullName: 'César Augusto Karan',
+      rank: 'CR.',
+      role: 'OFICIAL_S4',
+      roleTitle: 'Oficial S-4 (Jefe Estado Mayor 18ª Brigada)',
+      unit: '18-BRIG',
+      unitName: 'Décima Octava Brigada - Arauca',
+      assignedUnitId: '18-BRIG',
+      assignedEchelon: 'BRIGADA',
+      allowedWarehouseIds: ['WH-BI-24', 'WH-GM-18'],
+      securityClearance: 'SECRETO',
       militaryId: 'CC-1014892033'
     },
-    passwordHash: 'comms2026',
-    description: 'Gestión de Radios Harris Falcon III, Motorola APX, baterías BB-2590 y llaves criptográficas'
+    passwordHash: 'arauca2026',
+    description: 'Estado Mayor de Brigada Arauca: Supervisión de depósitos tácticos en Saravena y Tame'
   },
   {
     user: {
-      id: 'USR-S8-006',
-      username: 'sanidad.s8',
-      fullName: 'Alejandro Gómez Echeverry',
-      rank: 'TE.',
-      role: 'OFICIAL_SANIDAD_S8',
-      roleTitle: 'Oficial S-8 (Sanidad Militar Táctica)',
-      unit: 'BASPC23',
-      unitName: 'Batallón de Apoyo y Servicios No. 23',
-      securityClearance: 'RESERVADO',
+      id: 'USR-ARMAS-BI24',
+      username: 'almacen.armas.bi24',
+      fullName: 'David Roa Martínez',
+      rank: 'SS.',
+      role: 'ALMACENISTA_CLASE_V',
+      roleTitle: 'Custodio Armamento - BI-24 Saravena',
+      unit: 'BI-24',
+      unitName: 'Batallón de Infantería No. 24 Luis Tovar Lucero',
+      assignedUnitId: 'BI-24',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BI-24',
+      allowedWarehouseIds: ['WH-BI-24'],
+      securityClearance: 'SECRETO',
       militaryId: 'CC-1032849102'
     },
-    passwordHash: 'sanidad2026',
-    description: 'Custodio de Kits de Trauma IFAK, torniquetes CAT certificados con lote y mochilas de combate'
+    passwordHash: 'saravena2026',
+    description: 'Depósito Táctico Saravena: Gestión exclusiva de material y municiones del BI-24'
+  },
+
+  // ==========================================================================
+  // VIGÉSIMA TERCERA BRIGADA (BR23 - NARIÑO / 3ª DIVISIÓN SIMCOP)
+  // ==========================================================================
+  {
+    user: {
+      id: 'USR-S4-BR23',
+      username: 's4.br23',
+      fullName: 'Andrés Mendoza Vargas',
+      rank: 'TC.',
+      role: 'OFICIAL_S4',
+      roleTitle: 'Oficial S-4 (Jefe Estado Mayor 23ª Brigada)',
+      unit: 'BR23',
+      unitName: 'Vigésima Tercera Brigada - Nariño',
+      assignedUnitId: 'BR23',
+      assignedEchelon: 'BRIGADA',
+      allowedWarehouseIds: ['WH-BASPC-23', 'WH-BIP-09', 'WH-BASE-PATRULLA-SAMANIEGO'],
+      securityClearance: 'SECRETO',
+      militaryId: 'CC-98451299'
+    },
+    passwordHash: 'logistica2026',
+    description: 'Estado Mayor de Brigada Nariño: Mando logístico sobre BASPC-23, BIP-09 y base patrulla Samaniego'
+  },
+  {
+    user: {
+      id: 'USR-BASPC-23',
+      username: 'cmdte.baspc23',
+      fullName: 'Juan Pablo Valderrama Mora',
+      rank: 'MY.',
+      role: 'COMANDANTE_BASPC',
+      roleTitle: 'Comandante BASPC No. 23 "Pastos"',
+      unit: 'BASPC-23',
+      unitName: 'Batallón de Apoyo y Servicios No. 23',
+      assignedUnitId: 'BASPC-23',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BASPC-23',
+      allowedWarehouseIds: ['WH-BASPC-23'],
+      securityClearance: 'SECRETO',
+      militaryId: 'CC-79812451'
+    },
+    passwordHash: 'baspc2026',
+    description: 'Almacén Centralizador de Pasto: Reserva estratégica de Brigada y convoyes hacia la cordillera y costa'
+  },
+  {
+    user: {
+      id: 'USR-BIP-09',
+      username: 'almacen.bip09',
+      fullName: 'Mauricio Quintero López',
+      rank: 'SS.',
+      role: 'ALMACENISTA_CLASE_V',
+      roleTitle: 'Custodio Depósito Táctico - BIP No. 9',
+      unit: 'BIP-09',
+      unitName: 'Batallón de Infantería No. 9 Batalla de Boyacá',
+      assignedUnitId: 'BIP-09',
+      assignedEchelon: 'BATALLON',
+      warehouseId: 'WH-BIP-09',
+      allowedWarehouseIds: ['WH-BIP-09'],
+      securityClearance: 'SECRETO',
+      militaryId: 'CC-1085293499'
+    },
+    passwordHash: 'ipiales2026',
+    description: 'Depósito Táctico de Ipiales: Control de armamento y suministros del Batallón de Infantería No. 9'
+  },
+  {
+    user: {
+      id: 'USR-FURRIEL-AURA1',
+      username: 'furriel.aura1',
+      fullName: 'Edwin Rodríguez Benítez',
+      rank: 'CP.',
+      role: 'ALMACENISTA_CLASE_V',
+      roleTitle: 'Furriel Armerillo Avanzado - Pelotón Aura 1',
+      unit: 'PEL-AURA-1',
+      unitName: 'Pelotón Aura 1 (Compañía B - BIP 9)',
+      assignedUnitId: 'PEL-AURA-1',
+      assignedEchelon: 'PELOTON',
+      warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO',
+      allowedWarehouseIds: ['WH-BASE-PATRULLA-SAMANIEGO'],
+      securityClearance: 'RESERVADO',
+      militaryId: 'CC-1087452900'
+    },
+    passwordHash: 'samaniego2026',
+    description: 'Armerillo de Campaña Samaniego: Control directo del kárdex individual de los 36 soldados en combate'
   }
 ];
 
@@ -203,6 +313,27 @@ class SilogAuthService {
 
   public isAuthenticated(): boolean {
     return this.getCurrentUser() !== null;
+  }
+
+  public getSimcopBrigades(): { id: string; name: string }[] {
+    return [
+      { id: 'ALL', name: 'Todas las Unidades de la Estructura de Fuerza' },
+      { id: '16-BRIG', name: 'Décima Sexta Brigada (Casanare / 8ª División)' },
+      { id: '18-BRIG', name: 'Décima Octava Brigada (Arauca / 8ª División)' },
+      { id: 'BR23', name: 'Vigésima Tercera Brigada (Nariño / 3ª División)' }
+    ];
+  }
+
+  /**
+   * Filtra los almacenes que el usuario tiene autorización para ver u operar
+   * según su posición jerárquica en la Estructura de Fuerza de SIMCOP
+   */
+  public getAllowedWarehouses(user: SilogUser, allWarehouses: any[]): any[] {
+    if (!user.allowedWarehouseIds || user.allowedWarehouseIds.length === 0) {
+      return allWarehouses;
+    }
+    const filtered = allWarehouses.filter(w => user.allowedWarehouseIds.includes(w.id));
+    return filtered.length > 0 ? filtered : allWarehouses;
   }
 
   /**
