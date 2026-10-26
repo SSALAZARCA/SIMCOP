@@ -11,6 +11,7 @@ export interface MilitaryWarehouse {
   type: WarehouseType;
   unitId: string;
   unitName: string;
+  brigadeId?: string;
   department: string;
   municipality: string;
   location: { lat: number; lon: number };

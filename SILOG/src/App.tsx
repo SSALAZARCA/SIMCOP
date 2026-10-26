@@ -14,9 +14,18 @@ import { MaterialEspecialView } from './components/MaterialEspecialView';
 import { KardexPersonalView } from './components/KardexPersonalView';
 import { PelotonCombatPowerView } from './components/PelotonCombatPowerView';
 import { PazYSalvoModal } from './components/PazYSalvoModal';
+import { IngresoMaterialModal } from './components/IngresoMaterialModal';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Estados del modal de Ingreso de Material
+  const [isAddMaterialOpen, setIsAddMaterialOpen] = useState<boolean>(false);
+  const [addMaterialCategory, setAddMaterialCategory] = useState<string>('CLASE_V_ARMA');
+  const [targetWarehouseId, setTargetWarehouseId] = useState<string>('');
+
   const warehouses = silogService.getWarehouses();
   const allowedWarehouses = currentUser 
     ? silogAuthService.getAllowedWarehouses(currentUser, warehouses)
@@ -57,6 +66,25 @@ export const App: React.FC = () => {
     setCurrentUser(null);
   };
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  const handleOpenAddMaterial = (cat?: string, whId?: string) => {
+    setAddMaterialCategory(cat || 'CLASE_V_ARMA');
+    setTargetWarehouseId(whId || selectedWarehouse.id);
+    setIsAddMaterialOpen(true);
+  };
+
+  const handleMaterialAdded = (message: string) => {
+    setRefreshKey(prev => prev + 1);
+    showToast(message);
+  };
+
+  // Re-fetch dinámico utilizando refreshKey como dependencia implícita
   const weapons = silogService.getWeapons(selectedWarehouse.id);
   const ammoLots = silogService.getAmmoLots(selectedWarehouse.id);
   const armors = silogService.getArmors(selectedWarehouse.id);
@@ -67,8 +95,11 @@ export const App: React.FC = () => {
   const profiles = silogService.getAllKardexProfiles();
   const capability = silogService.calculatePlatoonCombatCapability();
 
+  const totalAmmoCount = ammoLots.reduce((acc, c) => acc + c.quantityRounds, 0);
+  const totalRationsCount = rations.reduce((acc, c) => acc + c.quantityOnHand, 0);
+
   return (
-    <div className="min-h-screen bg-[#070a0f] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div key={refreshKey} className="min-h-screen bg-[#070a0f] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       <NavbarSILOG
         selectedWarehouse={selectedWarehouse}
         warehouses={allowedWarehouses}
@@ -77,81 +108,134 @@ export const App: React.FC = () => {
         onSelectTab={setActiveTab}
         currentUser={currentUser}
         onLogout={handleLogout}
+        onOpenAddMaterial={() => handleOpenAddMaterial('CLASE_V_ARMA')}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+      {/* Banner flotante de notificación de éxito */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="bg-emerald-950/95 border border-emerald-500/60 text-emerald-100 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md">
+            <span className="text-xl">✅</span>
+            <div className="text-xs">
+              <span className="font-bold text-white block">MOVIMIENTO LOGÍSTICO REGISTRADO</span>
+              <span>{toastMessage}</span>
+            </div>
+            <button 
+              onClick={() => setToastMessage(null)}
+              className="ml-2 text-slate-400 hover:text-white text-xs font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Full-Width Container (Aprovechamiento total de pantalla hasta 1920px) */}
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 py-5 space-y-6">
         {/* TAB PANORAMA GENERAL */}
         {activeTab === 'PANORAMA' && (
           <div className="space-y-6 animate-in fade-in">
-            {/* Banner Superior de Estado M2M */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
+            {/* Banner Superior de Estado M2M y Almacén Activo */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 rounded-2xl p-5 md:p-6 flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-amber-400 font-mono tracking-widest uppercase">
-                  CENTRO DE OPERACIONES LOGÍSTICAS MILITARES
-                </span>
-                <h2 className="text-xl font-black text-white">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-amber-400 font-mono tracking-widest uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    CENTRO DE OPERACIONES LOGÍSTICAS MILITARES
+                  </span>
+                  <span className="text-[10px] font-bold text-blue-400 font-mono bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                    {selectedWarehouse.brigadeId || 'BRIGADA'}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black text-white">
                   {selectedWarehouse.name}
                 </h2>
                 <p className="text-xs text-slate-400">
                   Jurisdicción: <span className="text-amber-300 font-semibold">{selectedWarehouse.municipality}, {selectedWarehouse.department}</span> | 
-                  Comandante: <span className="text-slate-200">{selectedWarehouse.commanderInCharge}</span>
+                  Comandante: <span className="text-slate-200">{selectedWarehouse.commanderInCharge}</span> |
+                  Almacenista: <span className="text-slate-200">{selectedWarehouse.storekeeperName}</span>
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="bg-slate-950/90 border border-slate-800 p-3 px-4 rounded-xl text-center">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => handleOpenAddMaterial('CLASE_V_ARMA')}
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all flex items-center gap-2 border border-amber-400/50 active:scale-95"
+                >
+                  <span>➕</span>
+                  <span>Ingresar Material a este Depósito</span>
+                </button>
+
+                <div className="bg-slate-950/90 border border-slate-800 p-2.5 px-4 rounded-xl text-center">
                   <span className="text-[10px] text-slate-400 block font-mono">ENLACE SIGEP</span>
                   <span className="text-xs font-bold text-emerald-400">● 100% ONLINE</span>
                 </div>
-                <div className="bg-slate-950/90 border border-slate-800 p-3 px-4 rounded-xl text-center">
+                <div className="bg-slate-950/90 border border-slate-800 p-2.5 px-4 rounded-xl text-center">
                   <span className="text-[10px] text-slate-400 block font-mono">TELEMETRÍA SIMCOP</span>
                   <span className="text-xs font-bold text-cyan-400">● SINCRONIZADA</span>
                 </div>
               </div>
             </div>
 
-            {/* Mosaico de las 6 Clases Doctrinales */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div onClick={() => setActiveTab('CLASE_V')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">🔫</span>
-                <span className="text-base font-black text-white font-mono">{weapons.length}</span>
-                <p className="text-[11px] font-bold text-slate-300">Clase V (Armas)</p>
-                <p className="text-[9px] text-slate-500">Fusiles y Apoyo</p>
+            {/* Mosaico de las 6 Clases Doctrinales (Alta densidad full-width) */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+              <div 
+                onClick={() => setActiveTab('CLASE_V')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">🔫</span>
+                <span className="text-xl font-black text-white font-mono">{weapons.length}</span>
+                <p className="text-xs font-bold text-slate-200">Clase V (Armas)</p>
+                <p className="text-[10px] text-slate-400">{(totalAmmoCount / 1000).toFixed(0)}k tiros disp.</p>
               </div>
 
-              <div onClick={() => setActiveTab('CLASE_II')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">🛡️</span>
-                <span className="text-base font-black text-white font-mono">{armors.length}</span>
-                <p className="text-[11px] font-bold text-slate-300">Clase II (Blindaje)</p>
-                <p className="text-[9px] text-slate-500">Chalecos IV y Cascos</p>
+              <div 
+                onClick={() => setActiveTab('CLASE_II')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">🛡️</span>
+                <span className="text-xl font-black text-white font-mono">{armors.length}</span>
+                <p className="text-xs font-bold text-slate-200">Clase II (Blindaje)</p>
+                <p className="text-[10px] text-slate-400">Chalecos IV y Cascos</p>
               </div>
 
-              <div onClick={() => setActiveTab('CLASE_I')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">🍱</span>
-                <span className="text-base font-black text-white font-mono">{rations.reduce((a, c) => a + c.quantityOnHand, 0).toLocaleString()}</span>
-                <p className="text-[11px] font-bold text-slate-300">Clase I (Raciones)</p>
-                <p className="text-[9px] text-emerald-400">Autonomía asegurada</p>
+              <div 
+                onClick={() => setActiveTab('CLASE_I')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">🍱</span>
+                <span className="text-xl font-black text-emerald-400 font-mono">{totalRationsCount.toLocaleString()}</span>
+                <p className="text-xs font-bold text-slate-200">Clase I (Raciones)</p>
+                <p className="text-[10px] text-emerald-400">Autonomía asegurada</p>
               </div>
 
-              <div onClick={() => setActiveTab('CLASE_VIII')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">🩹</span>
-                <span className="text-base font-black text-white font-mono">{sanity.length}</span>
-                <p className="text-[11px] font-bold text-slate-300">Clase VIII (Sanidad)</p>
-                <p className="text-[9px] text-slate-500">IFAKs y Torniquetes</p>
+              <div 
+                onClick={() => setActiveTab('CLASE_VIII')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">🩺</span>
+                <span className="text-xl font-black text-white font-mono">{sanity.length}</span>
+                <p className="text-xs font-bold text-slate-200">Clase VIII (Sanidad)</p>
+                <p className="text-[10px] text-slate-400">IFAKs y Torniquetes</p>
               </div>
 
-              <div onClick={() => setActiveTab('COMUNICACIONES')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">📻</span>
-                <span className="text-base font-black text-white font-mono">{comms.length}</span>
-                <p className="text-[11px] font-bold text-slate-300">Comunicaciones</p>
-                <p className="text-[9px] text-cyan-400">Harris Falcon III</p>
+              <div 
+                onClick={() => setActiveTab('COMUNICACIONES')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">📻</span>
+                <span className="text-xl font-black text-white font-mono">{comms.length}</span>
+                <p className="text-xs font-bold text-slate-200">Comunicaciones</p>
+                <p className="text-[10px] text-cyan-400">Harris Falcon III</p>
               </div>
 
-              <div onClick={() => setActiveTab('ESPECIAL')} className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1">
-                <span className="text-2xl block">👁️</span>
-                <span className="text-base font-black text-white font-mono">{optronics.length}</span>
-                <p className="text-[11px] font-bold text-slate-300">Material Especial</p>
-                <p className="text-[9px] text-slate-500">PVS-14 & Drones</p>
+              <div 
+                onClick={() => setActiveTab('ESPECIAL')} 
+                className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 p-4 rounded-xl cursor-pointer transition text-center space-y-1.5 hover:bg-slate-850 group"
+              >
+                <span className="text-2xl block group-hover:scale-110 transition-transform">🔭</span>
+                <span className="text-xl font-black text-white font-mono">{optronics.length}</span>
+                <p className="text-xs font-bold text-slate-200">Material Especial</p>
+                <p className="text-[10px] text-slate-400">PVS-14 & Drones</p>
               </div>
             </div>
 
@@ -165,31 +249,51 @@ export const App: React.FC = () => {
             warehouses={warehouses}
             selectedWarehouse={selectedWarehouse}
             onSelectWarehouse={setSelectedWarehouse}
+            onOpenAddMaterial={(whId) => handleOpenAddMaterial('CLASE_V_ARMA', whId)}
           />
         )}
 
         {activeTab === 'CLASE_V' && (
-          <ArmamentoClaseV weapons={weapons} ammoLots={ammoLots} />
+          <ArmamentoClaseV 
+            weapons={weapons} 
+            ammoLots={ammoLots}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'CLASE_II' && (
-          <IntendenciaClaseII armors={armors} />
+          <IntendenciaClaseII 
+            armors={armors}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'CLASE_I' && (
-          <AlimentacionClaseI rations={rations} />
+          <AlimentacionClaseI 
+            rations={rations}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'CLASE_VIII' && (
-          <SanidadClaseVIII sanityItems={sanity} />
+          <SanidadClaseVIII 
+            sanityItems={sanity}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'COMUNICACIONES' && (
-          <ComunicacionesView comms={comms} />
+          <ComunicacionesView 
+            comms={comms}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'ESPECIAL' && (
-          <MaterialEspecialView optronics={optronics} />
+          <MaterialEspecialView 
+            optronics={optronics}
+            onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+          />
         )}
 
         {activeTab === 'KARDEX_PERSONAL' && (
@@ -204,9 +308,20 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      {/* Modal de Paz y Salvo Militar */}
       <PazYSalvoModal
         soldierId={pazYSalvoSoldierId}
         onClose={() => setPazYSalvoSoldierId(null)}
+      />
+
+      {/* Modal Integral de Ingreso y Alta de Material */}
+      <IngresoMaterialModal
+        isOpen={isAddMaterialOpen}
+        onClose={() => setIsAddMaterialOpen(false)}
+        warehouses={allowedWarehouses}
+        currentWarehouseId={targetWarehouseId || selectedWarehouse.id}
+        initialCategory={addMaterialCategory}
+        onSuccess={handleMaterialAdded}
       />
     </div>
   );

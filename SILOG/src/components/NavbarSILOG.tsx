@@ -10,6 +10,7 @@ interface NavbarSILOGProps {
   onSelectTab: (tab: any) => void;
   currentUser: SilogUser;
   onLogout: () => void;
+  onOpenAddMaterial: () => void;
 }
 
 export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
@@ -19,7 +20,8 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
   activeTab,
   onSelectTab,
   currentUser,
-  onLogout
+  onLogout,
+  onOpenAddMaterial
 }) => {
   const [zuluTime, setZuluTime] = useState<string>('');
 
@@ -52,7 +54,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
 
   return (
     <header className="bg-slate-950/95 border-b border-amber-500/30 sticky top-0 z-50 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div className="w-full max-w-[1920px] mx-auto px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         {/* Identidad Institucional */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-900 border border-amber-400/50 flex items-center justify-center text-xl shadow-lg shadow-amber-950/50">
@@ -74,22 +76,33 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
           </div>
         </div>
 
-        {/* Reloj ZULU, Selector de Almacén y Perfil Militar */}
+        {/* Acciones Rápidas: Botón de Alta de Material + Almacén + Usuario */}
         <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
+          
+          {/* Botón Principal de Ingreso de Material */}
+          <button
+            onClick={onOpenAddMaterial}
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all active:scale-95 flex items-center gap-2 border border-amber-400/60"
+            title="Registrar nueva entrada de armamento, munición, intendencia o raciones"
+          >
+            <span className="text-sm">➕</span>
+            <span className="whitespace-nowrap">Ingresar Material</span>
+          </button>
+
+          <div className="text-right hidden xl:block">
             <span className="text-[10px] text-slate-500 font-mono block">TIEMPO MILITAR ZULU</span>
             <span className="text-xs font-mono font-bold text-amber-400">{zuluTime}</span>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl p-1 px-2.5">
-            <span className="text-xs text-slate-400">🏢 Almacén:</span>
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl p-1.5 px-3">
+            <span className="text-xs text-slate-400 font-bold">🏢 Almacén:</span>
             <select
               value={selectedWarehouse.id}
               onChange={(e) => {
                 const wh = warehouses.find(w => w.id === e.target.value);
                 if (wh) onSelectWarehouse(wh);
               }}
-              className="bg-transparent text-amber-300 font-bold text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent text-amber-300 font-bold text-xs focus:outline-none cursor-pointer max-w-[200px] truncate"
             >
               {warehouses.map(wh => (
                 <option key={wh.id} value={wh.id} className="bg-slate-950 text-slate-200">
@@ -104,7 +117,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
             <div className="w-7 h-7 rounded-lg bg-amber-600/30 border border-amber-500/40 flex items-center justify-center text-xs font-black text-amber-300">
               {currentUser.rank}
             </div>
-            <div className="text-left hidden md:block">
+            <div className="text-left hidden lg:block">
               <span className="text-xs font-bold text-white block leading-tight">
                 {currentUser.fullName}
               </span>
@@ -125,7 +138,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
       </div>
 
       {/* Barra de Pestañas de las Clases Doctrinales (Filtradas por Rol) */}
-      <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto border-t border-slate-900/80">
+      <div className="w-full max-w-[1920px] mx-auto px-4 md:px-6 flex items-center gap-1 overflow-x-auto border-t border-slate-900/80">
         {visibleTabs.map(tab => (
           <button
             key={tab.id}
