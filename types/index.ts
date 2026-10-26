@@ -1477,3 +1477,6 @@ export interface WeatherInfo {
   cloudCover?: number;
   cloudCeiling?: number;
 }
+
+export * from './sigep';
+

@@ -28,6 +28,11 @@ export interface HistoricalContextOptions {
   afterActionReports?: AfterActionReport[];
   osintEvents?: OsintEvent[];
   maxIncidents?: number;
+  // Blindaje Territorial Persistente (AOR / Geofencing):
+  assignedAreaGeoJson?: string;
+  assignedDepartment?: string;
+  unitName?: string;
+  echelonLevel?: 'COEJC' | 'DIVISION' | 'BRIGADA' | 'BATALLON' | 'COMPANIA' | 'PELOTON';
 }
 
 const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -40,6 +45,36 @@ const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: num
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
+
+// Algoritmo matemático Point-in-Polygon (Ray Casting) para Geocerca Territorial Inviolable
+function isPointInPolygon(point: [number, number], vs: [number, number][]): boolean {
+  const x = point[0], y = point[1]; // x = lon, y = lat
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function checkPointInGeoJson(lat: number, lon: number, geoJsonString?: string): boolean {
+  if (!geoJsonString) return true;
+  try {
+    const parsed = typeof geoJsonString === 'string' ? JSON.parse(geoJsonString) : geoJsonString;
+    const geometry = parsed.geometry || parsed;
+    if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+      const ring = geometry.coordinates[0];
+      return isPointInPolygon([lon, lat], ring);
+    } else if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates)) {
+      return geometry.coordinates.some((poly: [number, number][][]) => isPointInPolygon([lon, lat], poly[0]));
+    }
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
 
 class HistoricalIntelligenceService {
   private static instance: HistoricalIntelligenceService;
@@ -114,23 +149,43 @@ class HistoricalIntelligenceService {
       unitHistoryLog = [],
       afterActionReports = [],
       osintEvents = [],
-      maxIncidents = 8
+      maxIncidents = 8,
+      assignedAreaGeoJson,
+      assignedDepartment,
+      unitName = "Unidad Asignada",
+      echelonLevel = "BATALLON"
     } = options;
 
-    if (!centroid && !bounds) {
+    if (!centroid && !bounds && !assignedAreaGeoJson) {
       return "No se ha delimitado un sector geográfico para la búsqueda histórica.";
     }
 
     // 1. Obtener eventos estáticos disponibles (BR23 y otros datasets cargados)
     const staticEvents = await this.loadStaticDatasets();
 
-    const cLat = centroid ? centroid.lat : ((bounds!.minLat + bounds!.maxLat) / 2);
-    const cLon = centroid ? centroid.lon : ((bounds!.minLon + bounds!.maxLon) / 2);
+    const cLat = centroid ? centroid.lat : bounds ? ((bounds.minLat + bounds.maxLat) / 2) : 1.25;
+    const cLon = centroid ? centroid.lon : bounds ? ((bounds.minLon + bounds.maxLon) / 2) : -77.3;
 
-    // 2. Filtrar eventos estáticos dentro del radio del AOI
+    // 2. Filtrar eventos estáticos aplicando Blindaje Territorial en 2 capas:
+    // Capa 1: Validación de Departamento (evita saltos entre teatros como Nariño vs La Guajira)
+    // Capa 2: Geocerca Point-in-Polygon sobre el GeoJSON asignado a la unidad militar
     const nearbyStatic: { item: HistoricalRecordItem; dist: number }[] = [];
     for (const ev of staticEvents) {
       if (typeof ev.lat === 'number' && typeof ev.lon === 'number') {
+        // Blindaje por Departamento Administrativo
+        if (assignedDepartment && ev.dept) {
+          const normEvDept = ev.dept.toUpperCase().trim();
+          const normAssigned = assignedDepartment.toUpperCase().trim();
+          if (normEvDept !== normAssigned && !normEvDept.includes(normAssigned)) {
+            continue; // Descartado de raíz: pertenece a otro departamento/teatro
+          }
+        }
+
+        // Blindaje por Geocerca Territorial Exacta (Point-in-Polygon)
+        if (assignedAreaGeoJson && !checkPointInGeoJson(ev.lat, ev.lon, assignedAreaGeoJson)) {
+          continue; // Descartado: cae fuera del perímetro asignado al Batallón
+        }
+
         const dist = calculateDistanceKm(cLat, cLon, ev.lat, ev.lon);
         if (dist <= radiusKm) {
           nearbyStatic.push({ item: ev, dist });
@@ -139,10 +194,13 @@ class HistoricalIntelligenceService {
     }
     nearbyStatic.sort((a, b) => a.dist - b.dist);
 
-    // 3. Filtrar eventos dinámicos de cualquier unidad (unitHistoryLog)
+    // 3. Filtrar eventos dinámicos de historial de unidades respetando la geocerca
     const nearbyUnitHistory: { event: UnitHistoryEvent; dist: number }[] = [];
     for (const uEv of unitHistoryLog) {
       if (uEv.location && typeof uEv.location.lat === 'number' && typeof uEv.location.lon === 'number') {
+        if (assignedAreaGeoJson && !checkPointInGeoJson(uEv.location.lat, uEv.location.lon, assignedAreaGeoJson)) {
+          continue;
+        }
         const dist = calculateDistanceKm(cLat, cLon, uEv.location.lat, uEv.location.lon);
         if (dist <= radiusKm) {
           nearbyUnitHistory.push({ event: uEv, dist });
@@ -151,10 +209,13 @@ class HistoricalIntelligenceService {
     }
     nearbyUnitHistory.sort((a, b) => b.event.timestamp - a.event.timestamp);
 
-    // 4. Filtrar Reportes Post-Acción (AAR) de cualquier unidad
+    // 4. Filtrar Reportes Post-Acción (AAR) respetando la geocerca
     const nearbyAARs: { aar: AfterActionReport; dist: number }[] = [];
     for (const aar of afterActionReports) {
       if (aar.location && typeof aar.location.lat === 'number' && typeof aar.location.lon === 'number') {
+        if (assignedAreaGeoJson && !checkPointInGeoJson(aar.location.lat, aar.location.lon, assignedAreaGeoJson)) {
+          continue;
+        }
         const dist = calculateDistanceKm(cLat, cLon, aar.location.lat, aar.location.lon);
         if (dist <= radiusKm) {
           nearbyAARs.push({ aar, dist });
@@ -163,13 +224,28 @@ class HistoricalIntelligenceService {
     }
     nearbyAARs.sort((a, b) => b.aar.reportTimestamp - a.aar.reportTimestamp);
 
+    // 5. Filtrar Eventos OSINT Soberanos respetando la geocerca
+    const nearbyOsint: { osint: OsintEvent; dist: number }[] = [];
+    for (const oEv of osintEvents) {
+      if (oEv.location && typeof oEv.location.lat === 'number' && typeof oEv.location.lon === 'number') {
+        if (assignedAreaGeoJson && !checkPointInGeoJson(oEv.location.lat, oEv.location.lon, assignedAreaGeoJson)) {
+          continue;
+        }
+        const dist = calculateDistanceKm(cLat, cLon, oEv.location.lat, oEv.location.lon);
+        if (dist <= radiusKm) {
+          nearbyOsint.push({ osint: oEv, dist });
+        }
+      }
+    }
+    nearbyOsint.sort((a, b) => new Date(b.osint.eventTimestamp || 0).getTime() - new Date(a.osint.eventTimestamp || 0).getTime());
+
     // Si no hay ningún evento en la zona
-    const totalEventsFound = nearbyStatic.length + nearbyUnitHistory.length + nearbyAARs.length;
+    const totalEventsFound = nearbyStatic.length + nearbyUnitHistory.length + nearbyAARs.length + nearbyOsint.length;
     if (totalEventsFound === 0) {
-      return `No se registran antecedentes hostiles o novedades históricas archivadas en un radio de ${radiusKm} km alrededor del sector [${cLat.toFixed(4)}°, ${cLon.toFixed(4)}°].`;
+      return `No se registran antecedentes hostiles ni novedades archivadas dentro del Área Asignada a ${unitName} (${assignedDepartment || 'Jurisdicción'}).`;
     }
 
-    // 5. Análisis Estadístico y Reconocimiento de Patrones Hostiles
+    // 6. Análisis Estadístico y Reconocimiento de Patrones Hostiles
     const categoryCounts: Record<string, number> = {};
     const groupCounts: Record<string, number> = {};
     const affectedUnits = new Set<string>();
@@ -186,7 +262,6 @@ class HistoricalIntelligenceService {
       if (item.brigade) affectedUnits.add(item.brigade);
     }
 
-    // Extraer AARs y eventos dinámicos a las estadísticas
     for (const { aar } of nearbyAARs) {
       affectedUnits.add(aar.unitName);
       const cat = `COMBATE AAR (CONTACTO ARMADO)`;
@@ -211,36 +286,28 @@ class HistoricalIntelligenceService {
       .map(([k, v]) => `${k} (${v} acciones)`)
       .join(', ');
 
-    // 6. Síntesis de los incidentes más relevantes y cercanos
-    const incidentsSummary: string[] = [];
-
-    // Priorizar AARs recientes (combates reales)
-    for (const { aar, dist } of nearbyAARs.slice(0, 3)) {
-      const dateStr = new Date(aar.combatEndTimestamp || aar.reportTimestamp).toLocaleDateString('es-CO');
-      incidentsSummary.push(
-        `- [COMBATE RECIENTE AAR] Unidad: "${aar.unitName}" (${dateStr}, a ${dist.toFixed(1)} km en [${aar.location.lat.toFixed(4)}°, ${aar.location.lon.toFixed(4)}°]): ` +
-        `Bajas Propias: ${aar.casualtiesKia} KIA, ${aar.casualtiesWia} WIA. Bajas Enemigas: ${aar.enemyCasualtiesKia || 0}. ` +
-        `Observaciones/Lecciones: ${aar.positiveObservations || aar.summary || "Contacto armado registrado"}`
-      );
-    }
-
-    // Eventos dinámicos de historial de unidades
-    for (const { event, dist } of nearbyUnitHistory.slice(0, 3)) {
-      const dateStr = new Date(event.timestamp).toLocaleDateString('es-CO');
-      incidentsSummary.push(
-        `- [HISTORIAL UNIDAD] ${event.unitName || 'Fuerza Propia'} - ${event.eventType} (${dateStr}, a ${dist.toFixed(1)} km): ` +
-        `${event.details}`
-      );
-    }
-
-    // Incidentes históricos de la base de datos (BR23 y registros militares)
+    // 7. Formateo en EJE TEMPORAL ESTRICTO (3 Capas) para evitar cualquier anacronismo
+    const pastIncidents: string[] = [];
     for (const { item, dist } of nearbyStatic.slice(0, maxIncidents)) {
       const dateStr = item.date || item.year || "Fecha Histórica";
       const placeStr = item.place ? `${item.place}, ${item.mun || ''}` : (item.mun || 'Sector rural');
       const actorStr = item.groupClean ? `[Actor: ${item.groupClean}]` : '';
-      incidentsSummary.push(
-        `- [HISTÓRICO OPERACIONAL] ${dateStr} - ${placeStr} (a ${dist.toFixed(1)} km en [${item.lat.toFixed(4)}°, ${item.lon.toFixed(4)}°]): ` +
-        `${item.category || item.type_op || 'Incidente'} ${actorStr} - ${item.resumen || item.desc || 'Acción hostil registrada en archivo operacional'}`
+      pastIncidents.push(
+        `  • [ANTECEDENTE ${dateStr}] en ${placeStr} (a ${dist.toFixed(1)} km): ${item.category || item.type_op || 'Acción hostil'} ${actorStr} - ${item.resumen || item.desc || 'Registro archivado'}`
+      );
+    }
+
+    const presentEvents: string[] = [];
+    for (const { aar, dist } of nearbyAARs.slice(0, 2)) {
+      const dateStr = new Date(aar.combatEndTimestamp || aar.reportTimestamp).toLocaleDateString('es-CO');
+      presentEvents.push(
+        `  • [AAR RECIENTE ${dateStr}] Unidad "${aar.unitName}" (a ${dist.toFixed(1)} km): Bajas Propias ${aar.casualtiesKia} KIA, ${aar.casualtiesWia} WIA. Enemigas: ${aar.enemyCasualtiesKia || 0}. Resumen: ${aar.summary || 'Contacto armado'}`
+      );
+    }
+    for (const { osint, dist } of nearbyOsint.slice(0, 3)) {
+      const dateStr = osint.eventTimestamp ? new Date(osint.eventTimestamp).toLocaleDateString('es-CO') : 'Reciente';
+      presentEvents.push(
+        `  • [ALERTA OSINT/SAT ${dateStr}] ${osint.title || 'Reporte de Fuente Abierta'} (a ${dist.toFixed(1)} km): ${osint.summary || 'Alerta comunitaria'}`
       );
     }
 
@@ -249,13 +316,27 @@ class HistoricalIntelligenceService {
       : "Unidades orgánicas del escalón territorial";
 
     return (
-      `ANTECEDENTES HISTÓRICOS Y FACTORES DE INESTABILIDAD EN EL AOI (RADIO ${radiusKm} KM):\n` +
-      `- Volumen Histórico Registrado: ${totalEventsFound} incidentes identificados en este cuadrante operativo.\n` +
-      `- Patrón Hostil Predominante: ${topCategories || 'Incidentes de control territorial y seguridad'}.\n` +
+      `========================================================================\n` +
+      `EJE TEMPORAL Y CONVERGENCIA TODO-FUENTE (AOR: ${unitName.toUpperCase()} - ESCALÓN: ${echelonLevel})\n` +
+      `JURISDICCIÓN ASIGNADA: ${assignedDepartment || 'SECTOR DELIMITADO'} | TOTAL EVENTOS: ${totalEventsFound}\n` +
+      `========================================================================\n\n` +
+      `[CAPA 1: MEMORIA HISTÓRICA & PATRONES EN EL AOR (PASADO)]\n` +
+      `⚠️ REGLA DE VIGENCIA: Estos antecedentes ocurrieron en años anteriores (2018-2025).\n` +
+      `Prohibido tratarlos como combate activo hoy; sirven exclusivamente para inferir el MODUS OPERANDI.\n` +
+      `- Volumen Histórico en AOR: ${nearbyStatic.length} antecedentes archivados.\n` +
+      `- Modus Operandi Predominante: ${topCategories || 'Control de corredores de movilidad'}.\n` +
       (topGroups ? `- Estructuras y Actores Hostiles Históricos: ${topGroups}.\n` : '') +
       `- Unidades que han operado en el sector: ${unitsOperatedStr}.\n` +
-      `- Incidentes Críticos y Contactos de Combate Relevantes:\n` +
-      incidentsSummary.join('\n')
+      `- Registros Históricos Documentados:\n` +
+      (pastIncidents.length > 0 ? pastIncidents.join('\n') : '  • No hay incidentes estáticos adicionales.') + '\n\n' +
+      `[CAPA 2: SITUACIÓN OPERACIONAL EN TIEMPO REAL (PRESENTE)]\n` +
+      `Información activa de las últimas 24-72 horas (AARs de combate, novedades y alertas comunitarias/SAT):\n` +
+      (presentEvents.length > 0 ? presentEvents.join('\n') : '  • Sin novedades tácticas críticas o alertas abiertas en las últimas 72h.') + '\n\n' +
+      `[CAPA 3: SÍNTESIS PREDICTIVA Y ANTICIPACIÓN TÁCTICA (FUTURO)]\n` +
+      `Cruce de Modus Operandi Histórico con Posición Actual para el Comandante:\n` +
+      `- Correlación: Si tropas propias avanzan sobre ejes con antecedentes de hostigamiento bajo lluvia/niebla, elevar nivel de alerta.\n` +
+      `- Vector de Riesgo: ${topCategories ? topCategories.split(',')[0] : 'Vigilancia en puntos críticos y cuellos de botella'}.\n` +
+      `========================================================================`
     );
   }
 }

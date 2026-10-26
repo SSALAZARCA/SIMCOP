@@ -18,6 +18,7 @@ interface HeaderProps {
   isConnectingVoice?: boolean;
   /** Etiqueta del modo STT activo: '☁️ Gemini Live', '🌐 Navegador', '🔇 Sin STT' */
   speechModeLabel?: string;
+  onOpenStaffModal?: () => void;
 }
 
 export const HeaderComponent: React.FC<HeaderProps> = ({
@@ -30,6 +31,7 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
   isVoiceCommandActive = false,
   isConnectingVoice = false,
   speechModeLabel,
+  onOpenStaffModal,
 }) => {
   const [aiCommand, setAiCommand] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -113,6 +115,17 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <MicrophoneIcon className="w-5 h-5" />
           </button>
+
+          {onOpenStaffModal && (
+            <button
+              onClick={onOpenStaffModal}
+              className="p-2 px-3 rounded-xl bg-gradient-to-r from-cyan-900/60 to-blue-900/60 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
+              title="Abrir Mesa de Estado Mayor Virtual y Apreciación C2"
+            >
+              <span>🛡️</span>
+              <span className="hidden lg:inline">ESTADO MAYOR C2</span>
+            </button>
+          )}
           {/* Indicador de modo STT activo */}
           {isVoiceCommandActive && speechModeLabel && (
             <span style={{

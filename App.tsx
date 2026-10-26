@@ -17,6 +17,7 @@ import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from './utils/apiConfig';
 import { SimpleErrorBoundary } from './components/SimpleErrorBoundary';
+import { StaffBriefingModal } from './components/StaffBriefingModal';
 
 import { MobileBottomNavComponent } from './components/MobileBottomNavComponent';
 import { useBackendData } from './hooks/useBackendData';
@@ -141,6 +142,16 @@ const App: React.FC = () => {
   const [entityToPanTo, setEntityToPanTo] = useState<SelectedEntity | null>(null);
   const [hotspots, setHotspots] = useState<Hotspot[]>([]);
   const [historicalHotspots, setHistoricalHotspots] = useState<Hotspot[]>([]);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsub = eventBus.subscribe('openStaffBriefingModal', () => {
+      setIsStaffModalOpen(true);
+    });
+    return () => {
+      eventBus.unsubscribe(unsub);
+    };
+  }, []);
 
   // Load data when user is authenticated
   useEffect(() => {
@@ -1167,6 +1178,7 @@ const App: React.FC = () => {
         isVoiceCommandActive={isVoiceCommandActive}
         isConnectingVoice={isConnectingVoice}
         speechModeLabel={speechRecognition.modeLabel}
+        onOpenStaffModal={() => setIsStaffModalOpen(true)}
       />
 
       {/* AO Drawing Global Banner */}
@@ -1327,6 +1339,18 @@ const App: React.FC = () => {
           </main>
         )}
       </div>
+
+      <StaffBriefingModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+        activeUnit={selectedEntity?.type === MapEntityType.UNIT ? (units.find(u => u.id === selectedEntity.id) || null) : (units.length > 0 ? units[0] : null)}
+        units={units}
+        intelligenceReports={intelligenceReports}
+        artilleryPieces={artilleryPieces}
+        unitHistoryLog={unitHistoryLog}
+        afterActionReports={afterActionReports}
+        osintEvents={osintEvents}
+      />
     </div>
   );
 };

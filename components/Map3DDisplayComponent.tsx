@@ -246,7 +246,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const [showIonModal, setShowIonModal] = useState<boolean>(false);
   const [ionTokenInput, setIonTokenInput] = useState<string>(localStorage.getItem('simcop_cesium_ion_token') || '');
 
-  const [weatherEffect, setWeatherEffect] = useState<'clear' | 'rain' | 'fog' | 'storm'>('clear');
+  const [weatherEffect, setWeatherEffect] = useState<'clear' | 'rain' | 'snow' | 'fog' | 'storm'>('clear');
+  const [autoWeatherSync, setAutoWeatherSync] = useState<boolean>(false);
+  const [dayNightLighting, setDayNightLighting] = useState<boolean>(false);
+  const [terrainShadowsActive, setTerrainShadowsActive] = useState<boolean>(false);
+  const [atmosphereFogActive, setAtmosphereFogActive] = useState<boolean>(true);
+  const [osmBuildingsActive, setOsmBuildingsActive] = useState<boolean>(false);
   
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [showCmocTransitLayer, setShowCmocTransitLayer] = useState<boolean>(false);
@@ -443,6 +448,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
   const roadsLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const radarLayerRef = useRef<Cesium.ImageryLayer | null>(null);
   const weatherStageRef = useRef<Cesium.PostProcessStage | null>(null);
+  const osmBuildingsRef = useRef<Cesium.Cesium3DTileset | null>(null);
 
   // Control de Cámara Táctica 3D
   const reset3DPerspective = () => {
@@ -511,14 +517,15 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     // Configurar realismo 3D, iluminación solar y relieve de terreno
     viewer.scene.globe.depthTestAgainstTerrain = true;
-    viewer.scene.globe.enableLighting = true;
+    viewer.scene.globe.enableLighting = dayNightLighting;
+    viewer.shadows = terrainShadowsActive;
     (viewer.scene.globe as any).terrainExaggeration = 1.5;
     (viewer.scene.globe as any).terrainExaggerationRelativeHeight = 0.0;
-    viewer.scene.globe.showGroundAtmosphere = true;
+    viewer.scene.globe.showGroundAtmosphere = atmosphereFogActive;
     if (viewer.scene.skyAtmosphere) {
-      viewer.scene.skyAtmosphere.show = true;
+      viewer.scene.skyAtmosphere.show = atmosphereFogActive;
     }
-    viewer.scene.fog.enabled = true;
+    viewer.scene.fog.enabled = atmosphereFogActive;
     viewer.scene.fog.density = 0.0003;
 
     viewer.imageryLayers.removeAll();
@@ -980,9 +987,12 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    if (!autoWeatherSync) return; // Si Auto-Sync está apagado, se respeta el control manual del usuario
+
     let timeoutId: NodeJS.Timeout;
 
     const handleCameraMoveEnd = () => {
+      if (!autoWeatherSync) return;
       clearTimeout(timeoutId);
       timeoutId = setTimeout(async () => {
         try {
@@ -1009,6 +1019,8 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
               setWeatherEffect('fog');
             } else if (code >= 95 && code <= 99) {
               setWeatherEffect('storm');
+            } else if (code >= 71 && code <= 77) {
+              setWeatherEffect('snow');
             } else if (code >= 51) {
               setWeatherEffect('rain');
             } else {
@@ -1030,7 +1042,7 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
         viewer.camera.moveEnd.removeEventListener(handleCameraMoveEnd);
       }
     };
-  }, []);
+  }, [autoWeatherSync]);
 
   // Handle native RainViewer radar layer
   useEffect(() => {
@@ -1294,25 +1306,114 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
     viewer.scene.requestRender();
   }, [showRoadsLayer]);
 
-  // Handle visual weather volumetric effects (Shaders)
+  // Handle visual weather volumetric effects (Native Cesium PostProcessStages + Shaders)
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer || viewer.isDestroyed()) return;
 
-    // Remove current weather stage
+    // Remove current weather stage cleanly
     if (weatherStageRef.current) {
-      viewer.scene.postProcessStages.remove(weatherStageRef.current);
+      try {
+        viewer.scene.postProcessStages.remove(weatherStageRef.current);
+      } catch (e) {
+        console.warn("Error removing weatherStage:", e);
+      }
       weatherStageRef.current = null;
     }
-    viewer.scene.fog.enabled = false;
+
+    if (!atmosphereFogActive) {
+      viewer.scene.fog.enabled = false;
+    } else {
+      viewer.scene.fog.enabled = true;
+      viewer.scene.fog.density = 0.0003;
+    }
 
     if (weatherEffect === 'rain' || weatherEffect === 'storm') {
-      viewer.scene.fog.enabled = true;
-      viewer.scene.fog.density = weatherEffect === 'storm' ? 0.002 : 0.0015;
+      if (atmosphereFogActive) {
+        viewer.scene.fog.enabled = true;
+        viewer.scene.fog.density = weatherEffect === 'storm' ? 0.002 : 0.0014;
+      }
+
+      const rainShader = `
+        uniform sampler2D colorTexture;
+        in vec2 v_textureCoordinates;
+
+        float hash(float x) {
+          return fract(sin(x * 133.3) * 13.13);
+        }
+
+        void main(void) {
+          float time = czm_frameNumber / 50.0;
+          vec2 resolution = czm_viewport.zw;
+          vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+          vec3 rainColor = vec3(0.65, 0.75, 0.85);
+          float a = -0.35;
+          float si = sin(a), co = cos(a);
+          uv *= mat2(co, -si, si, co);
+          vec2 f = fract(uv * vec2(60.0, 1.0) + vec2(uv.x * -10.0, time * 25.0));
+          float v = 1.0 - sin(hash(floor(uv.x * 60.0)) * 2.0);
+          float factor = clamp(f.y - f.x * v, 0.0, 1.0);
+          vec4 baseColor = texture(colorTexture, v_textureCoordinates);
+          out_FragColor = mix(baseColor, vec4(rainColor, 1.0), factor * 0.45);
+        }
+      `;
+
+      try {
+        const stage = new Cesium.PostProcessStage({
+          name: 'czm_rain_stage',
+          fragmentShader: rainShader
+        });
+        viewer.scene.postProcessStages.add(stage);
+        weatherStageRef.current = stage;
+      } catch (err) {
+        console.warn("PostProcessStage Rain error:", err);
+      }
+    } else if (weatherEffect === 'snow') {
+      if (atmosphereFogActive) {
+        viewer.scene.fog.enabled = true;
+        viewer.scene.fog.density = 0.0018;
+      }
+
+      const snowShader = `
+        uniform sampler2D colorTexture;
+        in vec2 v_textureCoordinates;
+
+        float hash(float x) {
+          return fract(sin(x * 133.3) * 13.13);
+        }
+
+        void main(void) {
+          float time = czm_frameNumber / 70.0;
+          vec2 resolution = czm_viewport.zw;
+          vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+          vec3 snowColor = vec3(0.9, 0.95, 1.0);
+          float a = -0.15;
+          float si = sin(a), co = cos(a);
+          uv *= mat2(co, -si, si, co);
+          vec2 f = fract(uv * vec2(25.0, 12.0) + vec2(sin(time + uv.y * 2.0) * 0.4, time * 3.5));
+          float v = 1.0 - sin(hash(floor(uv.x * 25.0)) * 2.0);
+          float b = clamp(abs(sin(8.0 * time * v + uv.y * 3.0)) - 0.90, 0.0, 1.0) * 10.0;
+          snowColor *= v * b;
+          vec4 sceneColor = texture(colorTexture, v_textureCoordinates);
+          out_FragColor = mix(sceneColor, vec4(snowColor, 1.0), clamp(b * 0.65, 0.0, 0.85));
+        }
+      `;
+
+      try {
+        const stage = new Cesium.PostProcessStage({
+          name: 'czm_snow_stage',
+          fragmentShader: snowShader
+        });
+        viewer.scene.postProcessStages.add(stage);
+        weatherStageRef.current = stage;
+      } catch (err) {
+        console.warn("PostProcessStage Snow error:", err);
+      }
     } else if (weatherEffect === 'fog') {
-      // Niebla táctica volumétrica densa
-      viewer.scene.fog.enabled = true;
-      viewer.scene.fog.density = 0.0025;
+      if (atmosphereFogActive) {
+        viewer.scene.fog.enabled = true;
+        viewer.scene.fog.density = 0.0028;
+      }
     }
 
     let lightningTimeout: NodeJS.Timeout;
@@ -1322,35 +1423,30 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
       const lightningSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="#ffffff" stroke="#c084fc" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>');
 
       const triggerLightning = () => {
-        // Spawn a localized lightning strike icon around the Windy Coords
-        const viewer = viewerRef.current;
-        if (viewer && viewer.camera) {
-          // Center the storm exactly where the Windy widget is pointing
+        const currentViewer = viewerRef.current;
+        if (currentViewer && currentViewer.camera && !currentViewer.isDestroyed()) {
           const lat = windyCoords.lat;
           const lon = windyCoords.lon;
-
-          // Localized strike radius: ~50km max from the windy center, not tied to camera height
           const offsetDegrees = 0.6; 
           const strikeLat = lat + (Math.random() - 0.5) * offsetDegrees * 2;
           const strikeLon = lon + (Math.random() - 0.5) * offsetDegrees * 2;
 
-          const strikeEntity = viewer.entities.add({
+          const strikeEntity = currentViewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(strikeLon, strikeLat),
             billboard: {
               image: lightningSvg,
               scale: 1.0,
               verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
               heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY // Always visible like Windy
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
           });
 
           lightningEntities.push(strikeEntity);
 
-          // Fade out and remove the entity after 2.5 seconds
           setTimeout(() => {
-            if (viewer && !viewer.isDestroyed()) {
-              viewer.entities.remove(strikeEntity);
+            if (currentViewer && !currentViewer.isDestroyed()) {
+              currentViewer.entities.remove(strikeEntity);
               const index = lightningEntities.indexOf(strikeEntity);
               if (index > -1) lightningEntities.splice(index, 1);
             }
@@ -1364,12 +1460,91 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
 
     return () => {
       clearTimeout(lightningTimeout);
-      const viewer = viewerRef.current;
-      if (viewer && !viewer.isDestroyed()) {
-        lightningEntities.forEach(ent => viewer.entities.remove(ent));
+      const currentViewer = viewerRef.current;
+      if (currentViewer && !currentViewer.isDestroyed()) {
+        lightningEntities.forEach(ent => currentViewer.entities.remove(ent));
+        if (weatherStageRef.current) {
+          try {
+            currentViewer.scene.postProcessStages.remove(weatherStageRef.current);
+          } catch (e) {
+            // ignore
+          }
+          weatherStageRef.current = null;
+        }
       }
     };
-  }, [weatherEffect, windyCoords]);
+  }, [weatherEffect, windyCoords, atmosphereFogActive]);
+
+  // Handle Day/Night solar lighting
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.scene.globe.enableLighting = dayNightLighting;
+    viewer.scene.requestRender();
+  }, [dayNightLighting]);
+
+  // Handle terrain shadows
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.shadows = terrainShadowsActive;
+    (viewer as any).terrainShadows = terrainShadowsActive ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED;
+    viewer.scene.requestRender();
+  }, [terrainShadowsActive]);
+
+  // Handle atmosphere & fog global visibility
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.scene.fog.enabled = atmosphereFogActive;
+    if (viewer.scene.skyAtmosphere) {
+      viewer.scene.skyAtmosphere.show = atmosphereFogActive;
+    }
+    viewer.scene.globe.showGroundAtmosphere = atmosphereFogActive;
+    viewer.scene.requestRender();
+  }, [atmosphereFogActive]);
+
+  // Handle Native Cesium OSM Buildings 3D Tileset
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    let isMounted = true;
+
+    if (osmBuildingsActive) {
+      (async () => {
+        try {
+          if (typeof (Cesium as any).createOsmBuildingsAsync === 'function') {
+            const tileset = await (Cesium as any).createOsmBuildingsAsync();
+            if (!isMounted || viewer.isDestroyed()) {
+              viewer.scene.primitives.remove(tileset);
+              return;
+            }
+            viewer.scene.primitives.add(tileset);
+            osmBuildingsRef.current = tileset;
+            viewer.scene.requestRender();
+          }
+        } catch (err) {
+          console.warn("No se pudo cargar Cesium OSM Buildings (requiere token de Cesium Ion):", err);
+          setShowIonModal(true);
+        }
+      })();
+    } else {
+      if (osmBuildingsRef.current) {
+        viewer.scene.primitives.remove(osmBuildingsRef.current);
+        osmBuildingsRef.current = null;
+        viewer.scene.requestRender();
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (osmBuildingsRef.current && viewer && !viewer.isDestroyed()) {
+        viewer.scene.primitives.remove(osmBuildingsRef.current);
+        osmBuildingsRef.current = null;
+      }
+    };
+  }, [osmBuildingsActive]);
 
   // PICC and COA drawing and loading helpers
   const fetchPiccGraphics = async () => {
@@ -4710,22 +4885,153 @@ export const Map3DDisplayComponent: React.FC<Map3DDisplayProps> = ({
           </button>
         </div>
 
-        {/* Visual Weather FX Selector */}
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-900">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Efectos Atmosféricos 3D</span>
-            <span className="animate-pulse text-sky-400 text-[9px] font-bold">AUTO-SYNC</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-300 bg-slate-900/80 px-3 py-1.5 rounded shadow-inner border border-slate-800 w-full text-center">
-              {weatherEffect === 'clear' ? '☀️ Cielo Despejado' : weatherEffect === 'rain' ? '🌧️ Precipitaciones' : weatherEffect === 'storm' ? '⛈️ Tormenta Eléctrica' : '🌫️ Bancos de Niebla'}
-            </span>
+        {/* Entorno y Clima Nativo Cesium */}
+        <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🌦️ Clima Nativo Cesium</span>
+            </label>
+            <button
+              onClick={() => setAutoWeatherSync(!autoWeatherSync)}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
+                autoWeatherSync 
+                  ? 'bg-sky-500/20 text-sky-400 border-sky-500/50 animate-pulse' 
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-300'
+              }`}
+              title="Sincronizar automáticamente con el clima en tiempo real de la zona observada"
+            >
+              {autoWeatherSync ? 'AUTO-SYNC ON' : 'MANUAL'}
+            </button>
+          </div>
+
+          {/* Quick Weather Selectors */}
+          <div className="grid grid-cols-5 gap-1">
+            <button
+              onClick={() => { setAutoWeatherSync(false); setWeatherEffect('clear'); }}
+              className={`py-1.5 px-0.5 rounded text-[10px] font-medium transition text-center border ${
+                weatherEffect === 'clear'
+                  ? 'bg-amber-500/30 text-amber-300 border-amber-500 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+              title="Cielo Despejado"
+            >
+              ☀️ Sol
+            </button>
+            <button
+              onClick={() => { setAutoWeatherSync(false); setWeatherEffect('rain'); }}
+              className={`py-1.5 px-0.5 rounded text-[10px] font-medium transition text-center border ${
+                weatherEffect === 'rain'
+                  ? 'bg-blue-500/30 text-blue-300 border-blue-500 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+              title="Lluvia / Precipitación"
+            >
+              🌧️ Lluvia
+            </button>
+            <button
+              onClick={() => { setAutoWeatherSync(false); setWeatherEffect('storm'); }}
+              className={`py-1.5 px-0.5 rounded text-[10px] font-medium transition text-center border ${
+                weatherEffect === 'storm'
+                  ? 'bg-purple-500/30 text-purple-300 border-purple-500 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+              title="Tormenta Eléctrica"
+            >
+              ⛈️ Rayos
+            </button>
+            <button
+              onClick={() => { setAutoWeatherSync(false); setWeatherEffect('fog'); }}
+              className={`py-1.5 px-0.5 rounded text-[10px] font-medium transition text-center border ${
+                weatherEffect === 'fog'
+                  ? 'bg-slate-500/30 text-slate-200 border-slate-400 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+              title="Bancos de Niebla"
+            >
+              🌫️ Niebla
+            </button>
+            <button
+              onClick={() => { setAutoWeatherSync(false); setWeatherEffect('snow'); }}
+              className={`py-1.5 px-0.5 rounded text-[10px] font-medium transition text-center border ${
+                weatherEffect === 'snow'
+                  ? 'bg-cyan-500/30 text-cyan-200 border-cyan-400 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+              title="Nieve / Páramo"
+            >
+              ❄️ Nieve
+            </button>
+          </div>
+
+          {/* Entorno 3D Nativo Toggles */}
+          <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-900">
+            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Entorno y Renderizado Nativo Cesium
+            </label>
+            
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => setDayNightLighting(!dayNightLighting)}
+                className={`text-[10px] py-1.5 px-1.5 rounded font-medium transition border flex items-center justify-center gap-1 ${
+                  dayNightLighting 
+                    ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500' 
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+                }`}
+                title="Activar/Desactivar iluminación solar real y ciclo día/noche según hora actual"
+              >
+                <span>☀️/🌙</span> {dayNightLighting ? 'Día/Noche ON' : 'Día/Noche OFF'}
+              </button>
+
+              <button
+                onClick={() => setTerrainShadowsActive(!terrainShadowsActive)}
+                className={`text-[10px] py-1.5 px-1.5 rounded font-medium transition border flex items-center justify-center gap-1 ${
+                  terrainShadowsActive 
+                    ? 'bg-amber-600/30 text-amber-300 border-amber-500' 
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+                }`}
+                title="Activar/Desactivar sombras arrojadas por montañas y relieve sobre el terreno"
+              >
+                <span>⛰️</span> {terrainShadowsActive ? 'Sombras ON' : 'Sombras OFF'}
+              </button>
+
+              <button
+                onClick={() => setAtmosphereFogActive(!atmosphereFogActive)}
+                className={`text-[10px] py-1.5 px-1.5 rounded font-medium transition border flex items-center justify-center gap-1 ${
+                  atmosphereFogActive 
+                    ? 'bg-teal-600/30 text-teal-300 border-teal-500' 
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+                }`}
+                title="Activar/Desactivar neblina atmosférica y horizonte de Cesium"
+              >
+                <span>🌫️</span> {atmosphereFogActive ? 'Atmósfera ON' : 'Atmósfera OFF'}
+              </button>
+
+              <button
+                onClick={() => setOsmBuildingsActive(!osmBuildingsActive)}
+                className={`text-[10px] py-1.5 px-1.5 rounded font-medium transition border flex items-center justify-center gap-1 ${
+                  osmBuildingsActive 
+                    ? 'bg-blue-600/30 text-blue-300 border-blue-500' 
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
+                }`}
+                title="Activar/Desactivar capa global nativa Cesium OSM Buildings (requiere Cesium Ion)"
+              >
+                <span>🏢</span> {osmBuildingsActive ? 'Edificios 3D ON' : 'Edificios 3D OFF'}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Tactical 3D Tools */}
         <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
           <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Análisis Táctico 3D</label>
+          
+          <button
+            onClick={() => eventBus.publish('openStaffBriefingModal')}
+            className="w-full text-xs py-2.5 rounded font-black transition flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-900/40 active:scale-95 border border-cyan-400/50"
+            title="Abrir Mesa de Apreciación de Estado Mayor y Decisión C2 (Doctrina MFRE/PDM)"
+          >
+            <span>🛡️</span> MESA DE ESTADO MAYOR (C2 / PDM)
+          </button>
           
           <button
             onClick={() => {
