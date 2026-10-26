@@ -69,28 +69,54 @@ class SigepIntegrationService {
       connectionMode = 'OFFLINE_RESILIENT';
     }
 
-    // 2. Extraer o simular personal orgánico
-    const actualSoldiersCount = (unit.personnelList && unit.personnelList.length > 0)
-      ? unit.personnelList.length
-      : (soldiers.length > 0 ? soldiers.length : 36);
+    // 2. Extraer personal físico real (Prioridad: SIGEP M2M -> Tropas orgánicas SIMCOP)
+    const sigepSoldiers = Array.isArray(rawRemoteData?.personnel) ? rawRemoteData.personnel : null;
+    const unitSoldiers = (sigepSoldiers && sigepSoldiers.length > 0)
+      ? sigepSoldiers
+      : ((unit.personnelList && unit.personnelList.length > 0) ? unit.personnelList : soldiers);
 
-    // TOE Autorizado (Tabla de Organización y Equipo estándar: 42 efectivos por compañía / 36 por sección)
-    const authorizedToe = 40;
-    const coveragePct = Math.round((actualSoldiersCount / authorizedToe) * 100);
+    const actualSoldiersCount = unitSoldiers.length > 0 ? unitSoldiers.length : 36;
 
-    // 3. Evaluar PILAR A: BALANCE DE FUERZA (TOE & MOS Crítico)
-    const criticalSpecialties = ['COMUNICACIONES', 'ENFERMERO_COMBATE', 'EXPLOSIVOS_MARTE', 'TIRADOR_ALTA_PRECISION', 'MORTEROS'];
+    // TOE Autorizado de SIMCOP (Tabla de Organización y Equipo: "Lo que la unidad DEBE tener")
+    const auth = unit.toe?.authorizedPersonnel;
+    const authorizedToe = auth ? (
+      ((auth as any).total && (auth as any).total > 0) ? (auth as any).total :
+      Math.max(1, (auth.officers || 0) + (auth.ncos || 0) + (auth.professionalSoldiers || 0) + (auth.regularSoldiers || 0) + (auth.civilians || 0))
+    ) : 40;
+
+    const coveragePct = Math.min(100, Math.round((actualSoldiersCount / authorizedToe) * 100));
+
+    // 3. Evaluar PILAR A: BALANCE DE FUERZA (Cruce TOE de SIMCOP vs Personal Físico en SIGEP)
     const activeMosDeficit: string[] = [];
-    
     if (coveragePct < 80) {
-      activeMosDeficit.push('DÉFICIT_GLOBAL_TOE');
+      activeMosDeficit.push(`DÉFICIT_GLOBAL_TOE (< 80%: ${actualSoldiersCount}/${authorizedToe})`);
     }
-    // Verificación de especialidades en los efectivos
-    const unitSoldiers = unit.personnelList || soldiers;
-    const presentMos = new Set(unitSoldiers.map(s => (s.moceCode || '').toUpperCase()));
-    for (const spec of criticalSpecialties) {
-      if (!presentMos.has(spec) && Math.random() < 0.3) {
-        activeMosDeficit.push(spec);
+
+    // Cruce de especialidades requeridas (TOE SIMCOP) vs presentes (SIGEP)
+    const presentMos = new Set(unitSoldiers.map((s: any) => (s.moceCode || s.mosCode || '').toUpperCase()));
+    
+    // Inspección de especialidades de la TOE si están configuradas en SIMCOP
+    const toeSpecs = unit.toe?.specialties;
+    if (toeSpecs) {
+      const allToeSpecs = [
+        ...(toeSpecs.officers || []),
+        ...(toeSpecs.ncos || []),
+        ...(toeSpecs.professionalSoldiers || []),
+        ...(toeSpecs.regularSoldiers || [])
+      ];
+      for (const reqSpec of allToeSpecs) {
+        const specCode = (reqSpec.code || reqSpec.name || '').toUpperCase();
+        if (specCode && !presentMos.has(specCode)) {
+          activeMosDeficit.push(`${specCode} (Faltante TOE)`);
+        }
+      }
+    } else {
+      // Especialidades críticas doctrinales por defecto si la unidad aún no detalló sub-especialidades
+      const defaultCritical = ['COMUNICACIONES', 'ENFERMERO_COMBATE', 'EXPLOSIVOS_MARTE'];
+      for (const spec of defaultCritical) {
+        if (!presentMos.has(spec)) {
+          activeMosDeficit.push(`${spec} (Crítico)`);
+        }
       }
     }
 
