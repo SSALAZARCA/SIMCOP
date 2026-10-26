@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MilitaryWarehouse } from '../types';
+import { MilitaryWarehouse, SilogUser } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface NavbarSILOGProps {
   selectedWarehouse: MilitaryWarehouse;
@@ -7,6 +8,8 @@ interface NavbarSILOGProps {
   onSelectWarehouse: (wh: MilitaryWarehouse) => void;
   activeTab: string;
   onSelectTab: (tab: any) => void;
+  currentUser: SilogUser;
+  onLogout: () => void;
 }
 
 export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
@@ -14,7 +17,9 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
   warehouses,
   onSelectWarehouse,
   activeTab,
-  onSelectTab
+  onSelectTab,
+  currentUser,
+  onLogout
 }) => {
   const [zuluTime, setZuluTime] = useState<string>('');
 
@@ -27,6 +32,23 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const allTabs = [
+    { id: 'PANORAMA', label: '📊 Panorama General', icon: '⚡' },
+    { id: 'ALMACENES', label: '🏢 Almacenes & BASPC', icon: '🏛️' },
+    { id: 'CLASE_V', label: '🔫 Armamento (Clase V)', icon: '🎯' },
+    { id: 'CLASE_II', label: '🛡️ Intendencia (Clase II)', icon: '🦺' },
+    { id: 'CLASE_I', label: '🍞 Alimentación (Clase I)', icon: '🍱' },
+    { id: 'CLASE_VIII', label: '🩹 Sanidad (Clase VIII)', icon: '🩺' },
+    { id: 'COMUNICACIONES', label: '📻 Comunicaciones (S-6)', icon: '📡' },
+    { id: 'ESPECIAL', label: '👁️ Optoelectrónica & UAV', icon: '🔭' },
+    { id: 'KARDEX_PERSONAL', label: '👥 Kárdex Soldado (SIGEP)', icon: '🪪' },
+    { id: 'PODER_FUEGO', label: '💥 Poder de Fuego (SIMCOP)', icon: '🔥' },
+  ];
+
+  const visibleTabs = allTabs.filter(tab => 
+    silogAuthService.hasTabPermission(currentUser.role, tab.id)
+  );
 
   return (
     <header className="bg-slate-950/95 border-b border-amber-500/30 sticky top-0 z-50 backdrop-blur-md">
@@ -52,7 +74,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
           </div>
         </div>
 
-        {/* Selector de Almacén y Reloj ZULU */}
+        {/* Reloj ZULU, Selector de Almacén y Perfil Militar */}
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <span className="text-[10px] text-slate-500 font-mono block">TIEMPO MILITAR ZULU</span>
@@ -76,23 +98,35 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Insignia de Usuario Logístico Autenticado */}
+          <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl p-1.5 px-3">
+            <div className="w-7 h-7 rounded-lg bg-amber-600/30 border border-amber-500/40 flex items-center justify-center text-xs font-black text-amber-300">
+              {currentUser.rank}
+            </div>
+            <div className="text-left hidden md:block">
+              <span className="text-xs font-bold text-white block leading-tight">
+                {currentUser.fullName}
+              </span>
+              <span className="text-[9px] font-mono text-amber-400 block leading-tight">
+                {currentUser.roleTitle} • {currentUser.securityClearance}
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="ml-2 p-1 px-2 bg-red-950/60 hover:bg-red-800/80 border border-red-500/40 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1"
+              title="Cerrar sesión de SILOG"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Barra de Pestañas de las 6 Clases Doctrinales */}
+      {/* Barra de Pestañas de las Clases Doctrinales (Filtradas por Rol) */}
       <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto border-t border-slate-900/80">
-        {[
-          { id: 'PANORAMA', label: '📊 Panorama General', icon: '⚡' },
-          { id: 'ALMACENES', label: '🏢 Almacenes & BASPC', icon: '🏛️' },
-          { id: 'CLASE_V', label: '🔫 Armamento (Clase V)', icon: '🎯' },
-          { id: 'CLASE_II', label: '🛡️ Intendencia (Clase II)', icon: '🦺' },
-          { id: 'CLASE_I', label: '🍞 Alimentación (Clase I)', icon: '🍱' },
-          { id: 'CLASE_VIII', label: '🩹 Sanidad (Clase VIII)', icon: '🩺' },
-          { id: 'COMUNICACIONES', label: '📻 Comunicaciones (S-6)', icon: '📡' },
-          { id: 'ESPECIAL', label: '👁️ Optoelectrónica & UAV', icon: '🔭' },
-          { id: 'KARDEX_PERSONAL', label: '👥 Kárdex Soldado (SIGEP)', icon: '🪪' },
-          { id: 'PODER_FUEGO', label: '💥 Poder de Fuego (SIMCOP)', icon: '🔥' },
-        ].map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => onSelectTab(tab.id)}

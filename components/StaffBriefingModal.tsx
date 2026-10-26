@@ -431,15 +431,11 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
                       </div>
                     </div>
 
-                    <a
-                      href="http://localhost:5050"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 rounded-lg text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                    >
-                      <span>📦</span>
-                      <span>ABRIR SILOG (LOGÍSTICA COMPLETA)</span>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
+                        {silogData?.isOnlineM2M ? 'CANAL M2M S4 CONECTADO' : 'MODO TÁCTICO RESILIENTE'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Métricas Principales de Fuego y Subsistencia */}

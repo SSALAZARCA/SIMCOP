@@ -126,17 +126,6 @@ export const HeaderComponent: React.FC<HeaderProps> = ({
               <span className="hidden lg:inline">ESTADO MAYOR C2</span>
             </button>
           )}
-
-          <a
-            href="http://localhost:5050"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 px-3 rounded-xl bg-gradient-to-r from-emerald-950/60 to-teal-900/60 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
-            title="Abrir Subsistema de Logística Militar SILOG (Almacenes BASPC, Clase I a VIII, Kárdex y Paz y Salvo)"
-          >
-            <span>📦</span>
-            <span className="hidden lg:inline">SILOG LOGÍSTICA</span>
-          </a>
           {/* Indicador de modo STT activo */}
           {isVoiceCommandActive && speechModeLabel && (
             <span style={{

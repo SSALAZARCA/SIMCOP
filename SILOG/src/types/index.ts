@@ -171,3 +171,28 @@ export interface PlatoonCombatCapability {
   nightReadinessPct: number;
   tacticalAdvisoryForSimcop: string;
 }
+
+// -------------------------------------------------------------
+// CONTROL DE ACCESO Y AUTENTICACIÓN LOGÍSTICA (SILOG RBAC)
+// -------------------------------------------------------------
+export type SilogUserRole = 
+  | 'OFICIAL_S4' 
+  | 'COMANDANTE_BASPC' 
+  | 'ALMACENISTA_CLASE_V' 
+  | 'ALMACENISTA_CLASE_II_I' 
+  | 'OFICIAL_COMUNICACIONES_S6' 
+  | 'OFICIAL_SANIDAD_S8';
+
+export interface SilogUser {
+  id: string;
+  username: string;
+  fullName: string;
+  rank: string;
+  role: SilogUserRole;
+  roleTitle: string;
+  unit: string;
+  unitName: string;
+  warehouseId?: string; // Si el custodio está restringido a un almacén particular
+  securityClearance: 'SECRETO' | 'ULTRASECRETO' | 'RESERVADO';
+  militaryId: string;
+}

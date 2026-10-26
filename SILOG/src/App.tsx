@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { silogService } from './services/silogService';
-import { MilitaryWarehouse } from './types';
+import { silogAuthService } from './services/silogAuthService';
+import { MilitaryWarehouse, SilogUser } from './types';
 import { NavbarSILOG } from './components/NavbarSILOG';
+import { LoginSILOG } from './components/LoginSILOG';
 import { AlmacenesHierarchyView } from './components/AlmacenesHierarchyView';
 import { ArmamentoClaseV } from './components/ArmamentoClaseV';
 import { IntendenciaClaseII } from './components/IntendenciaClaseII';
@@ -14,10 +16,38 @@ import { PelotonCombatPowerView } from './components/PelotonCombatPowerView';
 import { PazYSalvoModal } from './components/PazYSalvoModal';
 
 export const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
   const warehouses = silogService.getWarehouses();
-  const [selectedWarehouse, setSelectedWarehouse] = useState<MilitaryWarehouse>(warehouses[0]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<MilitaryWarehouse>(() => {
+    if (currentUser?.warehouseId) {
+      const match = warehouses.find(w => w.id === currentUser.warehouseId);
+      if (match) return match;
+    }
+    return warehouses[0];
+  });
   const [activeTab, setActiveTab] = useState<string>('PANORAMA');
   const [pazYSalvoSoldierId, setPazYSalvoSoldierId] = useState<string | null>(null);
+
+  // Si no hay usuario militar autenticado, mostrar pantalla de acceso de SILOG
+  if (!currentUser) {
+    return (
+      <LoginSILOG 
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          if (user.warehouseId) {
+            const match = warehouses.find(w => w.id === user.warehouseId);
+            if (match) setSelectedWarehouse(match);
+          }
+          setActiveTab('PANORAMA');
+        }} 
+      />
+    );
+  }
+
+  const handleLogout = () => {
+    silogAuthService.logout();
+    setCurrentUser(null);
+  };
 
   const weapons = silogService.getWeapons(selectedWarehouse.id);
   const ammoLots = silogService.getAmmoLots(selectedWarehouse.id);
@@ -37,6 +67,8 @@ export const App: React.FC = () => {
         onSelectWarehouse={setSelectedWarehouse}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
