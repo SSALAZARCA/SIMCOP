@@ -11,6 +11,7 @@ interface NavbarSILOGProps {
   currentUser: SilogUser;
   onLogout: () => void;
   onOpenAddMaterial: () => void;
+  onOpenSapModal?: () => void;
 }
 
 export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
@@ -21,7 +22,8 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
   onSelectTab,
   currentUser,
   onLogout,
-  onOpenAddMaterial
+  onOpenAddMaterial,
+  onOpenSapModal
 }) => {
   const [zuluTime, setZuluTime] = useState<string>('');
 
@@ -37,6 +39,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
 
   const allTabs = [
     { id: 'PANORAMA', label: '📊 Panorama General', icon: '⚡' },
+    { id: 'DISTRIBUCION', label: '🚚 Cadena de Suministro', icon: '🔄' },
     { id: 'ALMACENES', label: '🏢 Almacenes & BASPC', icon: '🏛️' },
     { id: 'CLASE_V', label: '🔫 Armamento (Clase V)', icon: '🎯' },
     { id: 'CLASE_II', label: '🛡️ Intendencia (Clase II)', icon: '🦺' },
@@ -48,27 +51,36 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
     { id: 'PODER_FUEGO', label: '💥 Poder de Fuego (SIMCOP)', icon: '🔥' },
   ];
 
-  const visibleTabs = allTabs.filter(tab => 
-    silogAuthService.hasTabPermission(currentUser.role, tab.id)
-  );
+  const visibleTabs = allTabs.filter(tab => {
+    if (tab.id === 'DISTRIBUCION') return true; // Todos los roles pueden ver el mapa de la cadena de suministro
+    return silogAuthService.hasTabPermission(currentUser.role, tab.id);
+  });
+
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
+  const canDispatchBaspc = silogAuthService.canDispatchFromBaspc(currentUser);
 
   return (
     <header className="bg-slate-950/95 border-b border-amber-500/30 sticky top-0 z-50 backdrop-blur-md">
       <div className="w-full max-w-[1920px] mx-auto px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        {/* Identidad Institucional */}
+        {/* Identidad Institucional y Dominio https://siloga.site */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-900 border border-amber-400/50 flex items-center justify-center text-xl shadow-lg shadow-amber-950/50">
             📦
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black tracking-wider text-white">SILOG</h1>
+              <h1 className="text-base font-black tracking-wider text-white">SILOGA</h1>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
                 S-4 / JELOG MILITAR
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
-                M2M SIGEP & SIMCOP
-              </span>
+              <a 
+                href="https://siloga.site" 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono font-bold border border-blue-500/30 hover:bg-blue-500/30 transition"
+              >
+                siloga.site
+              </a>
             </div>
             <p className="text-[11px] text-slate-400">
               Sistema Integrado de Logística Operacional y Gestión de Almacenes
@@ -76,14 +88,26 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
           </div>
         </div>
 
-        {/* Acciones Rápidas: Botón de Alta de Material + Almacén + Usuario */}
-        <div className="flex items-center gap-3">
+        {/* Acciones Rápidas: Ingreso SAP MM + Alta de Material + Almacén + Usuario */}
+        <div className="flex items-center gap-2.5">
           
+          {/* Botón de Importación Masiva SAP MM (Exclusivo Almacenistas Centralizadores BASPC) */}
+          {canDispatchBaspc && onOpenSapModal && (
+            <button
+              onClick={onOpenSapModal}
+              className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-1.5 border border-blue-400/50"
+              title="Importar y contabilizar lote masivo desde reporte de SAP MM (Transacción MB52)"
+            >
+              <span>📑</span>
+              <span className="whitespace-nowrap">Importar SAP MM</span>
+            </button>
+          )}
+
           {/* Botón de Ingreso de Material (Restringido estrictamente a Almacenistas y Bodegueros) */}
-          {silogAuthService.canIngestMaterial(currentUser) ? (
+          {canIngest ? (
             <button
               onClick={onOpenAddMaterial}
-              className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all active:scale-95 flex items-center gap-2 border border-amber-400/60"
+              className="px-3 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all active:scale-95 flex items-center gap-1.5 border border-amber-400/60"
               title="Registrar nueva entrada física de material bélico o víveres (Almacenistas y Bodegueros)"
             >
               <span className="text-sm">➕</span>
@@ -91,7 +115,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
             </button>
           ) : (
             <div 
-              className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-[11px] font-mono flex items-center gap-1.5 cursor-not-allowed opacity-80"
+              className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-[11px] font-mono flex items-center gap-1.5 cursor-not-allowed opacity-80"
               title="Función doctrinal restringida: Solo Almacenistas y Bodegueros tienen potestad de dar de alta material en el almacén"
             >
               <span>🔒</span>
@@ -100,7 +124,7 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
           )}
 
           <div className="text-right hidden xl:block">
-            <span className="text-[10px] text-slate-500 font-mono block">TIEMPO MILITAR ZULU</span>
+            <span className="text-[10px] text-slate-500 font-mono block">HORA MILITAR ZULU</span>
             <span className="text-xs font-mono font-bold text-amber-400">{zuluTime}</span>
           </div>
 
@@ -132,13 +156,13 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
                 {currentUser.fullName}
               </span>
               <span className="text-[9px] font-mono text-amber-400 block leading-tight">
-                {currentUser.roleTitle} • {currentUser.securityClearance}
+                {currentUser.roleTitle}
               </span>
             </div>
             <button
               onClick={onLogout}
               className="ml-2 p-1 px-2 bg-red-950/60 hover:bg-red-800/80 border border-red-500/40 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1"
-              title="Cerrar sesión de SILOG"
+              title="Cerrar sesión de SILOGA"
             >
               <span>🚪</span>
               <span className="hidden sm:inline">Salir</span>

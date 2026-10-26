@@ -14,7 +14,8 @@ import {
   CombatSanityItem, 
   SoldierLogisticsProfile, 
   PlatoonCombatCapability,
-  MaterialTransferRecord 
+  MaterialTransferRecord,
+  SapMaterialRow 
 } from '../types';
 
 // Almacenes Centralizadores (BASPC) y Depósitos de Batallón concordantes con la Estructura de Fuerza SIMCOP
@@ -899,6 +900,218 @@ class SilogService {
       default:
         return null;
     }
+  }
+
+  /**
+   * INGRESO MASIVO MEDIANTE REPORTE SAP (SAP MM / MB52 / MB51)
+   * Potestad exclusiva de: ALMACENISTA_CENTRAL_BASPC
+   */
+  public importSapRows(
+    rows: SapMaterialRow[],
+    targetWarehouseId: string,
+    authorizedByMilitaryId: string,
+    authorizedByName: string,
+    authorizedByRole: string,
+    sapDocNumber: string = `DOC-SAP-${Date.now().toString().slice(-6)}`
+  ): { success: boolean; importedCount: number; message: string; sapDocNumber: string } {
+    const targetWh = this.warehouses.find(w => w.id === targetWarehouseId);
+    if (!targetWh) {
+      return { success: false, importedCount: 0, message: 'Almacén de destino no encontrado', sapDocNumber };
+    }
+
+    let count = 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const r of rows) {
+      const serial = r.serialNumber || `SAP-${r.category.slice(0, 3)}-${Date.now().toString().slice(-4)}-${count + 1}`;
+      const lot = r.batchNumber || `IND-SAP-${Date.now().toString().slice(-4)}`;
+
+      if (r.category === 'CLASE_V_ARMA') {
+        let model: any = 'GALIL_ACE_23_556';
+        let cal: any = '5.56x45mm';
+        const d = r.materialDescription.toUpperCase();
+        if (d.includes('M60') || d.includes('AMETRALLADORA')) {
+          model = 'AMETRALLADORA_M60E4_762';
+          cal = '7.62x51mm';
+        } else if (d.includes('MGL') || d.includes('LANZAGRANADAS')) {
+          model = 'LANZAGRANADAS_MGL_40MM';
+          cal = '40mm';
+        } else if (d.includes('MORTERO')) {
+          model = 'MORTERO_COMMANDO_60MM';
+          cal = '60mm';
+        } else if (d.includes('CORDOBA') || d.includes('PISTOLA')) {
+          model = 'PISTOLA_CORDOBA_9MM';
+          cal = '9x19mm';
+        }
+
+        const q = Math.max(1, r.quantity);
+        for (let i = 0; i < q; i++) {
+          const sNum = q === 1 ? serial : `${serial}-${i + 1}`;
+          this.addWeapon({
+            warehouseId: targetWarehouseId,
+            serialNumber: sNum,
+            model,
+            caliber: cal,
+            status: 'OPERATIVO',
+            roundsFiredEstimate: 0,
+            lastMaintenanceDate: today
+          });
+          count++;
+        }
+      } else if (r.category === 'CLASE_V_MUNICION') {
+        let cal: any = '5.56x45mm';
+        const d = r.materialDescription.toUpperCase();
+        if (d.includes('7.62')) cal = '7.62x51mm';
+        else if (d.includes('40MM')) cal = '40mm_HE';
+        else if (d.includes('60MM')) cal = '60mm_MORTERO_HE';
+        else if (d.includes('GRANADA') || d.includes('IM26')) cal = 'GRANADA_MANO_IM26';
+        else if (d.includes('9MM') || d.includes('9X19')) cal = '9x19mm';
+
+        this.addAmmoLot({
+          warehouseId: targetWarehouseId,
+          caliber: cal,
+          lotNumber: lot,
+          quantityRounds: r.quantity,
+          packagingType: 'CAJA_MADERA',
+          manufacturingYear: r.manufacturingYear || 2026,
+          securityClassification: 'DOTACION_COMBATE'
+        });
+        count++;
+      } else if (r.category === 'CLASE_II') {
+        let armorType: any = 'CHALECO_BALISTICO_IV';
+        if (r.materialDescription.toUpperCase().includes('CASCO')) {
+          armorType = 'CASCO_KEVLAR_MICH';
+        }
+        const exp = new Date();
+        exp.setFullYear(exp.getFullYear() + 5);
+
+        const q = Math.max(1, r.quantity);
+        for (let i = 0; i < q; i++) {
+          const sNum = q === 1 ? serial : `${serial}-${i + 1}`;
+          this.addArmor({
+            warehouseId: targetWarehouseId,
+            serialNumber: sNum,
+            armorType,
+            size: 'L',
+            frontPlateSerial: `PL-F-${Date.now().toString().slice(-4)}-${i}`,
+            rearPlateSerial: `PL-R-${Date.now().toString().slice(-4)}-${i}`,
+            manufacturingDate: today,
+            expirationDate: r.expirationDate || exp.toISOString().split('T')[0],
+            status: 'OPERATIVO'
+          });
+          count++;
+        }
+      } else if (r.category === 'CLASE_I') {
+        const exp = new Date();
+        exp.setFullYear(exp.getFullYear() + 2);
+        this.addRationBatch({
+          warehouseId: targetWarehouseId,
+          rationType: 'RACION_CAMPANA_MRE',
+          menuNumber: r.materialDescription,
+          lotNumber: lot,
+          expirationDate: r.expirationDate || exp.toISOString().split('T')[0],
+          quantityOnHand: r.quantity,
+          caloriesPerUnit: 3200,
+          daysOfAutonomyEquivalent: Math.round(r.quantity / 36)
+        });
+        count++;
+      } else if (r.category === 'COMUNICACIONES') {
+        let model: any = 'HARRIS_FALCON_III_PRC152';
+        let band: any = 'VHF_UHF_SATCOM';
+        if (r.materialDescription.toUpperCase().includes('MOTOROLA') || r.materialDescription.toUpperCase().includes('APX')) {
+          model = 'MOTOROLA_APX8000';
+          band = 'VHF_UHF_SATCOM';
+        } else if (r.materialDescription.toUpperCase().includes('117G') || r.materialDescription.toUpperCase().includes('MANPACK')) {
+          model = 'HARRIS_MANPACK_PRC117G';
+          band = 'HF_TACTICO';
+        }
+
+        const q = Math.max(1, r.quantity);
+        for (let i = 0; i < q; i++) {
+          const sNum = q === 1 ? serial : `${serial}-${i + 1}`;
+          this.addCommEquipment({
+            warehouseId: targetWarehouseId,
+            serialNumber: sNum,
+            model,
+            frequencyBand: band,
+            status: 'OPERATIVO',
+            batteryType: 'BB_2590_LITIO',
+            cryptoKeyLoaded: true
+          });
+          count++;
+        }
+      } else if (r.category === 'ESPECIAL') {
+        let dev: any = 'VISOR_NOCTURNO_PVS14';
+        let gen: any = 'GEN_3_FOM_1800';
+        if (r.materialDescription.toUpperCase().includes('MAVIC') || r.materialDescription.toUpperCase().includes('DRON')) {
+          dev = 'DRON_TACTICO_MAVIC3T';
+          gen = 'TERMICO_640x512';
+        } else if (r.materialDescription.toUpperCase().includes('PAS13') || r.materialDescription.toUpperCase().includes('TERMICA')) {
+          dev = 'MIRA_TERMICA_PAS13';
+          gen = 'TERMICO_640x512';
+        } else if (r.materialDescription.toUpperCase().includes('VALLON')) {
+          dev = 'DETECTOR_METALES_VALLON_EOD';
+          gen = 'INDUCCION_PULSOS';
+        }
+
+        const q = Math.max(1, r.quantity);
+        for (let i = 0; i < q; i++) {
+          const sNum = q === 1 ? serial : `${serial}-${i + 1}`;
+          this.addSpecialOptronics({
+            warehouseId: targetWarehouseId,
+            serialNumber: sNum,
+            deviceType: dev,
+            generation: gen,
+            status: 'OPERATIVO',
+            batteryLevelPct: 100
+          });
+          count++;
+        }
+      } else if (r.category === 'CLASE_VIII') {
+        const exp = new Date();
+        exp.setFullYear(exp.getFullYear() + 3);
+        const q = Math.max(1, r.quantity);
+        for (let i = 0; i < q; i++) {
+          const sNum = q === 1 ? serial : `${serial}-${i + 1}`;
+          this.addCombatSanity({
+            warehouseId: targetWarehouseId,
+            kitType: 'IFAK_INDIVIDUAL_TRAUMA',
+            serialOrLotNumber: sNum,
+            tourniquetCatLot: `CAT-G7-SAP-${Date.now().toString().slice(-4)}`,
+            tourniquetExpiration: r.expirationDate || exp.toISOString().split('T')[0],
+            hemostaticGauzeUnits: 2,
+            status: 'OPERATIVO'
+          });
+          count++;
+        }
+      }
+    }
+
+    const record: MaterialTransferRecord = {
+      id: `TR-SAP-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      materialType: 'CLASE_V_ARMA',
+      itemId: sapDocNumber,
+      itemDescription: `Contabilización Masiva SAP MM (${count} registros)`,
+      sourceType: 'SAP_MDN_FABRICA',
+      sourceId: 'SAP-MM-MDN',
+      sourceName: 'SAP MM / Almacén Central de Fábrica MDN',
+      destinationType: 'BATALLON_DEPOSITO',
+      destinationId: targetWh.id,
+      destinationName: targetWh.name,
+      authorizedByMilitaryId,
+      authorizedByName,
+      authorizedByRole,
+      remisionActNumber: sapDocNumber
+    };
+    this.transferAuditLog.unshift(record);
+
+    return {
+      success: true,
+      importedCount: count,
+      sapDocNumber,
+      message: `Contabilización masiva SAP completada: ${count} elementos/lotes ingresados a ${targetWh.name} (Doc SAP: ${sapDocNumber}).`
+    };
   }
 }
 

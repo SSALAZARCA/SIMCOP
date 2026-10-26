@@ -208,7 +208,7 @@ export interface MaterialTransferRecord {
   materialType: 'CLASE_V_ARMA' | 'CLASE_V_MUNICION' | 'CLASE_II' | 'CLASE_I' | 'COMUNICACIONES' | 'ESPECIAL' | 'CLASE_VIII';
   itemId: string;
   itemDescription: string;
-  sourceType: 'BASPC_CENTRAL' | 'BATALLON_DEPOSITO' | 'COMPANIA';
+  sourceType: 'BASPC_CENTRAL' | 'BATALLON_DEPOSITO' | 'COMPANIA' | 'SAP_MDN_FABRICA';
   sourceId: string;
   sourceName: string;
   destinationType: 'BATALLON_DEPOSITO' | 'ESTADO_MAYOR_BRIGADA' | 'COMPANIA' | 'SOLDADO_INDIVIDUAL';
@@ -218,6 +218,20 @@ export interface MaterialTransferRecord {
   authorizedByName: string;
   authorizedByRole: string;
   remisionActNumber: string;
+}
+
+export interface SapMaterialRow {
+  materialCode: string; // Ej. "MAT-100294" (Número de material SAP MM)
+  materialDescription: string;
+  category: 'CLASE_V_ARMA' | 'CLASE_V_MUNICION' | 'CLASE_II' | 'CLASE_I' | 'COMUNICACIONES' | 'ESPECIAL' | 'CLASE_VIII';
+  quantity: number;
+  unitOfMeasure: 'UN' | 'CJ' | 'LT' | 'KG';
+  batchNumber?: string;
+  serialNumber?: string;
+  sapPlant: string; // Centro SAP, ej: "1601" (BASPC 16)
+  sapStorageLocation: string; // Almacén SAP, ej: "BASP", "POLV", "ARME"
+  manufacturingYear?: number;
+  expirationDate?: string;
 }
 
 export interface SilogUser {

@@ -5,6 +5,7 @@ import { MilitaryWarehouse, SilogUser } from './types';
 import { NavbarSILOG } from './components/NavbarSILOG';
 import { LoginSILOG } from './components/LoginSILOG';
 import { AlmacenesHierarchyView } from './components/AlmacenesHierarchyView';
+import { CadenaDistribucionView } from './components/CadenaDistribucionView';
 import { ArmamentoClaseV } from './components/ArmamentoClaseV';
 import { IntendenciaClaseII } from './components/IntendenciaClaseII';
 import { AlimentacionClaseI } from './components/AlimentacionClaseI';
@@ -16,6 +17,7 @@ import { PelotonCombatPowerView } from './components/PelotonCombatPowerView';
 import { PazYSalvoModal } from './components/PazYSalvoModal';
 import { IngresoMaterialModal } from './components/IngresoMaterialModal';
 import { MovimientoMaterialModal } from './components/MovimientoMaterialModal';
+import { SapIngresoMasivoModal } from './components/SapIngresoMasivoModal';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
@@ -26,6 +28,9 @@ export const App: React.FC = () => {
   const [isAddMaterialOpen, setIsAddMaterialOpen] = useState<boolean>(false);
   const [addMaterialCategory, setAddMaterialCategory] = useState<string>('CLASE_V_ARMA');
   const [targetWarehouseId, setTargetWarehouseId] = useState<string>('');
+
+  // Estados del modal de Importación Masiva SAP MM (Solo Almacenistas Centralizadores BASPC)
+  const [isSapModalOpen, setIsSapModalOpen] = useState<boolean>(false);
 
   // Estados del modal de Movimiento y Asignación Doctrinal
   const [isMovementModalOpen, setIsMovementModalOpen] = useState<boolean>(false);
@@ -51,7 +56,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('PANORAMA');
   const [pazYSalvoSoldierId, setPazYSalvoSoldierId] = useState<string | null>(null);
 
-  // Si no hay usuario militar autenticado, mostrar pantalla de acceso de SILOG
+  // Si no hay usuario militar autenticado, mostrar pantalla de acceso de SILOGA
   if (!currentUser) {
     return (
       <LoginSILOG 
@@ -143,6 +148,7 @@ export const App: React.FC = () => {
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenAddMaterial={() => handleOpenAddMaterial('CLASE_V_ARMA')}
+        onOpenSapModal={() => setIsSapModalOpen(true)}
       />
 
       {/* Banner flotante de notificación de éxito */}
@@ -182,6 +188,14 @@ export const App: React.FC = () => {
                   <span className="text-[10px] font-bold text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                     {currentUser.roleTitle}
                   </span>
+                  <a
+                    href="https://siloga.site"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] font-mono text-cyan-400 hover:underline hidden sm:inline"
+                  >
+                    siloga.site
+                  </a>
                 </div>
                 <h2 className="text-2xl font-black text-white">
                   {selectedWarehouse.name}
@@ -288,6 +302,16 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* TAB CADENA DE SUMINISTRO Y DISTRIBUCIÓN */}
+        {activeTab === 'DISTRIBUCION' && (
+          <CadenaDistribucionView
+            warehouses={warehouses}
+            currentUser={currentUser}
+            onOpenMovementModal={handleOpenMovementModal}
+            onOpenSapModal={() => setIsSapModalOpen(true)}
+          />
+        )}
+
         {activeTab === 'ALMACENES' && (
           <AlmacenesHierarchyView
             warehouses={warehouses}
@@ -387,6 +411,16 @@ export const App: React.FC = () => {
         currentCompanyId={movementCompanyId}
         currentSoldierId={movementSoldierId}
         onSuccess={handleMovementSuccess}
+      />
+
+      {/* Modal de Ingreso Masivo mediante Reporte SAP MM */}
+      <SapIngresoMasivoModal
+        isOpen={isSapModalOpen}
+        onClose={() => setIsSapModalOpen(false)}
+        currentUser={currentUser}
+        warehouses={warehouses}
+        currentWarehouseId={selectedWarehouse.id}
+        onSuccess={handleMaterialAdded}
       />
     </div>
   );
