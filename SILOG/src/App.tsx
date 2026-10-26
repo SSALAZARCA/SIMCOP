@@ -15,16 +15,26 @@ import { KardexPersonalView } from './components/KardexPersonalView';
 import { PelotonCombatPowerView } from './components/PelotonCombatPowerView';
 import { PazYSalvoModal } from './components/PazYSalvoModal';
 import { IngresoMaterialModal } from './components/IngresoMaterialModal';
+import { MovimientoMaterialModal } from './components/MovimientoMaterialModal';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Estados del modal de Ingreso de Material
+  // Estados del modal de Ingreso de Material (Solo Bodegueros / Almacenistas)
   const [isAddMaterialOpen, setIsAddMaterialOpen] = useState<boolean>(false);
   const [addMaterialCategory, setAddMaterialCategory] = useState<string>('CLASE_V_ARMA');
   const [targetWarehouseId, setTargetWarehouseId] = useState<string>('');
+
+  // Estados del modal de Movimiento y Asignación Doctrinal
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState<boolean>(false);
+  const [movementCategory, setMovementCategory] = useState<string>('CLASE_V_ARMA');
+  const [movementItemId, setMovementItemId] = useState<string>('');
+  const [movementItemDesc, setMovementItemDesc] = useState<string>('');
+  const [movementWarehouseId, setMovementWarehouseId] = useState<string>('');
+  const [movementCompanyId, setMovementCompanyId] = useState<string | undefined>(undefined);
+  const [movementSoldierId, setMovementSoldierId] = useState<string | undefined>(undefined);
 
   const warehouses = silogService.getWarehouses();
   const allowedWarehouses = currentUser 
@@ -84,6 +94,30 @@ export const App: React.FC = () => {
     showToast(message);
   };
 
+  const handleOpenMovementModal = (params: {
+    category: string;
+    itemId: string;
+    itemDescription: string;
+    warehouseId?: string;
+    companyId?: string;
+    soldierId?: string;
+  }) => {
+    setMovementCategory(params.category);
+    setMovementItemId(params.itemId);
+    setMovementItemDesc(params.itemDescription);
+    setMovementWarehouseId(params.warehouseId || selectedWarehouse.id);
+    setMovementCompanyId(params.companyId);
+    setMovementSoldierId(params.soldierId);
+    setIsMovementModalOpen(true);
+  };
+
+  const handleMovementSuccess = (message: string) => {
+    setRefreshKey(prev => prev + 1);
+    showToast(message);
+  };
+
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
+
   // Re-fetch dinámico utilizando refreshKey como dependencia implícita
   const weapons = silogService.getWeapons(selectedWarehouse.id);
   const ammoLots = silogService.getAmmoLots(selectedWarehouse.id);
@@ -130,7 +164,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Main Full-Width Container (Aprovechamiento total de pantalla hasta 1920px) */}
+      {/* Main Full-Width Container */}
       <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 py-5 space-y-6">
         {/* TAB PANORAMA GENERAL */}
         {activeTab === 'PANORAMA' && (
@@ -145,6 +179,9 @@ export const App: React.FC = () => {
                   <span className="text-[10px] font-bold text-blue-400 font-mono bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                     {selectedWarehouse.brigadeId || 'BRIGADA'}
                   </span>
+                  <span className="text-[10px] font-bold text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    {currentUser.roleTitle}
+                  </span>
                 </div>
                 <h2 className="text-2xl font-black text-white">
                   {selectedWarehouse.name}
@@ -157,13 +194,20 @@ export const App: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => handleOpenAddMaterial('CLASE_V_ARMA')}
-                  className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all flex items-center gap-2 border border-amber-400/50 active:scale-95"
-                >
-                  <span>➕</span>
-                  <span>Ingresar Material a este Depósito</span>
-                </button>
+                {canIngest ? (
+                  <button
+                    onClick={() => handleOpenAddMaterial('CLASE_V_ARMA')}
+                    className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all flex items-center gap-2 border border-amber-400/50 active:scale-95"
+                  >
+                    <span>➕</span>
+                    <span>Ingresar Material al Depósito</span>
+                  </button>
+                ) : (
+                  <div className="bg-slate-950/80 border border-slate-800 p-2.5 px-4 rounded-xl text-left">
+                    <span className="text-[10px] text-slate-400 block font-mono">POTESTAD DE INGRESO</span>
+                    <span className="text-xs font-bold text-amber-300">🔒 Exclusivo Bodega</span>
+                  </div>
+                )}
 
                 <div className="bg-slate-950/90 border border-slate-800 p-2.5 px-4 rounded-xl text-center">
                   <span className="text-[10px] text-slate-400 block font-mono">ENLACE SIGEP</span>
@@ -249,7 +293,7 @@ export const App: React.FC = () => {
             warehouses={warehouses}
             selectedWarehouse={selectedWarehouse}
             onSelectWarehouse={setSelectedWarehouse}
-            onOpenAddMaterial={(whId) => handleOpenAddMaterial('CLASE_V_ARMA', whId)}
+            onOpenAddMaterial={canIngest ? (whId) => handleOpenAddMaterial('CLASE_V_ARMA', whId) : undefined}
           />
         )}
 
@@ -258,6 +302,7 @@ export const App: React.FC = () => {
             weapons={weapons} 
             ammoLots={ammoLots}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -265,6 +310,7 @@ export const App: React.FC = () => {
           <IntendenciaClaseII 
             armors={armors}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -272,6 +318,7 @@ export const App: React.FC = () => {
           <AlimentacionClaseI 
             rations={rations}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -279,6 +326,7 @@ export const App: React.FC = () => {
           <SanidadClaseVIII 
             sanityItems={sanity}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -286,6 +334,7 @@ export const App: React.FC = () => {
           <ComunicacionesView 
             comms={comms}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -293,6 +342,7 @@ export const App: React.FC = () => {
           <MaterialEspecialView 
             optronics={optronics}
             onOpenAddMaterial={(cat) => handleOpenAddMaterial(cat)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -300,6 +350,7 @@ export const App: React.FC = () => {
           <KardexPersonalView
             profiles={profiles}
             onOpenPazYSalvo={(id) => setPazYSalvoSoldierId(id)}
+            onOpenMovementModal={handleOpenMovementModal}
           />
         )}
 
@@ -322,6 +373,20 @@ export const App: React.FC = () => {
         currentWarehouseId={targetWarehouseId || selectedWarehouse.id}
         initialCategory={addMaterialCategory}
         onSuccess={handleMaterialAdded}
+      />
+
+      {/* Modal de Cadena de Custodia, Transferencias y Asignaciones Doctrinales */}
+      <MovimientoMaterialModal
+        isOpen={isMovementModalOpen}
+        onClose={() => setIsMovementModalOpen(false)}
+        currentUser={currentUser}
+        itemCategory={movementCategory}
+        itemId={movementItemId}
+        itemDescription={movementItemDesc}
+        currentWarehouseId={movementWarehouseId}
+        currentCompanyId={movementCompanyId}
+        currentSoldierId={movementSoldierId}
+        onSuccess={handleMovementSuccess}
       />
     </div>
   );

@@ -34,6 +34,8 @@ export interface RationBatchItem {
   quantityOnHand: number;
   caloriesPerUnit: number;
   daysOfAutonomyEquivalent: number;
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
 }
 
 // -------------------------------------------------------------
@@ -50,6 +52,8 @@ export interface BallisticArmorItem {
   manufacturingDate: string;
   expirationDate: string; // Caducidad balística (5 a 7 años)
   status: 'OPERATIVO' | 'ASIGNADO' | 'EXPIRADO_REEMPLAZO' | 'DETERIORADO';
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
   assignedSoldierId?: string;
 }
 
@@ -65,6 +69,8 @@ export interface WeaponItem {
   status: 'OPERATIVO' | 'ASIGNADO' | 'EN_TALLER_BASPC' | 'BAJA_TECNICA';
   roundsFiredEstimate: number;
   lastMaintenanceDate: string;
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
   assignedSoldierId?: string;
 }
 
@@ -77,6 +83,8 @@ export interface AmmunitionLotItem {
   packagingType: 'CANANA_METALICA' | 'CAJA_MADERA' | 'PROVEEDORES_DOTACION';
   manufacturingYear: number;
   securityClassification: 'DOTACION_COMBATE' | 'RESERVA_ESTRATEGICA' | 'INSTRUCCION';
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
 }
 
 // -------------------------------------------------------------
@@ -90,6 +98,8 @@ export interface CommEquipmentItem {
   frequencyBand: 'VHF_UHF_SATCOM' | 'HF_TACTICO' | 'SATELITAL_ENCRIPTADO';
   status: 'OPERATIVO' | 'ASIGNADO' | 'EN_REPARACION_S6' | 'CALIBRACION';
   batteryType: 'BB_2590_LITIO' | 'LI_ION_RECARGABLE' | 'PANEL_SOLAR_CAMPANA';
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
   assignedSoldierId?: string;
   cryptoKeyLoaded: boolean;
 }
@@ -105,6 +115,8 @@ export interface SpecialOptronicsItem {
   generation: 'GEN_3_FOM_1800' | 'TERMICO_640x512' | 'INDUCCION_PULSOS';
   status: 'OPERATIVO' | 'ASIGNADO' | 'EN_MANTENIMIENTO' | 'BAJA_TECNICA';
   batteryLevelPct: number;
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
   assignedSoldierId?: string;
 }
 
@@ -120,6 +132,8 @@ export interface CombatSanityItem {
   tourniquetExpiration: string;
   hemostaticGauzeUnits: number;
   status: 'OPERATIVO' | 'ASIGNADO' | 'VENCIMIENTO_PROXIMO';
+  assignedCompanyId?: string;
+  assignedCompanyName?: string;
   assignedSoldierId?: string;
 }
 
@@ -179,10 +193,32 @@ export interface PlatoonCombatCapability {
 export type SilogUserRole = 
   | 'OFICIAL_S4' 
   | 'COMANDANTE_BASPC' 
+  | 'ALMACENISTA_CENTRAL_BASPC'
+  | 'BODEGUERO_BATALLON'
   | 'ALMACENISTA_CLASE_V' 
   | 'ALMACENISTA_CLASE_II_I' 
   | 'OFICIAL_COMUNICACIONES_S6' 
-  | 'OFICIAL_SANIDAD_S8';
+  | 'OFICIAL_SANIDAD_S8'
+  | 'ENCARGADO_COMPANIA'
+  | 'FURRIEL_PELOTON';
+
+export interface MaterialTransferRecord {
+  id: string;
+  timestamp: string;
+  materialType: 'CLASE_V_ARMA' | 'CLASE_V_MUNICION' | 'CLASE_II' | 'CLASE_I' | 'COMUNICACIONES' | 'ESPECIAL' | 'CLASE_VIII';
+  itemId: string;
+  itemDescription: string;
+  sourceType: 'BASPC_CENTRAL' | 'BATALLON_DEPOSITO' | 'COMPANIA';
+  sourceId: string;
+  sourceName: string;
+  destinationType: 'BATALLON_DEPOSITO' | 'ESTADO_MAYOR_BRIGADA' | 'COMPANIA' | 'SOLDADO_INDIVIDUAL';
+  destinationId: string;
+  destinationName: string;
+  authorizedByMilitaryId: string;
+  authorizedByName: string;
+  authorizedByRole: string;
+  remisionActNumber: string;
+}
 
 export interface SilogUser {
   id: string;

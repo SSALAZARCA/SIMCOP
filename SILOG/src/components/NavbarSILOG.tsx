@@ -79,15 +79,25 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
         {/* Acciones Rápidas: Botón de Alta de Material + Almacén + Usuario */}
         <div className="flex items-center gap-3">
           
-          {/* Botón Principal de Ingreso de Material */}
-          <button
-            onClick={onOpenAddMaterial}
-            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all active:scale-95 flex items-center gap-2 border border-amber-400/60"
-            title="Registrar nueva entrada de armamento, munición, intendencia o raciones"
-          >
-            <span className="text-sm">➕</span>
-            <span className="whitespace-nowrap">Ingresar Material</span>
-          </button>
+          {/* Botón de Ingreso de Material (Restringido estrictamente a Almacenistas y Bodegueros) */}
+          {silogAuthService.canIngestMaterial(currentUser) ? (
+            <button
+              onClick={onOpenAddMaterial}
+              className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-950/50 transition-all active:scale-95 flex items-center gap-2 border border-amber-400/60"
+              title="Registrar nueva entrada física de material bélico o víveres (Almacenistas y Bodegueros)"
+            >
+              <span className="text-sm">➕</span>
+              <span className="whitespace-nowrap">Ingresar Material</span>
+            </button>
+          ) : (
+            <div 
+              className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-[11px] font-mono flex items-center gap-1.5 cursor-not-allowed opacity-80"
+              title="Función doctrinal restringida: Solo Almacenistas y Bodegueros tienen potestad de dar de alta material en el almacén"
+            >
+              <span>🔒</span>
+              <span className="hidden sm:inline">Alta solo Bodega</span>
+            </div>
+          )}
 
           <div className="text-right hidden xl:block">
             <span className="text-[10px] text-slate-500 font-mono block">TIEMPO MILITAR ZULU</span>

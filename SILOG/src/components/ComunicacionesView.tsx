@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { CommEquipmentItem } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface ComunicacionesViewProps {
   comms: CommEquipmentItem[];
   onOpenAddMaterial?: (preselectedClass: string) => void;
+  onOpenMovementModal?: (params: any) => void;
 }
 
 export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({ 
   comms,
-  onOpenAddMaterial 
+  onOpenAddMaterial,
+  onOpenMovementModal 
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  const currentUser = silogAuthService.getCurrentUser();
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
 
   const filteredComms = comms.filter(c => {
     if (statusFilter === 'CRYPTO_OK' && !c.cryptoKeyLoaded) return false;
@@ -25,6 +31,7 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
         c.model.toLowerCase().includes(q) ||
         c.serialNumber.toLowerCase().includes(q) ||
         c.frequencyBand.toLowerCase().includes(q) ||
+        (c.assignedCompanyName && c.assignedCompanyName.toLowerCase().includes(q)) ||
         (c.assignedSoldierId && c.assignedSoldierId.toLowerCase().includes(q))
       );
     }
@@ -54,7 +61,7 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
             <span className="text-xl font-black text-white font-mono">{cryptoLoadedCount}/{comms.length}</span>
           </div>
 
-          {onOpenAddMaterial && (
+          {canIngest && onOpenAddMaterial ? (
             <button
               onClick={() => onOpenAddMaterial('COMUNICACIONES')}
               className="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-cyan-950/50 transition-all flex items-center gap-2 border border-cyan-400/50"
@@ -62,6 +69,10 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
               <span>➕</span>
               <span>Registrar Radio / Batería</span>
             </button>
+          ) : (
+            <div className="text-[11px] font-mono text-slate-500 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              🔒 Ingreso restringido a Bodegueros / Almacenistas
+            </div>
           )}
         </div>
       </div>
@@ -99,7 +110,7 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
           <span className="text-slate-500 text-xs">🔍</span>
           <input
             type="text"
-            placeholder="Buscar por serial, modelo, banda o soldado asignado..."
+            placeholder="Buscar por serial, modelo, banda, compañía o militar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
@@ -150,6 +161,7 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
                 <p className="text-[11px]">🔢 <strong className="text-slate-400">Serial:</strong> <span className="text-cyan-300">{c.serialNumber}</span></p>
                 <p className="text-[11px]">📶 <strong className="text-slate-400">Banda:</strong> <span className="text-slate-300">{c.frequencyBand}</span></p>
                 <p className="text-[11px]">🔋 <strong className="text-slate-400">Batería:</strong> <span className="text-amber-300">{c.batteryType}</span></p>
+                <p className="text-[11px]">🏢 <strong className="text-slate-400">Cía:</strong> <span className="text-blue-300">{c.assignedCompanyName || 'En Taller S-6'}</span></p>
                 <div className="flex items-center justify-between pt-1 text-[10px]">
                   <span className="text-slate-400">COMSEC:</span>
                   <span className={`font-bold px-1.5 py-0.5 rounded ${
@@ -161,11 +173,27 @@ export const ComunicacionesView: React.FC<ComunicacionesViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between">
-              <span className="text-slate-500">Asignado:</span>
-              <span className="font-mono font-bold text-blue-300 truncate max-w-[140px] text-right">
-                {c.assignedSoldierId || 'En Taller S-6'}
+            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between gap-1">
+              <span className="text-slate-500 font-mono text-[10px] truncate max-w-[90px]">
+                {c.assignedSoldierId ? c.assignedSoldierId : 'Libre'}
               </span>
+
+              {onOpenMovementModal && (
+                <button
+                  onClick={() => onOpenMovementModal({
+                    category: 'COMUNICACIONES',
+                    itemId: c.id,
+                    itemDescription: `${c.model.replace(/_/g, ' ')} (${c.serialNumber})`,
+                    warehouseId: c.warehouseId,
+                    companyId: c.assignedCompanyId,
+                    soldierId: c.assignedSoldierId
+                  })}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold transition flex items-center gap-1"
+                >
+                  <span>🚚</span>
+                  <span>Mover</span>
+                </button>
+              )}
             </div>
           </div>
         ))}

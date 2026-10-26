@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MilitaryWarehouse } from '../types';
 import { silogService } from '../services/silogService';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface IngresoMaterialModalProps {
   isOpen: boolean;
@@ -97,6 +98,13 @@ export const IngresoMaterialModal: React.FC<IngresoMaterialModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const currentUser = silogAuthService.getCurrentUser();
+    if (!silogAuthService.canIngestMaterial(currentUser)) {
+      alert("ACCIÓN DENEGADA: Según la doctrina logística militar, el ingreso de nuevo material físico es potestad exclusiva de los Almacenistas y Bodegueros autorizados.");
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
 
     try {

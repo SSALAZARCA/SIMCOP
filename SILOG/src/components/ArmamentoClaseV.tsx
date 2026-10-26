@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
 import { WeaponItem, AmmunitionLotItem } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface ArmamentoClaseVProps {
   weapons: WeaponItem[];
   ammoLots: AmmunitionLotItem[];
   onOpenAddMaterial?: (preselectedClass: string) => void;
+  onOpenMovementModal?: (params: any) => void;
 }
 
 export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({ 
   weapons, 
   ammoLots,
-  onOpenAddMaterial 
+  onOpenAddMaterial,
+  onOpenMovementModal
 }) => {
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const currentUser = silogAuthService.getCurrentUser();
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
 
   const filteredWeapons = weapons.filter(w => {
     if (filterType === 'FUSIL' && !w.model.includes('GALIL')) return false;
@@ -26,6 +32,7 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
         w.serialNumber.toLowerCase().includes(q) ||
         w.model.toLowerCase().includes(q) ||
         w.caliber.toLowerCase().includes(q) ||
+        (w.assignedCompanyName && w.assignedCompanyName.toLowerCase().includes(q)) ||
         (w.assignedSoldierId && w.assignedSoldierId.toLowerCase().includes(q))
       );
     }
@@ -50,7 +57,7 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
           </p>
         </div>
 
-        {onOpenAddMaterial && (
+        {canIngest && onOpenAddMaterial ? (
           <div className="flex items-center gap-2">
             <button
               onClick={() => onOpenAddMaterial('CLASE_V_ARMA')}
@@ -67,55 +74,63 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
               <span>Ingresar Lote Munición</span>
             </button>
           </div>
+        ) : (
+          <div className="text-[11px] font-mono text-slate-500 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+            🔒 Ingreso restringido a Bodegueros / Almacenistas
+          </div>
         )}
       </div>
 
-      {/* KPI Cards de Municiones en Línea */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 text-center">
-          <span className="text-2xl font-black text-amber-400 font-mono">{total556.toLocaleString()}</span>
-          <p className="text-xs font-bold text-slate-300 mt-0.5">Calibre 5.56×45mm</p>
-          <p className="text-[10px] text-slate-500">Cartuchos de Fusil Galil / ACE</p>
+      {/* KPI Cards de Municiones */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <span className="text-[10px] text-slate-400 font-mono block">MUNICIÓN 5.56x45mm</span>
+          <span className="text-xl font-black text-white font-mono">{total556.toLocaleString()}</span>
+          <span className="text-[10px] text-emerald-400 block mt-0.5">Dotación reglamentaria Galil</span>
         </div>
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 text-center">
-          <span className="text-2xl font-black text-red-400 font-mono">{total762.toLocaleString()}</span>
-          <p className="text-xs font-bold text-slate-300 mt-0.5">Calibre 7.62×51mm</p>
-          <p className="text-[10px] text-slate-500">Cananas Ametralladora M-60</p>
+
+        <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <span className="text-[10px] text-slate-400 font-mono block">MUNICIÓN 7.62x51mm</span>
+          <span className="text-xl font-black text-white font-mono">{total762.toLocaleString()}</span>
+          <span className="text-[10px] text-amber-400 block mt-0.5">Ametralladoras M-60 E4</span>
         </div>
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 text-center">
-          <span className="text-2xl font-black text-cyan-400 font-mono">{total40mm}</span>
-          <p className="text-xs font-bold text-slate-300 mt-0.5">Granadas 40mm HE</p>
-          <p className="text-[10px] text-slate-500">Dotación MGL / M203</p>
+
+        <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <span className="text-[10px] text-slate-400 font-mono block">GRANADAS 40mm HE</span>
+          <span className="text-xl font-black text-white font-mono">{total40mm}</span>
+          <span className="text-[10px] text-red-400 block mt-0.5">Lanzagranadas MGL / M203</span>
         </div>
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 text-center">
-          <span className="text-2xl font-black text-purple-400 font-mono">{total60mm}</span>
-          <p className="text-xs font-bold text-slate-300 mt-0.5">Bombas Mortero 60mm</p>
-          <p className="text-[10px] text-slate-500">Apoyo de Fuego Indirecto</p>
+
+        <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <span className="text-[10px] text-slate-400 font-mono block">BOMBAS MORTERO 60mm</span>
+          <span className="text-xl font-black text-white font-mono">{total60mm}</span>
+          <span className="text-[10px] text-cyan-400 block mt-0.5">Apoyo indirecto de Pelotón</span>
         </div>
       </div>
 
-      {/* Tabla de Armas con Búsqueda y Filtros */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
-          <div className="flex-1 min-w-[240px] max-w-md">
+      {/* Tabla de Armamento Orgánico con Asignación Doctrinal */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 md:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <span className="text-slate-500 text-xs">🔍</span>
             <input
               type="text"
+              placeholder="Buscar arma por serial, modelo, compañía o militar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Buscar por serial, modelo o soldado asignado..."
-              className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl p-2 px-3 text-xs text-white focus:outline-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex items-center gap-2">
             {['ALL', 'FUSIL', 'APOYO', 'TALLER'].map(t => (
               <button
                 key={t}
                 onClick={() => setFilterType(t)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition whitespace-nowrap ${
+                className={`text-xs px-3 py-1 rounded-lg font-bold transition ${
                   filterType === t 
-                    ? 'bg-amber-500 text-slate-950 font-black shadow-md' 
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-amber-600 text-slate-950' 
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
                 }`}
               >
                 {t === 'ALL' ? 'Todos los Tipos' : t === 'FUSIL' ? 'Fusiles' : t === 'APOYO' ? 'Apoyo Fuego' : 'En Taller'}
@@ -131,9 +146,11 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
                 <th className="p-3">Serial Militar</th>
                 <th className="p-3">Modelo</th>
                 <th className="p-3">Calibre</th>
-                <th className="p-3">Disparos Estimados</th>
+                <th className="p-3">Disparos</th>
                 <th className="p-3">Estado</th>
-                <th className="p-3">Asignación Kárdex</th>
+                <th className="p-3">Compañía Asignada</th>
+                <th className="p-3">Combatiente a Cargo</th>
+                <th className="p-3 text-right">Cadena Custodia</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
@@ -152,18 +169,48 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
                       {w.status.replace(/_/g, ' ')}
                     </span>
                   </td>
+                  <td className="p-3 text-xs">
+                    {w.assignedCompanyName ? (
+                      <span className="text-blue-300 font-bold bg-blue-950/40 px-2 py-0.5 rounded border border-blue-900/40">
+                        {w.assignedCompanyName}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 italic">En Bodega Batallón</span>
+                    )}
+                  </td>
                   <td className="p-3 font-mono text-xs">
                     {w.assignedSoldierId ? (
-                      <span className="text-amber-400 font-bold">{w.assignedSoldierId}</span>
+                      <span className="text-amber-400 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/40">
+                        {w.assignedSoldierId}
+                      </span>
                     ) : (
-                      <span className="text-slate-500">En Armerillo</span>
+                      <span className="text-slate-500">Sin asignar a soldado</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-right">
+                    {onOpenMovementModal && (
+                      <button
+                        onClick={() => onOpenMovementModal({
+                          category: 'CLASE_V_ARMA',
+                          itemId: w.id,
+                          itemDescription: `${w.model.replace(/_/g, ' ')} (${w.serialNumber})`,
+                          warehouseId: w.warehouseId,
+                          companyId: w.assignedCompanyId,
+                          soldierId: w.assignedSoldierId
+                        })}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border border-amber-500/30 rounded-lg font-bold text-[11px] transition inline-flex items-center gap-1"
+                        title="Despachar desde BASPC, distribuir a compañía o asignar a soldado"
+                      >
+                        <span>🚚</span>
+                        <span>Mover / Asignar</span>
+                      </button>
                     )}
                   </td>
                 </tr>
               ))}
               {filteredWeapons.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-500">
+                  <td colSpan={8} className="p-6 text-center text-slate-500">
                     No se encontró armamento con los filtros seleccionados.
                   </td>
                 </tr>
@@ -173,10 +220,10 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
         </div>
       </div>
 
-      {/* Tabla de Lotes de Munición */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+      {/* Lotes de Munición */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 md:p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
             <span>📦</span> Lotes de Munición y Pirotecnia en Polvorín
           </h3>
           <span className="text-xs font-mono text-slate-400">{ammoLots.length} lotes registrados</span>
@@ -192,6 +239,8 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
                 <th className="p-3">Año Fab.</th>
                 <th className="p-3">Empaque</th>
                 <th className="p-3">Clasificación</th>
+                <th className="p-3">Compañía Asignada</th>
+                <th className="p-3 text-right">Cadena Custodia</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
@@ -207,6 +256,30 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
                       {a.securityClassification.replace(/_/g, ' ')}
                     </span>
                   </td>
+                  <td className="p-3 text-xs">
+                    {a.assignedCompanyName ? (
+                      <span className="text-blue-300 font-bold">{a.assignedCompanyName}</span>
+                    ) : (
+                      <span className="text-slate-500 italic">En Polvorín Batallón</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-right">
+                    {onOpenMovementModal && (
+                      <button
+                        onClick={() => onOpenMovementModal({
+                          category: 'CLASE_V_MUNICION',
+                          itemId: a.id,
+                          itemDescription: `Lote ${a.lotNumber} (${a.quantityRounds.toLocaleString()} tiros ${a.caliber})`,
+                          warehouseId: a.warehouseId,
+                          companyId: a.assignedCompanyId
+                        })}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border border-amber-500/30 rounded-lg font-bold text-[11px] transition inline-flex items-center gap-1"
+                      >
+                        <span>🚚</span>
+                        <span>Mover Lote</span>
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -216,4 +289,3 @@ export const ArmamentoClaseV: React.FC<ArmamentoClaseVProps> = ({
     </div>
   );
 };
-

@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { SoldierLogisticsProfile } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface KardexPersonalViewProps {
   profiles: SoldierLogisticsProfile[];
   onOpenPazYSalvo: (soldierId: string) => void;
+  onOpenMovementModal?: (params: any) => void;
 }
 
-export const KardexPersonalView: React.FC<KardexPersonalViewProps> = ({ profiles, onOpenPazYSalvo }) => {
+export const KardexPersonalView: React.FC<KardexPersonalViewProps> = ({ 
+  profiles, 
+  onOpenPazYSalvo,
+  onOpenMovementModal 
+}) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const currentUser = silogAuthService.getCurrentUser();
+  const canAssignSoldier = silogAuthService.canAssignToSoldier(currentUser);
 
   const filtered = profiles.filter(p => 
     p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -16,14 +25,24 @@ export const KardexPersonalView: React.FC<KardexPersonalViewProps> = ({ profiles
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
+      {/* Encabezado Doctrinal */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-black text-amber-300 uppercase tracking-wider flex items-center gap-2 mb-1">
             <span>🪪</span> Kárdex de Dotación Individual del Combatiente (Cruce con SIGEP)
           </h2>
           <p className="text-xs text-slate-400">
-            Ficha nominal de material bélico, intendencia, sanidad y comunicaciones a cargo de cada militar importado desde la base de datos de personal de SIGEP.
+            Ficha nominal de material bélico, intendencia, sanidad y comunicaciones a cargo de cada militar.
+            {canAssignSoldier ? (
+              <span className="text-emerald-400 font-bold ml-1">
+                ✓ Usted tiene permiso para firmar cargos y asignar material a los soldados.
+              </span>
+            ) : (
+              <span className="text-amber-400/90 font-bold ml-1">
+                ℹ️ La asignación nominal es potestad exclusiva del Encargado de Compañía o Furriel de Pelotón.
+              </span>
+            )}
           </p>
         </div>
 
@@ -66,32 +85,68 @@ export const KardexPersonalView: React.FC<KardexPersonalViewProps> = ({ profiles
 
             {/* Hoja de Cargo de Material */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-              <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] text-amber-400 font-bold block uppercase">🔫 Armamento Principal</span>
-                {p.assignedWeapon ? (
-                  <>
-                    <p className="font-bold text-white">{p.assignedWeapon.model.replace(/_/g, ' ')}</p>
-                    <p className="font-mono text-slate-400 text-[11px]">Serial: {p.assignedWeapon.serialNumber}</p>
-                    <p className="text-[10px] text-emerald-400">{p.magazinesCount} Tolvas ({p.ammunitionRounds} Cartuchos)</p>
-                  </>
-                ) : (
-                  <span className="text-slate-500 italic">Sin arma asignada</span>
+              
+              {/* Armamento Principal */}
+              <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1 flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] text-amber-400 font-bold block uppercase">🔫 Armamento Principal</span>
+                  {p.assignedWeapon ? (
+                    <>
+                      <p className="font-bold text-white">{p.assignedWeapon.model.replace(/_/g, ' ')}</p>
+                      <p className="font-mono text-slate-400 text-[11px]">Serial: {p.assignedWeapon.serialNumber}</p>
+                      <p className="text-[10px] text-emerald-400">{p.magazinesCount} Tolvas ({p.ammunitionRounds} Cartuchos)</p>
+                    </>
+                  ) : (
+                    <span className="text-slate-500 italic block py-1">Sin fusil asignado</span>
+                  )}
+                </div>
+
+                {canAssignSoldier && p.assignedWeapon && onOpenMovementModal && (
+                  <button
+                    onClick={() => onOpenMovementModal({
+                      category: 'CLASE_V_ARMA',
+                      itemId: p.assignedWeapon?.id || '',
+                      itemDescription: `${p.assignedWeapon?.model.replace(/_/g, ' ')} (${p.assignedWeapon?.serialNumber})`,
+                      soldierId: p.soldierId
+                    })}
+                    className="mt-1 text-[10px] text-amber-300 hover:text-white font-bold underline text-left"
+                  >
+                    Reintegrar o transferir fusil →
+                  </button>
                 )}
               </div>
 
-              <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
-                <span className="text-[10px] text-blue-400 font-bold block uppercase">🛡️ Blindaje y Casco</span>
-                {p.assignedArmor ? (
-                  <>
-                    <p className="font-bold text-white">Chaleco Nivel IV (Talla {p.assignedArmor.size})</p>
-                    <p className="font-mono text-slate-400 text-[11px]">Placa: {p.assignedArmor.frontPlateSerial || p.assignedArmor.serialNumber}</p>
-                    <p className="text-[10px] text-slate-500">Vence: {p.assignedArmor.expirationDate}</p>
-                  </>
-                ) : (
-                  <span className="text-slate-500 italic">Sin chaleco a cargo</span>
+              {/* Blindaje y Casco */}
+              <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1 flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] text-blue-400 font-bold block uppercase">🛡️ Blindaje y Casco</span>
+                  {p.assignedArmor ? (
+                    <>
+                      <p className="font-bold text-white">Chaleco Nivel IV (Talla {p.assignedArmor.size})</p>
+                      <p className="font-mono text-slate-400 text-[11px]">Placa: {p.assignedArmor.frontPlateSerial || p.assignedArmor.serialNumber}</p>
+                      <p className="text-[10px] text-slate-500">Vence: {p.assignedArmor.expirationDate}</p>
+                    </>
+                  ) : (
+                    <span className="text-slate-500 italic block py-1">Sin chaleco a cargo</span>
+                  )}
+                </div>
+
+                {canAssignSoldier && p.assignedArmor && onOpenMovementModal && (
+                  <button
+                    onClick={() => onOpenMovementModal({
+                      category: 'CLASE_II',
+                      itemId: p.assignedArmor?.id || '',
+                      itemDescription: `Chaleco Nivel IV (${p.assignedArmor?.serialNumber})`,
+                      soldierId: p.soldierId
+                    })}
+                    className="mt-1 text-[10px] text-blue-300 hover:text-white font-bold underline text-left"
+                  >
+                    Reintegrar o transferir chaleco →
+                  </button>
                 )}
               </div>
 
+              {/* Comunicaciones / Especial */}
               <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
                 <span className="text-[10px] text-purple-400 font-bold block uppercase">📡 Comunicaciones / Especial</span>
                 {p.assignedCommRadio ? (
@@ -105,10 +160,11 @@ export const KardexPersonalView: React.FC<KardexPersonalViewProps> = ({ profiles
                     <p className="font-mono text-slate-400 text-[11px]">Serial: {p.assignedNightVision.serialNumber}</p>
                   </>
                 ) : (
-                  <span className="text-slate-500 italic">Equipo orgánico regular</span>
+                  <span className="text-slate-500 italic block py-1">Equipo orgánico regular</span>
                 )}
               </div>
 
+              {/* Subsistencia & Sanidad */}
               <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
                 <span className="text-[10px] text-emerald-400 font-bold block uppercase">🍱 Subsistencia & Sanidad</span>
                 <p className="font-bold text-white">{p.rationsOnHand} Raciones MRE ({p.rationsOnHand / 3} días)</p>

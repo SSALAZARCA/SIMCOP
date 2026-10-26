@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
 import { SpecialOptronicsItem } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface MaterialEspecialViewProps {
   optronics: SpecialOptronicsItem[];
   onOpenAddMaterial?: (preselectedClass: string) => void;
+  onOpenMovementModal?: (params: any) => void;
 }
 
 export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({ 
   optronics,
-  onOpenAddMaterial 
+  onOpenAddMaterial,
+  onOpenMovementModal 
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  const currentUser = silogAuthService.getCurrentUser();
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
+
   const filteredOptronics = optronics.filter(o => {
-    if (statusFilter === 'PVS14' && !o.deviceType.includes('PVS_14')) return false;
-    if (statusFilter === 'DRON' && !o.deviceType.includes('UAV') && !o.deviceType.includes('DRON')) return false;
-    if (statusFilter === 'TERMICA' && !o.deviceType.includes('TERMICA')) return false;
+    if (statusFilter === 'PVS14' && !o.deviceType.includes('PVS14')) return false;
+    if (statusFilter === 'DRON' && !o.deviceType.includes('MAVIC') && !o.deviceType.includes('DRON')) return false;
+    if (statusFilter === 'TERMICA' && !o.deviceType.includes('PAS13') && !o.deviceType.includes('TERMICA')) return false;
     if (statusFilter === 'VALLON' && !o.deviceType.includes('VALLON')) return false;
 
     if (searchTerm) {
@@ -25,15 +31,16 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
         o.deviceType.toLowerCase().includes(q) ||
         o.serialNumber.toLowerCase().includes(q) ||
         o.generation.toLowerCase().includes(q) ||
+        (o.assignedCompanyName && o.assignedCompanyName.toLowerCase().includes(q)) ||
         (o.assignedSoldierId && o.assignedSoldierId.toLowerCase().includes(q))
       );
     }
     return true;
   });
 
-  const totalPvs = optronics.filter(o => o.deviceType.includes('PVS_14')).length;
-  const totalDrones = optronics.filter(o => o.deviceType.includes('UAV') || o.deviceType.includes('DRON')).length;
-  const totalThermal = optronics.filter(o => o.deviceType.includes('TERMICA')).length;
+  const totalPvs = optronics.filter(o => o.deviceType.includes('PVS14')).length;
+  const totalDrones = optronics.filter(o => o.deviceType.includes('MAVIC') || o.deviceType.includes('DRON')).length;
+  const totalThermal = optronics.filter(o => o.deviceType.includes('PAS13') || o.deviceType.includes('TERMICA')).length;
   const totalVallon = optronics.filter(o => o.deviceType.includes('VALLON')).length;
 
   return (
@@ -55,7 +62,7 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
             <span className="text-xl font-black text-white font-mono">{totalPvs + totalThermal} EQUIPOS</span>
           </div>
 
-          {onOpenAddMaterial && (
+          {canIngest && onOpenAddMaterial ? (
             <button
               onClick={() => onOpenAddMaterial('ESPECIAL')}
               className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-indigo-950/50 transition-all flex items-center gap-2 border border-indigo-400/50"
@@ -63,6 +70,10 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
               <span>➕</span>
               <span>Registrar Optrónica / Dron</span>
             </button>
+          ) : (
+            <div className="text-[11px] font-mono text-slate-500 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              🔒 Ingreso restringido a Bodegueros / Almacenistas
+            </div>
           )}
         </div>
       </div>
@@ -100,7 +111,7 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
           <span className="text-slate-500 text-xs">🔍</span>
           <input
             type="text"
-            placeholder="Buscar por serial, tipo de dispositivo, tecnología o soldado..."
+            placeholder="Buscar por serial, tipo de dispositivo, compañía o soldado..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
@@ -146,6 +157,7 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
               <div className="space-y-1 text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800 font-mono">
                 <p className="text-[11px]">🔢 <strong className="text-slate-400">Serial:</strong> <span className="text-cyan-300">{o.serialNumber}</span></p>
                 <p className="text-[11px]">🔬 <strong className="text-slate-400">Generación:</strong> <span className="text-slate-300">{o.generation}</span></p>
+                <p className="text-[11px]">🏢 <strong className="text-slate-400">Cía:</strong> <span className="text-blue-300">{o.assignedCompanyName || 'En Armerillo Especial'}</span></p>
                 <div className="flex items-center justify-between pt-1 text-[11px]">
                   <span className="text-slate-400">Batería:</span>
                   <div className="flex items-center gap-1.5">
@@ -161,11 +173,27 @@ export const MaterialEspecialView: React.FC<MaterialEspecialViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between">
-              <span className="text-slate-500">Asignado:</span>
-              <span className="font-mono font-bold text-blue-300 truncate max-w-[140px] text-right">
-                {o.assignedSoldierId || 'En Armerillo Especial'}
+            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between gap-1">
+              <span className="text-slate-500 font-mono text-[10px] truncate max-w-[90px]">
+                {o.assignedSoldierId ? o.assignedSoldierId : 'Libre'}
               </span>
+
+              {onOpenMovementModal && (
+                <button
+                  onClick={() => onOpenMovementModal({
+                    category: 'ESPECIAL',
+                    itemId: o.id,
+                    itemDescription: `${o.deviceType.replace(/_/g, ' ')} (${o.serialNumber})`,
+                    warehouseId: o.warehouseId,
+                    companyId: o.assignedCompanyId,
+                    soldierId: o.assignedSoldierId
+                  })}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold transition flex items-center gap-1"
+                >
+                  <span>🚚</span>
+                  <span>Mover</span>
+                </button>
+              )}
             </div>
           </div>
         ))}

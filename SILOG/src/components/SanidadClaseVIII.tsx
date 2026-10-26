@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { CombatSanityItem } from '../types';
+import { silogAuthService } from '../services/silogAuthService';
 
 interface SanidadClaseVIIIProps {
   sanityItems: CombatSanityItem[];
   onOpenAddMaterial?: (preselectedClass: string) => void;
+  onOpenMovementModal?: (params: any) => void;
 }
 
 export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({ 
   sanityItems,
-  onOpenAddMaterial 
+  onOpenAddMaterial,
+  onOpenMovementModal 
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  const currentUser = silogAuthService.getCurrentUser();
+  const canIngest = silogAuthService.canIngestMaterial(currentUser);
 
   const filteredItems = sanityItems.filter(s => {
     if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
@@ -22,6 +28,7 @@ export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({
         s.kitType.toLowerCase().includes(q) ||
         s.serialOrLotNumber.toLowerCase().includes(q) ||
         s.tourniquetCatLot.toLowerCase().includes(q) ||
+        (s.assignedCompanyName && s.assignedCompanyName.toLowerCase().includes(q)) ||
         (s.assignedSoldierId && s.assignedSoldierId.toLowerCase().includes(q))
       );
     }
@@ -52,7 +59,7 @@ export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({
             <span className="text-xl font-black text-white font-mono">{totalTourniquets} UNID</span>
           </div>
 
-          {onOpenAddMaterial && (
+          {canIngest && onOpenAddMaterial ? (
             <button
               onClick={() => onOpenAddMaterial('CLASE_VIII')}
               className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-950/50 transition-all flex items-center gap-2 border border-red-400/50"
@@ -60,6 +67,10 @@ export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({
               <span>➕</span>
               <span>Registrar IFAK / Sanidad</span>
             </button>
+          ) : (
+            <div className="text-[11px] font-mono text-slate-500 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              🔒 Ingreso restringido a Bodegueros / Almacenistas
+            </div>
           )}
         </div>
       </div>
@@ -97,7 +108,7 @@ export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({
           <span className="text-slate-500 text-xs">🔍</span>
           <input
             type="text"
-            placeholder="Buscar por serial, lote CAT, tipo o soldado asignado..."
+            placeholder="Buscar por serial, lote CAT, tipo, compañía o militar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-red-500"
@@ -139,14 +150,31 @@ export const SanidadClaseVIII: React.FC<SanidadClaseVIIIProps> = ({
                 <p className="text-[11px]">🩸 <strong className="text-slate-400">Lote CAT:</strong> <span className="text-red-300">{s.tourniquetCatLot}</span></p>
                 <p className="text-[11px]">⏳ <strong className="text-slate-400">Vigencia:</strong> <span className="text-slate-400">{s.tourniquetExpiration}</span></p>
                 <p className="text-[11px]">🩹 <strong className="text-slate-400">Gasas Hemost.:</strong> <span className="text-amber-300 font-bold">{s.hemostaticGauzeUnits} u.</span></p>
+                <p className="text-[11px]">🏢 <strong className="text-slate-400">Cía:</strong> <span className="text-blue-300">{s.assignedCompanyName || 'En Almacén'}</span></p>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between">
-              <span className="text-slate-500">Asignado:</span>
-              <span className="font-mono font-bold text-blue-300 truncate max-w-[140px] text-right">
-                {s.assignedSoldierId || 'Almacén/Botiquín'}
+            <div className="pt-2 border-t border-slate-800 text-[11px] flex items-center justify-between gap-1">
+              <span className="text-slate-500 font-mono text-[10px] truncate max-w-[90px]">
+                {s.assignedSoldierId ? s.assignedSoldierId : 'Libre'}
               </span>
+
+              {onOpenMovementModal && (
+                <button
+                  onClick={() => onOpenMovementModal({
+                    category: 'CLASE_VIII',
+                    itemId: s.id,
+                    itemDescription: `${s.kitType.replace(/_/g, ' ')} (${s.serialOrLotNumber})`,
+                    warehouseId: s.warehouseId,
+                    companyId: s.assignedCompanyId,
+                    soldierId: s.assignedSoldierId
+                  })}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold transition flex items-center gap-1"
+                >
+                  <span>🚚</span>
+                  <span>Mover</span>
+                </button>
+              )}
             </div>
           </div>
         ))}

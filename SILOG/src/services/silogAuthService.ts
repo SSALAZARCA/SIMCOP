@@ -32,16 +32,16 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-98451204'
     },
     passwordHash: 'logistica2026',
-    description: 'Estado Mayor de Brigada: Mando y control logístico general sobre BASPC-16, BI-44, GM-16 y BEING-16'
+    description: 'Auditoría y Supervisión de Estado Mayor: Mando logístico y emisión de Paz y Salvo. NO realiza ingreso físico de bodega.'
   },
   {
     user: {
-      id: 'USR-BASPC-16',
-      username: 'cmdte.baspc16',
-      fullName: 'Andrés Villar Hernández',
-      rank: 'TC.',
-      role: 'COMANDANTE_BASPC',
-      roleTitle: 'Comandante BASPC No. 16 (Almacén Centralizador)',
+      id: 'USR-ALM-BASPC16',
+      username: 'almacen.baspc16',
+      fullName: 'Hernán Gómez Silva',
+      rank: 'SM.',
+      role: 'ALMACENISTA_CENTRAL_BASPC',
+      roleTitle: 'Almacenista Centralizador - BASPC No. 16',
       unit: 'BASPC-16',
       unitName: 'Batallón de Apoyo y Servicios No. 16',
       assignedUnitId: 'BASPC-16',
@@ -52,16 +52,16 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-79812450'
     },
     passwordHash: 'baspc2026',
-    description: 'Almacén Centralizador de Casanare: Reserva de guerra de Brigada, polvorines y convoyes de reabastecimiento'
+    description: 'Almacén Centralizador BASPC: Ingresa material nuevo al polvorín y lo asigna/despacha a los Batallones (BI-44, GM-16) o Estado Mayor.'
   },
   {
     user: {
-      id: 'USR-ARMAS-BI44',
-      username: 'almacen.armas.bi44',
+      id: 'USR-BOD-BI44',
+      username: 'bodeguero.bi44',
       fullName: 'Milton Vargas Peña',
       rank: 'SS.',
-      role: 'ALMACENISTA_CLASE_V',
-      roleTitle: 'Custodio Armamento y Municiones - BI-44',
+      role: 'BODEGUERO_BATALLON',
+      roleTitle: 'Bodeguero / Almacenista Depósito Táctico - BI-44',
       unit: 'BI-44',
       unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
       assignedUnitId: 'BI-44',
@@ -71,28 +71,28 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       securityClearance: 'SECRETO',
       militaryId: 'CC-1085293401'
     },
-    passwordHash: 'armamento2026',
-    description: 'Depósito Táctico Tauramena: Fusiles Galil, ametralladoras M-60 y lotes de munición del BI-44'
+    passwordHash: 'bodega2026',
+    description: 'Bodega de Batallón: Ingresa material del batallón y lo asigna o mueve internamente entre las Compañías (Cía A, B, C).'
   },
   {
     user: {
-      id: 'USR-INT-BI44',
-      username: 'almacen.int.bi44',
-      fullName: 'Carlos Rentería Bravo',
-      rank: 'SV.',
-      role: 'ALMACENISTA_CLASE_II_I',
-      roleTitle: 'Custodio Intendencia y Subsistencias - BI-44',
+      id: 'USR-CIA-BI44',
+      username: 'encargado.cia.bi44',
+      fullName: 'Carlos Eduardo Morales',
+      rank: 'CT.',
+      role: 'ENCARGADO_COMPANIA',
+      roleTitle: 'Comandante de Compañía A "Vencedores" - BI-44',
       unit: 'BI-44',
-      unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
+      unitName: 'Compañía A - BI-44 Ramón Nonato Pérez',
       assignedUnitId: 'BI-44',
-      assignedEchelon: 'BATALLON',
+      assignedEchelon: 'COMPANIA',
       warehouseId: 'WH-BI-44',
       allowedWarehouseIds: ['WH-BI-44'],
       securityClearance: 'RESERVADO',
       militaryId: 'CC-1087452119'
     },
-    passwordHash: 'intendencia2026',
-    description: 'Chalecos Nivel IV, cascos Kevlar con placas cerámicas y raciones MRE para las compañías del BI-44'
+    passwordHash: 'compania2026',
+    description: 'Compañía / Pelotón: Toma el material asignado a la compañía y lo asigna individualmente a cada combatiente en el Kárdex SIGEP.'
   },
 
   // ==========================================================================
@@ -115,16 +115,16 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-1014892033'
     },
     passwordHash: 'arauca2026',
-    description: 'Estado Mayor de Brigada Arauca: Supervisión de depósitos tácticos en Saravena y Tame'
+    description: 'Estado Mayor de Brigada Arauca: Supervisión de depósitos tácticos en Saravena y Tame.'
   },
   {
     user: {
-      id: 'USR-ARMAS-BI24',
-      username: 'almacen.armas.bi24',
+      id: 'USR-BOD-BI24',
+      username: 'bodeguero.bi24',
       fullName: 'David Roa Martínez',
       rank: 'SS.',
-      role: 'ALMACENISTA_CLASE_V',
-      roleTitle: 'Custodio Armamento - BI-24 Saravena',
+      role: 'BODEGUERO_BATALLON',
+      roleTitle: 'Bodeguero Depósito Táctico - BI-24 Saravena',
       unit: 'BI-24',
       unitName: 'Batallón de Infantería No. 24 Luis Tovar Lucero',
       assignedUnitId: 'BI-24',
@@ -135,7 +135,27 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-1032849102'
     },
     passwordHash: 'saravena2026',
-    description: 'Depósito Táctico Saravena: Gestión exclusiva de material y municiones del BI-24'
+    description: 'Depósito Táctico Saravena: Ingresa material y distribuye hacia las compañías del BI-24.'
+  },
+  {
+    user: {
+      id: 'USR-CIA-BI24',
+      username: 'encargado.cia.bi24',
+      fullName: 'Javier Parra Rueda',
+      rank: 'TE.',
+      role: 'ENCARGADO_COMPANIA',
+      roleTitle: 'Comandante de Compañía B - BI-24 Saravena',
+      unit: 'BI-24',
+      unitName: 'Compañía B - BI-24 Luis Tovar Lucero',
+      assignedUnitId: 'BI-24',
+      assignedEchelon: 'COMPANIA',
+      warehouseId: 'WH-BI-24',
+      allowedWarehouseIds: ['WH-BI-24'],
+      securityClearance: 'RESERVADO',
+      militaryId: 'CC-1090334811'
+    },
+    passwordHash: 'compania2026',
+    description: 'Línea de Operaciones Arauca: Asigna fusiles, chalecos e IFAKs individualmente a los soldados de su compañía.'
   },
 
   // ==========================================================================
@@ -158,16 +178,16 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-98451299'
     },
     passwordHash: 'logistica2026',
-    description: 'Estado Mayor de Brigada Nariño: Mando logístico sobre BASPC-23, BIP-09 y base patrulla Samaniego'
+    description: 'Estado Mayor de Brigada Nariño: Mando logístico sobre BASPC-23, BIP-09 y base patrulla Samaniego.'
   },
   {
     user: {
-      id: 'USR-BASPC-23',
-      username: 'cmdte.baspc23',
-      fullName: 'Juan Pablo Valderrama Mora',
-      rank: 'MY.',
-      role: 'COMANDANTE_BASPC',
-      roleTitle: 'Comandante BASPC No. 23 "Pastos"',
+      id: 'USR-ALM-BASPC23',
+      username: 'almacen.baspc23',
+      fullName: 'Hernando Beltrán Rivas',
+      rank: 'SM.',
+      role: 'ALMACENISTA_CENTRAL_BASPC',
+      roleTitle: 'Almacenista Centralizador - BASPC No. 23 "Pastos"',
       unit: 'BASPC-23',
       unitName: 'Batallón de Apoyo y Servicios No. 23',
       assignedUnitId: 'BASPC-23',
@@ -178,16 +198,16 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-79812451'
     },
     passwordHash: 'baspc2026',
-    description: 'Almacén Centralizador de Pasto: Reserva estratégica de Brigada y convoyes hacia la cordillera y costa'
+    description: 'Almacén Centralizador de Pasto: Ingresa armamento y suministros y los asigna/despacha al BIP-09 o a la 23ª Brigada.'
   },
   {
     user: {
-      id: 'USR-BIP-09',
-      username: 'almacen.bip09',
+      id: 'USR-BOD-BIP09',
+      username: 'bodeguero.bip09',
       fullName: 'Mauricio Quintero López',
       rank: 'SS.',
-      role: 'ALMACENISTA_CLASE_V',
-      roleTitle: 'Custodio Depósito Táctico - BIP No. 9',
+      role: 'BODEGUERO_BATALLON',
+      roleTitle: 'Bodeguero Depósito Táctico - BIP No. 9',
       unit: 'BIP-09',
       unitName: 'Batallón de Infantería No. 9 Batalla de Boyacá',
       assignedUnitId: 'BIP-09',
@@ -198,7 +218,7 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-1085293499'
     },
     passwordHash: 'ipiales2026',
-    description: 'Depósito Táctico de Ipiales: Control de armamento y suministros del Batallón de Infantería No. 9'
+    description: 'Depósito Táctico Ipiales: Ingresa material del batallón y lo abastece a las compañías y bases de patrulla avanzadas.'
   },
   {
     user: {
@@ -206,8 +226,8 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       username: 'furriel.aura1',
       fullName: 'Edwin Rodríguez Benítez',
       rank: 'CP.',
-      role: 'ALMACENISTA_CLASE_V',
-      roleTitle: 'Furriel Armerillo Avanzado - Pelotón Aura 1',
+      role: 'FURRIEL_PELOTON',
+      roleTitle: 'Furriel / Encargado de Pelotón Aura 1',
       unit: 'PEL-AURA-1',
       unitName: 'Pelotón Aura 1 (Compañía B - BIP 9)',
       assignedUnitId: 'PEL-AURA-1',
@@ -218,7 +238,7 @@ const PREDEFINED_USERS: PredefinedSilogCredential[] = [
       militaryId: 'CC-1087452900'
     },
     passwordHash: 'samaniego2026',
-    description: 'Armerillo de Campaña Samaniego: Control directo del kárdex individual de los 36 soldados en combate'
+    description: 'Base Patrulla Samaniego: Asigna individualmente el fusil, chaleco balístico, radio y raciones a cada soldado en combate.'
   }
 ];
 
@@ -315,6 +335,65 @@ class SilogAuthService {
     return this.getCurrentUser() !== null;
   }
 
+  // ==========================================================================
+  // REGLAS DOCTRINALES DE PERMISOS (CADENA DE CUSTODIA MILITAR)
+  // ==========================================================================
+
+  /**
+   * 1. INGRESO DE MATERIAL (ALTA EN ALMACÉN):
+   * Solo Almacenistas y Bodegueros pueden ingresar material nuevo al sistema.
+   * Oficiales de Estado Mayor (S-4) o mandos tácticos NO ingresan material.
+   */
+  public canIngestMaterial(user?: SilogUser | null): boolean {
+    const u = user || this.getCurrentUser();
+    if (!u) return false;
+    return [
+      'ALMACENISTA_CENTRAL_BASPC',
+      'BODEGUERO_BATALLON',
+      'ALMACENISTA_CLASE_V',
+      'ALMACENISTA_CLASE_II_I',
+      'OFICIAL_COMUNICACIONES_S6',
+      'OFICIAL_SANIDAD_S8'
+    ].includes(u.role);
+  }
+
+  /**
+   * 2. DESPACHO CENTRALIZADOR BASPC:
+   * Solo los Almacenistas Centralizadores de los BASPC pueden asignar y transferir
+   * material desde el almacén central hacia los Batallones o unidades de Estado Mayor (Brigada/División).
+   */
+  public canDispatchFromBaspc(user?: SilogUser | null): boolean {
+    const u = user || this.getCurrentUser();
+    if (!u) return false;
+    return u.role === 'ALMACENISTA_CENTRAL_BASPC' || u.role === 'COMANDANTE_BASPC';
+  }
+
+  /**
+   * 3. ASIGNACIÓN INTERNA DE BATALLÓN HACIA COMPAÑÍAS:
+   * Solo los Bodegueros de Batallón pueden asignar o mover este material
+   * dentro de las Compañías orgánicas del batallón.
+   */
+  public canAssignToCompany(user?: SilogUser | null): boolean {
+    const u = user || this.getCurrentUser();
+    if (!u) return false;
+    return [
+      'BODEGUERO_BATALLON',
+      'ALMACENISTA_CLASE_V',
+      'ALMACENISTA_CLASE_II_I'
+    ].includes(u.role);
+  }
+
+  /**
+   * 4. ASIGNACIÓN INDIVIDUAL NOMINAL AL COMBATIENTE:
+   * Solo los Encargados de las Compañías y Pelotones (Comandante de Cía, Furriel de Pelotón)
+   * pueden asignar el material individualmente a cada hombre (cédula en Kárdex SIGEP).
+   */
+  public canAssignToSoldier(user?: SilogUser | null): boolean {
+    const u = user || this.getCurrentUser();
+    if (!u) return false;
+    return u.role === 'ENCARGADO_COMPANIA' || u.role === 'FURRIEL_PELOTON';
+  }
+
   public getSimcopBrigades(): { id: string; name: string }[] {
     return [
       { id: 'ALL', name: 'Todas las Unidades de la Estructura de Fuerza' },
@@ -345,6 +424,13 @@ class SilogAuthService {
     }
 
     switch (role) {
+      case 'ALMACENISTA_CENTRAL_BASPC':
+        return ['PANORAMA', 'ALMACENES', 'CLASE_V', 'CLASE_II', 'CLASE_I', 'CLASE_VIII', 'COMUNICACIONES', 'ESPECIAL', 'PODER_FUEGO'].includes(tabId);
+      case 'BODEGUERO_BATALLON':
+        return ['PANORAMA', 'ALMACENES', 'CLASE_V', 'CLASE_II', 'CLASE_I', 'CLASE_VIII', 'COMUNICACIONES', 'ESPECIAL', 'KARDEX_PERSONAL', 'PODER_FUEGO'].includes(tabId);
+      case 'ENCARGADO_COMPANIA':
+      case 'FURRIEL_PELOTON':
+        return ['PANORAMA', 'CLASE_V', 'CLASE_II', 'CLASE_I', 'COMUNICACIONES', 'ESPECIAL', 'CLASE_VIII', 'KARDEX_PERSONAL', 'PODER_FUEGO'].includes(tabId);
       case 'ALMACENISTA_CLASE_V':
         return ['PANORAMA', 'ALMACENES', 'CLASE_V', 'KARDEX_PERSONAL', 'PODER_FUEGO'].includes(tabId);
       case 'ALMACENISTA_CLASE_II_I':

@@ -13,7 +13,8 @@ import {
   SpecialOptronicsItem, 
   CombatSanityItem, 
   SoldierLogisticsProfile, 
-  PlatoonCombatCapability 
+  PlatoonCombatCapability,
+  MaterialTransferRecord 
 } from '../types';
 
 // Almacenes Centralizadores (BASPC) y Depósitos de Batallón concordantes con la Estructura de Fuerza SIMCOP
@@ -640,6 +641,264 @@ class SilogService {
       nightReadinessPct: nightReadiness,
       tacticalAdvisoryForSimcop: advisory
     };
+  }
+
+  // ==========================================================================
+  // ESCALONAMIENTO DOCTRINAL: TRANSFERENCIAS Y ASIGNACIONES MILITARES
+  // ==========================================================================
+  private transferAuditLog: MaterialTransferRecord[] = [];
+
+  public getTransferAuditLog(): MaterialTransferRecord[] {
+    return this.transferAuditLog;
+  }
+
+  /**
+   * 1. DESPACHO DESDE ALMACÉN CENTRALIZADOR BASPC HACIA BATALLÓN O ESTADO MAYOR
+   * Potestad exclusiva de: ALMACENISTA_CENTRAL_BASPC o COMANDANTE_BASPC
+   */
+  public transferBaspcToBattalion(
+    category: string,
+    itemId: string,
+    targetWarehouseId: string,
+    authorizedByMilitaryId: string,
+    authorizedByName: string,
+    authorizedByRole: string
+  ): { success: boolean; message: string; remisionAct?: string } {
+    const targetWh = this.warehouses.find(w => w.id === targetWarehouseId);
+    if (!targetWh) {
+      return { success: false, message: 'Almacén o unidad militar de destino no encontrada en la Estructura de Fuerza.' };
+    }
+
+    const item = this.findItemByCategoryAndId(category, itemId);
+    if (!item) {
+      return { success: false, message: 'Material bélico o lote no encontrado en el inventario activo.' };
+    }
+
+    const sourceWh = this.warehouses.find(w => w.id === item.warehouseId);
+    const remisionAct = `ACTA-BASPC-${Date.now().toString().slice(-6)}`;
+
+    // Ejecutar transferencia física del almacén
+    item.warehouseId = targetWarehouseId;
+    // Resetear asignaciones tácticas internas previas
+    delete (item as any).assignedCompanyId;
+    delete (item as any).assignedCompanyName;
+    delete (item as any).assignedSoldierId;
+    if ((item as any).status === 'ASIGNADO') {
+      (item as any).status = 'OPERATIVO';
+    }
+
+    const record: MaterialTransferRecord = {
+      id: `TR-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      materialType: category as any,
+      itemId,
+      itemDescription: (item as any).model || (item as any).armorType || (item as any).menuNumber || (item as any).kitType || (item as any).deviceType || (item as any).lotNumber || itemId,
+      sourceType: 'BASPC_CENTRAL',
+      sourceId: sourceWh?.id || 'BASPC',
+      sourceName: sourceWh?.name || 'Almacén BASPC',
+      destinationType: targetWh.type === 'BATALLON_DEPOSITO' ? 'BATALLON_DEPOSITO' : 'ESTADO_MAYOR_BRIGADA',
+      destinationId: targetWh.id,
+      destinationName: targetWh.name,
+      authorizedByMilitaryId,
+      authorizedByName,
+      authorizedByRole,
+      remisionActNumber: remisionAct
+    };
+
+    this.transferAuditLog.unshift(record);
+
+    return {
+      success: true,
+      remisionAct,
+      message: `Despacho militar formalizado (${remisionAct}): Material transferido desde ${sourceWh?.unitName || 'BASPC'} hacia ${targetWh.name}.`
+    };
+  }
+
+  /**
+   * 2. ASIGNACIÓN O MOVIMIENTO DESDE DEPÓSITO DE BATALLÓN HACIA UNA COMPAÑÍA
+   * Potestad exclusiva de: BODEGUERO_BATALLON o ALMACENISTAS DE BATALLÓN
+   */
+  public assignBattalionToCompany(
+    category: string,
+    itemId: string,
+    companyId: string,
+    companyName: string,
+    authorizedByMilitaryId: string,
+    authorizedByName: string,
+    authorizedByRole: string
+  ): { success: boolean; message: string; remisionAct?: string } {
+    const item = this.findItemByCategoryAndId(category, itemId);
+    if (!item) {
+      return { success: false, message: 'Material no encontrado en el depósito del batallón.' };
+    }
+
+    const currentWh = this.warehouses.find(w => w.id === item.warehouseId);
+    const remisionAct = `ORD-DIST-${Date.now().toString().slice(-6)}`;
+
+    (item as any).assignedCompanyId = companyId;
+    (item as any).assignedCompanyName = companyName;
+    delete (item as any).assignedSoldierId;
+    if ((item as any).status === 'ASIGNADO') {
+      (item as any).status = 'OPERATIVO';
+    }
+
+    const record: MaterialTransferRecord = {
+      id: `TR-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      materialType: category as any,
+      itemId,
+      itemDescription: (item as any).model || (item as any).armorType || (item as any).menuNumber || (item as any).kitType || (item as any).deviceType || (item as any).lotNumber || itemId,
+      sourceType: 'BATALLON_DEPOSITO',
+      sourceId: currentWh?.id || 'DEP-BATALLON',
+      sourceName: currentWh?.name || 'Depósito Batallón',
+      destinationType: 'COMPANIA',
+      destinationId: companyId,
+      destinationName: companyName,
+      authorizedByMilitaryId,
+      authorizedByName,
+      authorizedByRole,
+      remisionActNumber: remisionAct
+    };
+
+    this.transferAuditLog.unshift(record);
+
+    return {
+      success: true,
+      remisionAct,
+      message: `Material asignado a la ${companyName} (${remisionAct}) por el Bodeguero del Batallón.`
+    };
+  }
+
+  /**
+   * 3. ASIGNACIÓN INDIVIDUAL NOMINAL AL COMBATIENTE (KÁRDEX SIGEP)
+   * Potestad exclusiva de: ENCARGADO_COMPANIA o FURRIEL_PELOTON
+   */
+  public assignCompanyToSoldier(
+    category: string,
+    itemId: string,
+    soldierId: string,
+    authorizedByMilitaryId: string,
+    authorizedByName: string,
+    authorizedByRole: string
+  ): { success: boolean; message: string } {
+    const item = this.findItemByCategoryAndId(category, itemId);
+    if (!item) {
+      return { success: false, message: 'Material no disponible para asignación individual.' };
+    }
+
+    const soldier = this.soldierKardexMap.get(soldierId);
+    if (!soldier) {
+      return { success: false, message: `Soldado con ID militar ${soldierId} no figura en la base nominal SIGEP.` };
+    }
+
+    (item as any).assignedSoldierId = soldierId;
+    if ((item as any).status) {
+      (item as any).status = 'ASIGNADO';
+    }
+
+    // Sincronizar en el perfil del combatiente en Kárdex
+    if (category === 'CLASE_V_ARMA') {
+      soldier.assignedWeapon = item as WeaponItem;
+    } else if (category === 'CLASE_II') {
+      soldier.assignedArmor = item as BallisticArmorItem;
+    } else if (category === 'COMUNICACIONES') {
+      soldier.assignedCommRadio = item as CommEquipmentItem;
+    } else if (category === 'ESPECIAL') {
+      soldier.assignedNightVision = item as SpecialOptronicsItem;
+    } else if (category === 'CLASE_VIII') {
+      soldier.assignedIfak = item as CombatSanityItem;
+    }
+
+    const remisionAct = `CARGO-IND-${Date.now().toString().slice(-6)}`;
+    const record: MaterialTransferRecord = {
+      id: `TR-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      materialType: category as any,
+      itemId,
+      itemDescription: (item as any).model || (item as any).armorType || (item as any).serialNumber || itemId,
+      sourceType: 'COMPANIA',
+      sourceId: (item as any).assignedCompanyId || 'COMPANIA-ORG',
+      sourceName: (item as any).assignedCompanyName || 'Compañía Orgánica',
+      destinationType: 'SOLDADO_INDIVIDUAL',
+      destinationId: soldier.soldierId,
+      destinationName: `${soldier.rank} ${soldier.fullName}`,
+      authorizedByMilitaryId,
+      authorizedByName,
+      authorizedByRole,
+      remisionActNumber: remisionAct
+    };
+
+    this.transferAuditLog.unshift(record);
+
+    return {
+      success: true,
+      message: `Hoja de cargo individual firmada (${remisionAct}): Elemento entregado a satisfacción a ${soldier.rank} ${soldier.fullName}.`
+    };
+  }
+
+  /**
+   * 4. DESVINCULACIÓN O REINTEGRO INDIVIDUAL DEL MATERIAL AL ARMERILLO/COMPAÑÍA
+   */
+  public unassignFromSoldier(
+    category: string,
+    itemId: string,
+    authorizedByMilitaryId: string,
+    authorizedByName: string,
+    authorizedByRole: string
+  ): { success: boolean; message: string } {
+    const item = this.findItemByCategoryAndId(category, itemId);
+    if (!item) {
+      return { success: false, message: 'Material no encontrado.' };
+    }
+
+    const prevSoldierId = (item as any).assignedSoldierId;
+    delete (item as any).assignedSoldierId;
+    if ((item as any).status === 'ASIGNADO') {
+      (item as any).status = 'OPERATIVO';
+    }
+
+    if (prevSoldierId) {
+      const soldier = this.soldierKardexMap.get(prevSoldierId);
+      if (soldier) {
+        if (category === 'CLASE_V_ARMA' && soldier.assignedWeapon?.id === itemId) {
+          delete soldier.assignedWeapon;
+        } else if (category === 'CLASE_II' && soldier.assignedArmor?.id === itemId) {
+          delete soldier.assignedArmor;
+        } else if (category === 'COMUNICACIONES' && soldier.assignedCommRadio?.id === itemId) {
+          delete soldier.assignedCommRadio;
+        } else if (category === 'ESPECIAL' && soldier.assignedNightVision?.id === itemId) {
+          delete soldier.assignedNightVision;
+        } else if (category === 'CLASE_VIII' && soldier.assignedIfak?.id === itemId) {
+          delete soldier.assignedIfak;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Reintegro formalizado a armerillo. El combatiente ya no tiene este elemento a cargo.'
+    };
+  }
+
+  private findItemByCategoryAndId(category: string, itemId: string): any {
+    switch (category) {
+      case 'CLASE_V_ARMA':
+        return this.weapons.find(w => w.id === itemId);
+      case 'CLASE_V_MUNICION':
+        return this.ammoLots.find(a => a.id === itemId);
+      case 'CLASE_II':
+        return this.armors.find(a => a.id === itemId);
+      case 'CLASE_I':
+        return this.rtsBatches.find(r => r.id === itemId);
+      case 'COMUNICACIONES':
+        return this.comms.find(c => c.id === itemId);
+      case 'ESPECIAL':
+        return this.optronics.find(o => o.id === itemId);
+      case 'CLASE_VIII':
+        return this.sanityItems.find(s => s.id === itemId);
+      default:
+        return null;
+    }
   }
 }
 
