@@ -12,6 +12,7 @@ import { staffAgentService, StaffBriefing, StaffCOA, StaffEchelon } from '../ser
 import { sovereignOsintService } from '../services/sovereignOsintService';
 import { sigepIntegrationService } from '../services/sigepIntegrationService';
 import type { SigepUnitPersonnelSummary } from '../types/sigep';
+import { silogIntegrationService, SilogCombatCapability } from '../services/silogIntegrationService';
 import { BoltIcon } from './icons';
 
 interface StaffBriefingModalProps {
@@ -43,6 +44,7 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
   const [activeTab, setActiveTab] = useState<'C2' | 'S2' | 'S3' | 'S4' | 'S1_S5' | 'OSINT'>('C2');
   const [briefing, setBriefing] = useState<StaffBriefing | null>(null);
   const [sigepData, setSigepData] = useState<SigepUnitPersonnelSummary | null>(null);
+  const [silogData, setSilogData] = useState<SilogCombatCapability | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [approvedCoaMessage, setApprovedCoaMessage] = useState<string | null>(null);
 
@@ -71,13 +73,15 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
         unit: unit,
         soldiers: unit.personnelList,
         aars: afterActionReports
-      })
-    ]).then(([resBriefing, resSigep]) => {
+      }),
+      silogIntegrationService.getPlatoonCombatCapability(unit.id)
+    ]).then(([resBriefing, resSigep, resSilog]) => {
       setBriefing(resBriefing);
       setSigepData(resSigep);
+      setSilogData(resSilog);
       setIsLoading(false);
     }).catch(err => {
-      console.error("Error generando apreciación de Estado Mayor / SIGEP:", err);
+      console.error("Error generando apreciación de Estado Mayor / SIGEP / SILOG:", err);
       setIsLoading(false);
     });
   }, [isOpen, activeUnit, selectedEchelon, units.length]);
@@ -409,29 +413,102 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
               {/* TAB S-4: LOGÍSTICA & AUTONOMÍA */}
               {activeTab === 'S4' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
-                      <span className="text-2xl font-black text-cyan-400">{briefing.s4Logistica.classVAmmoPercentage}%</span>
-                      <p className="text-xs font-bold text-slate-300 mt-1">Clase V (Munición)</p>
-                      <p className="text-[10px] text-slate-500">Nivel de fuego disponible</p>
+                  {/* Banner de Sincronización SILOG M2M */}
+                  <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-slate-900 border border-emerald-500/40 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-3 h-3 rounded-full animate-pulse ${
+                        silogData?.isOnlineM2M ? 'bg-emerald-400' : 'bg-amber-400'
+                      }`} />
+                      <div>
+                        <span className="text-xs font-bold text-white uppercase tracking-wider block">
+                          SISTEMA INTEGRADO DE LOGÍSTICA MILITAR (SILOG S4/G4)
+                        </span>
+                        <span className="text-[10px] text-emerald-300">
+                          {silogData?.isOnlineM2M 
+                            ? '✓ Enlace M2M en vivo con Almacenes BASPC y Depósitos Tácticos'
+                            : '⚡ Modo Táctico Resiliente Autónomo (Caché Táctica Local)'}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
-                      <span className="text-2xl font-black text-amber-400">{briefing.s4Logistica.classIIIFuelHours}h</span>
-                      <p className="text-xs font-bold text-slate-300 mt-1">Clase III (Combustible)</p>
-                      <p className="text-[10px] text-slate-500">Movilidad vehicular estimada</p>
+                    <a
+                      href="http://localhost:5050"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 rounded-lg text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                    >
+                      <span>📦</span>
+                      <span>ABRIR SILOG (LOGÍSTICA COMPLETA)</span>
+                    </a>
+                  </div>
+
+                  {/* Métricas Principales de Fuego y Subsistencia */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 text-center">
+                      <span className="text-2xl font-black text-cyan-400">
+                        {silogData?.overallFirepowerIndex ?? briefing.s4Logistica.classVAmmoPercentage}%
+                      </span>
+                      <p className="text-[11px] font-bold text-slate-300 mt-0.5">Poder de Fuego Real</p>
+                      <p className="text-[9px] text-slate-500">Galil + M-60 + MGL + Morteros</p>
                     </div>
 
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
-                      <span className="text-2xl font-black text-emerald-400">{briefing.s4Logistica.classISupplyDays} días</span>
-                      <p className="text-xs font-bold text-slate-300 mt-1">Clase I (Raciones)</p>
-                      <p className="text-[10px] text-slate-500">Subsistencia de campaña</p>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 text-center">
+                      <span className="text-2xl font-black text-emerald-400">
+                        {silogData?.rationsAutonomyDays ?? briefing.s4Logistica.classISupplyDays} días
+                      </span>
+                      <p className="text-[11px] font-bold text-slate-300 mt-0.5">Raciones Clase I (MRE)</p>
+                      <p className="text-[9px] text-slate-500">Autonomía de subsistencia</p>
+                    </div>
+
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 text-center">
+                      <span className="text-2xl font-black text-indigo-400">
+                        {silogData?.nightReadinessPct ?? 40}%
+                      </span>
+                      <p className="text-[11px] font-bold text-slate-300 mt-0.5">Capacidad Nocturna</p>
+                      <p className="text-[9px] text-slate-500">Visores PVS-14 & Térmicos</p>
+                    </div>
+
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 text-center">
+                      <span className="text-2xl font-black text-amber-400">
+                        {silogData?.sustainedFireMinutes ?? 35} min
+                      </span>
+                      <p className="text-[11px] font-bold text-slate-300 mt-0.5">Fuego Sostenido</p>
+                      <p className="text-[9px] text-slate-500">Munición 5.56 & 7.62 en línea</p>
                     </div>
                   </div>
 
+                  {/* Desglose de Armamento Operativo del Pelotón */}
+                  {silogData && (
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        🔫 Disponibilidad de Armamento Orgánico (SILOG Clase V)
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="bg-black/30 border border-slate-800/80 rounded-lg p-2 flex justify-between items-center">
+                          <span className="text-slate-400">Fusiles 5.56:</span>
+                          <span className="font-bold text-white">{silogData.operationalWeapons.rifles556}</span>
+                        </div>
+                        <div className="bg-black/30 border border-slate-800/80 rounded-lg p-2 flex justify-between items-center">
+                          <span className="text-slate-400">Ametralladoras:</span>
+                          <span className="font-bold text-emerald-400">{silogData.operationalWeapons.machineGuns762} (M-60)</span>
+                        </div>
+                        <div className="bg-black/30 border border-slate-800/80 rounded-lg p-2 flex justify-between items-center">
+                          <span className="text-slate-400">Lanzagranadas:</span>
+                          <span className="font-bold text-amber-400">{silogData.operationalWeapons.grenadeLaunchers40mm} (MGL)</span>
+                        </div>
+                        <div className="bg-black/30 border border-slate-800/80 rounded-lg p-2 flex justify-between items-center">
+                          <span className="text-slate-400">Morteros 60mm:</span>
+                          <span className="font-bold text-cyan-400">{silogData.operationalWeapons.mortars60mm}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
                     <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Apreciación Logística S-4:</h4>
-                    <p className="text-xs text-slate-300">{briefing.s4Logistica.advisory}</p>
+                    <p className="text-xs text-slate-300">
+                      {silogData?.tacticalAdvisory || briefing.s4Logistica.advisory}
+                    </p>
                   </div>
                 </div>
               )}

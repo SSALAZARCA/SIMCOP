@@ -12,6 +12,7 @@ import {
 import { historicalIntelligenceService } from './historicalIntelligenceService';
 import { sovereignOsintService } from './sovereignOsintService';
 import { sigepIntegrationService } from './sigepIntegrationService';
+import { silogIntegrationService } from './silogIntegrationService';
 import type { SigepUnitPersonnelSummary } from '../types/sigep';
 
 export type StaffEchelon = 'COEJC' | 'DIVISION' | 'BRIGADA' | 'BATALLON' | 'COMPANIA' | 'PELOTON';
@@ -175,10 +176,10 @@ class StaffAgentService {
     const soldiersOk = activeUnit.personnelList?.filter(s => s.status !== 'KIA' && s.healthStatus !== 'HERIDO_GRAVE').length || totalSoldiers;
     const readinessPct = sigepSummary.readinessPercentage;
 
-    // 5. Evaluar Logística (S-4)
-    const combatP = (activeUnit as any).combatPower;
-    const ammoPct = combatP ? Math.min(100, Math.round(combatP * 1.1)) : 88;
-    const autonomyHours = Math.round((ammoPct / 100) * 16);
+    // 5. Evaluar Logística (S-4) y Telemetría Viva de SILOG (Poder de Combate, Raciones Clase I, Comunicaciones)
+    const silogData = await silogIntegrationService.getPlatoonCombatCapability(activeUnit.id);
+    const ammoPct = silogData.overallFirepowerIndex;
+    const autonomyHours = Math.round((silogData.sustainedFireMinutes / 60) * 16);
 
     // 6. Formular Cursos de Acción (COA) contrastados según la doctrina del PDM
     const targetSector: GeoLocation = {
@@ -275,12 +276,12 @@ class StaffAgentService {
       },
 
       s4Logistica: {
-        classISupplyDays: 5,
+        classISupplyDays: silogData.rationsAutonomyDays,
         classIIIFuelHours: 24,
         classVAmmoPercentage: ammoPct,
         operationalAutonomyHours: autonomyHours,
-        resupplyNeeded: ammoPct < 50,
-        advisory: `Autonomía de combate estimada: ${autonomyHours} horas de fuego sostenido. Tren logístico en base asegurado.`
+        resupplyNeeded: silogData.rationsAutonomyDays < 3 || ammoPct < 50,
+        advisory: `${silogData.tacticalAdvisory} Telemetría SILOG ${silogData.isOnlineM2M ? 'M2M EN VIVO' : 'TÁCTICA RESILIENTE'}: ${silogData.sustainedFireMinutes} min de fuego continuo.`
       },
 
       s5AccionIntegral: {
