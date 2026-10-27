@@ -40,6 +40,9 @@ public class User {
     @Column(name = "telegram_chat_id")
     private String telegramChatId;
 
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "two_factor_secret")
     private String twoFactorSecret;
@@ -121,6 +124,14 @@ public class User {
 
     public void setTelegramChatId(String telegramChatId) {
         this.telegramChatId = telegramChatId;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public String getToken() {

@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import type { User, UserTelegramConfig, ArtilleryPiece } from '../types';
 import { UserRole } from '../types';
 import { configService } from '../services/configService';
+import { WhatsAppConfigModal } from './WhatsAppConfigModal';
+import { whatsAppService } from '../services/whatsAppService';
 
 interface TelegramConfigProps {
   allUsers: User[];
@@ -26,6 +28,7 @@ export const TelegramConfigComponent: React.FC<TelegramConfigProps> = ({
     });
     return initialIds;
   });
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState<boolean>(false);
   const [testStatus, setTestStatus] = useState<Record<string, 'sending' | 'success' | 'error' | null>>({});
 
   const fireDirectionOfficers = useMemo(() => {
@@ -72,6 +75,25 @@ export const TelegramConfigComponent: React.FC<TelegramConfigProps> = ({
 
   return (
     <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
+      {/* BANNER WHATSAPP EVOLUTION API */}
+      <div className="mb-6 p-4 rounded-lg bg-emerald-950/40 border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-base">💬</span>
+            <h4 className="text-sm font-bold text-emerald-300 font-mono">MENSAJERÍA WHATSAPP (EVOLUTION API)</h4>
+          </div>
+          <p className="text-xs text-slate-300 mt-1">
+            Conecte su número oficial por código QR y notifique a Directores de Tiro (CDT) y Piezas con coordenadas balísticas en tiempo real.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowWhatsAppModal(true)}
+          className="shrink-0 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center gap-1.5 shadow"
+        >
+          <span>📱</span> Gestionar WhatsApp & CDT
+        </button>
+      </div>
+
       <h3 className="text-lg font-semibold text-gray-300 mb-1 border-b border-gray-700 pb-2">
         Configuración de Notificaciones por Telegram
       </h3>
@@ -158,6 +180,16 @@ export const TelegramConfigComponent: React.FC<TelegramConfigProps> = ({
           )
         })}
       </div>
+
+      <WhatsAppConfigModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        allUsers={allUsers}
+        artilleryPieces={artilleryPieces}
+        onUpdateUserPhone={async (userId, phone) => {
+          return await whatsAppService.updateUserPhoneNumber(userId, phone);
+        }}
+      />
     </div>
   );
 };

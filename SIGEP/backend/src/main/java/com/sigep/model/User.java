@@ -31,6 +31,9 @@ public class User {
 
     private String displayName;
 
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -57,5 +60,8 @@ public class User {
     
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 }
 

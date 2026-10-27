@@ -21,6 +21,9 @@ public class AlertController {
     @Autowired
     private AlertRepository repository;
 
+    @Autowired
+    private com.simcop.service.WhatsAppService whatsAppService;
+
     @GetMapping
     public List<Alert> getAllAlerts() {
         org.springframework.security.core.Authentication auth =
@@ -51,6 +54,18 @@ public class AlertController {
         try {
             Alert saved = repository.save(alert);
             logger.info("✅ Alerta creada: ID={}, Tipo={}", saved.getId(), saved.getType());
+
+            // Notificación WhatsApp
+            try {
+                if (saved.getType() == com.simcop.model.AlertType.CYBER_INTRUSION_DETECTED) {
+                    whatsAppService.notifyCyberAlert(saved);
+                } else if (saved.getSeverity() == com.simcop.model.AlertSeverity.CRITICAL || saved.getSeverity() == com.simcop.model.AlertSeverity.HIGH) {
+                    whatsAppService.broadcastTacticalAlert(saved.getType() != null ? saved.getType().name() : "ALERTA TÁCTICA", saved.getMessage(), saved.getSeverity().name());
+                }
+            } catch (Exception e) {
+                logger.error("Error al notificar alerta por WhatsApp: {}", e.getMessage());
+            }
+
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             logger.error("❌ Error creando alerta: {}", e.getMessage());

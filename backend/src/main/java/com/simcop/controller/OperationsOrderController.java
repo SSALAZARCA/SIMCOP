@@ -21,6 +21,9 @@ public class OperationsOrderController {
     @Autowired
     private OperationsOrderRepository repository;
 
+    @Autowired
+    private com.simcop.service.WhatsAppService whatsAppService;
+
     @GetMapping
     public List<OperationsOrder> getAllOrders() {
         return repository.findAll();
@@ -31,6 +34,11 @@ public class OperationsOrderController {
         try {
             OperationsOrder saved = repository.save(order);
             logger.info("✅ Orden de Operaciones creada: ID={}, Título={}", saved.getId(), saved.getTitle());
+            try {
+                whatsAppService.notifyOperationsOrder(saved);
+            } catch (Exception e) {
+                logger.error("Error al notificar orden de operaciones por WhatsApp: {}", e.getMessage());
+            }
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             logger.error("❌ Error persistiendo orden de operaciones: {}", e.getMessage());

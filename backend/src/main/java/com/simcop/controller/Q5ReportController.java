@@ -29,11 +29,19 @@ public class Q5ReportController {
     @Autowired
     private com.simcop.service.TelegramService telegramService;
 
+    @Autowired
+    private com.simcop.service.WhatsAppService whatsAppService;
+
     @PostMapping
     public ResponseEntity<Q5Report> createReport(@RequestBody Q5Report report) {
         try {
             Q5Report saved = repository.save(report);
             logger.info("✅ Reporte Q5 creado: ID={}", saved.getId());
+            try {
+                whatsAppService.notifyQ5Report(saved);
+            } catch (Exception e) {
+                logger.error("Error al notificar reporte Q5 por WhatsApp: {}", e.getMessage());
+            }
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             logger.error("❌ Error creando reporte Q5: {}", e.getMessage());
@@ -44,12 +52,11 @@ public class Q5ReportController {
     @PostMapping("/{id}/send")
     public org.springframework.http.ResponseEntity<?> sendReport(@PathVariable String id) {
         return repository.findById(id).map(report -> {
-            boolean sent = telegramService.sendQ5Report(report);
-            if (sent) {
-                return org.springframework.http.ResponseEntity.ok().body("Report sent to Telegram");
-            } else {
-                return org.springframework.http.ResponseEntity.status(500).body("Failed to send report");
-            }
+            boolean sentTelegram = telegramService.sendQ5Report(report);
+            try {
+                whatsAppService.notifyQ5Report(report);
+            } catch (Exception ignored) {}
+            return org.springframework.http.ResponseEntity.ok().body("Report sent to WhatsApp and Telegram");
         }).orElse(org.springframework.http.ResponseEntity.notFound().build());
     }
 }

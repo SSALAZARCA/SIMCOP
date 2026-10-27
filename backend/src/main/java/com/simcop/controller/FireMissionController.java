@@ -31,6 +31,12 @@ public class FireMissionController {
     @Autowired
     private com.simcop.service.TelegramService telegramService;
 
+    @Autowired
+    private com.simcop.service.WhatsAppService whatsAppService;
+
+    @Autowired
+    private com.simcop.repository.ArtilleryPieceRepository artilleryPieceRepository;
+
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMANDANTE_BATALLON', 'COMANDANTE_PIEZA_ARTILLERIA', 'COMANDANTE_OBSERVADOR_ADELANTADO', 'DIRECTOR_TIRO_155', 'DIRECTOR_TIRO_M101A1', 'DIRECTOR_TIRO_LG1', 'DIRECTOR_TIRO_L119', 'DIRECTOR_TIRO_M120', 'DIRECTOR_TIRO_HY112', 'DIRECTOR_TIRO_MLRS')")
     public ResponseEntity<FireMission> create(@RequestBody FireMission mission) {
@@ -39,11 +45,17 @@ public class FireMissionController {
             logger.info("✅ Misión de fuego creada: ID={}, Artillería Asignada ID={}, Blanco={}", 
                 saved.getId(), saved.getAssignedArtilleryId(), saved.getTargetLocation());
             
-            // Notify Telegram
+            // Notify Telegram & WhatsApp
             try {
                 telegramService.sendFireMissionNotification(saved);
             } catch (Exception e) {
                 logger.error("Error enviando notificación de Telegram: {}", e.getMessage());
+            }
+
+            try {
+                whatsAppService.notifyFireMission(saved);
+            } catch (Exception e) {
+                logger.error("Error enviando notificación de WhatsApp: {}", e.getMessage());
             }
 
             return ResponseEntity.ok(saved);
@@ -80,6 +92,16 @@ public class FireMissionController {
         if (artilleryId == null)
             return ResponseEntity.badRequest().build();
 
-        return ResponseEntity.ok(service.assignArtillery(id, artilleryId, projectileType, charge));
+        FireMission updated = service.assignArtillery(id, artilleryId, projectileType, charge);
+
+        try {
+            artilleryPieceRepository.findById(artilleryId).ifPresent(piece -> {
+                whatsAppService.notifyPieceAssigned(updated, piece);
+            });
+        } catch (Exception e) {
+            logger.error("Error al notificar asignación de pieza por WhatsApp: {}", e.getMessage());
+        }
+
+        return ResponseEntity.ok(updated);
     }
 }

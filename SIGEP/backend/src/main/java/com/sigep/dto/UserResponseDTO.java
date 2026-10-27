@@ -21,6 +21,7 @@ public class UserResponseDTO {
     private String assignedUnitId;
     private String displayName;
     private String fullName;
+    private String phoneNumber;
     private String rank;
     private String createdAt;
     private String updatedAt;
@@ -47,6 +48,7 @@ public class UserResponseDTO {
         dto.setAssignedUnitId(user.getAssignedUnitId());
         dto.setDisplayName(user.getDisplayName());
         dto.setFullName(user.getDisplayName());
+        dto.setPhoneNumber(user.getPhoneNumber());
         dto.setEnabled(true);
         return dto;
     }
@@ -69,6 +71,9 @@ public class UserResponseDTO {
 
     public String getFullName() { return fullName != null ? fullName : displayName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
     public String getRank() { return rank; }
     public void setRank(String rank) { this.rank = rank; }

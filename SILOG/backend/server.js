@@ -5,6 +5,7 @@
 // ============================================================================
 
 import http from 'http';
+import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
@@ -98,6 +99,58 @@ async function fetchSimcopUnits() {
   }
 
   return [];
+}
+
+// ============================================================================
+// CLIENTE WHATSAPP VIA EVOLUTION API (INSTANCIA UNIFICADA SIMCOP_CENTRAL)
+// ============================================================================
+async function sendWhatsAppNotification(toPhone, message) {
+  if (!toPhone) return false;
+  const isDocker = fs.existsSync('/.dockerenv') || process.env.DOCKER_CONTAINER;
+  const evolutionUrl = process.env.EVOLUTION_API_URL || (isDocker ? 'http://evolution_api:8082' : 'http://localhost:8082');
+  const apiKey = process.env.EVOLUTION_API_KEY || 'simcop-evolution-tactical-key-2026';
+
+  let cleanPhone = toPhone.toString().replace(/\D/g, '');
+  if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
+    cleanPhone = '57' + cleanPhone;
+  }
+  if (!cleanPhone) return false;
+
+  const url = `${evolutionUrl.replace(/\/+$/, '')}/message/sendText/SIMCOP_CENTRAL`;
+  return new Promise((resolve) => {
+    try {
+      const parsed = new URL(url);
+      const postData = JSON.stringify({
+        number: cleanPhone,
+        text: message,
+        options: { delay: 1000, presence: 'composing' }
+      });
+
+      const options = {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'apikey': apiKey
+        },
+        timeout: 4000
+      };
+
+      const client = parsed.protocol === 'https:' ? https : http;
+      const req = client.request(options, (res) => {
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.write(postData);
+      req.end();
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 // ============================================================================
@@ -561,6 +614,19 @@ const server = http.createServer((req, res) => {
         .update(`${data.actionDescription || 'DESPACHO'}-${data.otpCode}-${Date.now()}-${SUPERADMIN_MILITARY_ID}`)
         .digest('hex');
 
+      // Notificación WhatsApp de Acta de Entrega Firmada
+      if (data.recipientPhone) {
+        const msg = `🛡️ *[SILOGA - ACTA DE ENTREGA DE MATERIAL FIRMADA]* 🛡️\n\n` +
+          `*Acción:* ${data.actionDescription || 'Movimiento de Material'}\n` +
+          `*Certificado Digital:* \`${certificateId}\`\n` +
+          `*Hash SHA-256:* \`${signatureHash.substring(0, 16)}...\`\n` +
+          `*Firmado Por:* MG. Santiago Salazar (${SUPERADMIN_MILITARY_ID})\n` +
+          `*Método:* Google Authenticator RFC-6238 TOTP\n` +
+          `*Fecha/Hora:* ${new Date().toLocaleString('es-CO')}\n\n` +
+          `🔒 _Registrado en Kárdex militar inmutable https://siloga.site_`;
+        sendWhatsAppNotification(data.recipientPhone, msg).catch(() => {});
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
@@ -572,6 +638,21 @@ const server = http.createServer((req, res) => {
         method: 'Google Authenticator (RFC-6238 TOTP)',
         timestamp: new Date().toISOString()
       }));
+    });
+    return;
+  }
+
+  // Notificación de WhatsApp desde SILOGA (/api/silog/whatsapp/notify)
+  if (req.method === 'POST' && pathname === '/api/silog/whatsapp/notify') {
+    parseBody(async (err, data) => {
+      if (err || !data.phoneNumber || !data.message) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Número de teléfono y mensaje requeridos.' }));
+        return;
+      }
+      const sent = await sendWhatsAppNotification(data.phoneNumber, data.message);
+      res.writeHead(sent ? 200 : 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: sent, sentTo: data.phoneNumber }));
     });
     return;
   }

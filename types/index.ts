@@ -739,6 +739,7 @@ export interface User {
   permissions: ViewType[];
   assignedUnitId: string | null;
   telegramChatId?: string;
+  phoneNumber?: string;
   token?: string;
   twoFactorEnabled?: boolean;
 }

@@ -25,6 +25,9 @@ public class UserController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.sigep.service.WhatsAppService whatsAppService;
+
     @GetMapping
     public List<UserResponseDTO> getAllUsers() {
         return userRepository.findAll().stream()
@@ -46,9 +49,15 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of("error", "La contraseña no puede estar vacía"));
         }
 
+        String rawPassword = user.getPassword().trim();
         user.setUsername(cleanUsername);
-        user.setPassword(encodePasswordIfPlain(user.getPassword().trim()));
+        user.setPassword(encodePasswordIfPlain(rawPassword));
         User savedUser = userRepository.save(user);
+
+        try {
+            whatsAppService.sendUserCredentials(savedUser, rawPassword);
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(UserResponseDTO.fromEntity(savedUser));
     }
 

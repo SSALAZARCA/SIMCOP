@@ -45,6 +45,8 @@ services:
       - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop-secure-webhook-secret-2026}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
       - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     depends_on:
       - mysql
     networks:
@@ -132,6 +134,8 @@ services:
       - AI_MODEL=${AI_MODEL:-gemma-4-e2b-it-Q4_K_M.gguf}
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     volumes:
       - sigep_data:/app/data
     depends_on:
@@ -173,6 +177,8 @@ services:
       - SIMCOP_API_URL=${SIMCOP_API_URL:-http://backend:8080/api}
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     volumes:
       - silog_data:/app/backend/data
     networks:
@@ -194,6 +200,32 @@ services:
       - coolify_network
       - simcop_internal
 
+  # Evolution API (Servicio Central de Mensajería WhatsApp)
+  evolution_api:
+    image: atiladuran/evolution-api:v2.2.2
+    restart: unless-stopped
+    expose:
+      - 8082
+    ports:
+      - "8082:8082"
+    environment:
+      - SERVER_PORT=8082
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://evolution_api:8082}
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
+      - AUTHENTICATION_TYPE=apikey
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
+      - DATABASE_SAVE_MESSAGE_HISTORIC=false
+      - DATABASE_SAVE_DATA_CHATS=false
+      - DATABASE_SAVE_DATA_CONTACTS=false
+      - WEBSOCKET_ENABLED=false
+      - DELAY_MESSAGE=1200
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    networks:
+      - simcop_internal
+
 networks:
   coolify_network:
     # Este network sera gestionado por Coolify
@@ -211,4 +243,8 @@ volumes:
   ai_models:
     driver: local
   ai_data:
+    driver: local
+  evolution_instances:
+    driver: local
+  evolution_store:
     driver: local

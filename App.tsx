@@ -972,6 +972,8 @@ const App: React.FC = () => {
             sendTestTelegramAlert={sendTestTelegramAlert}
             currentUser={currentUser}
             updateUserTelegramConfig={updateUserTelegramConfig}
+            allUsers={users}
+            artilleryPieces={artilleryPieces}
           />
         );
       case ViewType.ARTILLERY_OBSERVATION:

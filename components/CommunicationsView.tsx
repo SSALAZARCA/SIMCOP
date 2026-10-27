@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import type { MilitaryUnit, AfterActionReport, User, UserTelegramConfig } from '../types';
+import type { MilitaryUnit, AfterActionReport, User, UserTelegramConfig, ArtilleryPiece } from '../types';
 import { UnitStatus } from '../types';
 import { COMMUNICATION_REPORT_INTERVAL_MS, COMMUNICATION_OVERDUE_THRESHOLD_MS } from '../constants';
 import { configService } from '../services/configService';
 import { AARModalComponent } from './AARModalComponent';
+import { WhatsAppConfigModal } from './WhatsAppConfigModal';
+import { whatsAppService } from '../services/whatsAppService';
 
 interface CommunicationsViewProps {
   units: MilitaryUnit[];
@@ -15,6 +17,8 @@ interface CommunicationsViewProps {
   currentUser: User | null;
   // userTelegramConfigs prop removed as it's now part of User
   updateUserTelegramConfig: (userId: string, chatId: string) => void;
+  allUsers?: User[];
+  artilleryPieces?: ArtilleryPiece[];
 }
 
 const formatTimeSince = (timestamp: number | undefined): string => {
@@ -38,11 +42,14 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
   addAfterActionReport,
   sendTestTelegramAlert, // Updated prop name
   currentUser,
-  updateUserTelegramConfig
+  updateUserTelegramConfig,
+  allUsers,
+  artilleryPieces
 }) => {
   const [unitForAAR, setUnitForAAR] = useState<MilitaryUnit | null>(null);
   const [isTestingNotification, setIsTestingNotification] = useState<boolean>(false);
   const [showTelegramConfigModal, setShowTelegramConfigModal] = useState<boolean>(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState<boolean>(false);
   const [telegramChatIdInput, setTelegramChatIdInput] = useState<string>('');
 
   const currentUserTelegramChatId = currentUser?.telegramChatId;
@@ -141,6 +148,13 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
             Monitor de Comunicaciones y Reportes de Combate
           </h2>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowWhatsAppModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-md shadow-sm transition-all flex items-center gap-1.5 border border-emerald-500/30"
+              aria-label="Configurar WhatsApp"
+            >
+              <span>💬</span> WhatsApp (Evolution API)
+            </button>
             <button
               onClick={handleOpenTelegramConfig}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors"
@@ -328,6 +342,16 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
           </div>
         </div>
       )}
+      {/* Modal Unificado WhatsApp (Evolution API) */}
+      <WhatsAppConfigModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        allUsers={allUsers || []}
+        artilleryPieces={artilleryPieces || []}
+        onUpdateUserPhone={async (userId, phone) => {
+          return await whatsAppService.updateUserPhoneNumber(userId, phone);
+        }}
+      />
     </>
   );
 };
