@@ -27,3 +27,18 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #f59e0b;
 }
+
+/* Blindaje contra fondo blanco de autofill en Chrome/Edge/Firefox */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #070a13 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #f59e0b !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+input {
+  color: #ffffff !important;
+}

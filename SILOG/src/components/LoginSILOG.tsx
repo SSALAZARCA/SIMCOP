@@ -12,10 +12,10 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   const [pendingUser, setPendingUser] = useState<SilogUser | null>(null);
 
   // Campos Paso 1: Credenciales SuperAdmin
-  const [username, setUsername] = useState('santiago.salazar');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberUser, setRememberUser] = useState(true);
+  const [rememberUser, setRememberUser] = useState(false);
 
   // Campos Paso 2: Doble Factor (2FA)
   const [twoFactorMethod, setTwoFactorMethod] = useState<'TOTP_TACTICO' | 'RADIO_SMS'>('TOTP_TACTICO');
@@ -30,18 +30,6 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
 
   // Referencias a inputs de dígitos OTP
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Restaurar usuario recordado al cargar si existe
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('siloga_saved_username');
-      if (saved) {
-        setUsername(saved);
-      }
-    } catch {
-      // Ignorar error de almacenamiento
-    }
-  }, []);
 
   // Timer para actualizar en tiempo real el token TOTP dinámico de 30s
   useEffect(() => {
@@ -397,15 +385,14 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               {/* PASO 1: FORMULARIO DE CREDENCIALES DEL SUPERADMIN            */}
               {/* ============================================================ */}
               {authStep === 'CREDENTIALS' && (
-                <form onSubmit={handleValidateCredentials} noValidate className="space-y-4">
+                <form onSubmit={handleValidateCredentials} noValidate autoComplete="off" className="space-y-4">
                   {/* Campo: Usuario / Cédula Militar */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Usuario o Cédula</span>
-                      <span className="text-[10px] font-mono text-amber-400 font-bold">santiago.salazar</span>
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">
+                      Usuario o Cédula Militar
                     </label>
                     <div className="relative flex items-center">
-                      <div className="absolute left-3.5 text-slate-500 pointer-events-none">
+                      <div className="absolute left-3.5 text-slate-400 pointer-events-none z-10">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
@@ -414,21 +401,24 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="santiago.salazar o CC-841209"
-                        autoComplete="username"
-                        className="w-full bg-[#070a13] border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-white text-xs rounded-xl pl-11 pr-4 py-3.5 focus:outline-none transition shadow-inner font-mono placeholder:text-slate-600"
+                        placeholder="Ingrese su usuario o cédula militar"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        style={{ backgroundColor: '#070a13', color: '#ffffff', caretColor: '#f59e0b' }}
+                        className="w-full !bg-[#070a13] !text-white border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-xs rounded-xl pl-11 pr-4 py-3.5 focus:outline-none transition shadow-inner font-mono placeholder:text-slate-500"
                       />
                     </div>
                   </div>
 
                   {/* Campo: Contraseña / Clave Criptográfica */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Contraseña de Seguridad</span>
-                      <span className="text-[10px] font-mono text-slate-500 font-normal">cifrado militar</span>
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">
+                      Contraseña de Seguridad
                     </label>
                     <div className="relative flex items-center">
-                      <div className="absolute left-3.5 text-slate-500 pointer-events-none">
+                      <div className="absolute left-3.5 text-slate-400 pointer-events-none z-10">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
@@ -437,14 +427,18 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                        autoComplete="current-password"
-                        className="w-full bg-[#070a13] border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-white text-xs rounded-xl pl-11 pr-11 py-3.5 focus:outline-none transition shadow-inner font-mono placeholder:text-slate-600"
+                        placeholder="Ingrese su contraseña"
+                        autoComplete="new-password"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        style={{ backgroundColor: '#070a13', color: '#ffffff', caretColor: '#f59e0b' }}
+                        className="w-full !bg-[#070a13] !text-white border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-xs rounded-xl pl-11 pr-11 py-3.5 focus:outline-none transition shadow-inner font-mono placeholder:text-slate-500"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 text-slate-400 hover:text-amber-400 transition cursor-pointer p-1"
+                        className="absolute right-3.5 text-slate-400 hover:text-amber-400 transition cursor-pointer p-1 z-10"
                         title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                       >
                         {showPassword ? (
@@ -591,7 +585,9 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                           value={digit}
                           onChange={(e) => handleOtpChange(idx, e.target.value)}
                           onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                          className="w-11 sm:w-12 h-14 text-center text-xl font-black font-mono bg-[#070a13] border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-white rounded-xl focus:outline-none transition shadow-inner"
+                          autoComplete="off"
+                          style={{ backgroundColor: '#070a13', color: '#ffffff', caretColor: '#06b6d4' }}
+                          className="w-11 sm:w-12 h-14 text-center text-xl font-black font-mono !bg-[#070a13] !text-white border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 rounded-xl focus:outline-none transition shadow-inner"
                           placeholder="-"
                         />
                       ))}
