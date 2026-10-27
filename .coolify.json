@@ -211,6 +211,47 @@
           "Exposed": true
         }
       ]
+    },
+    {
+      "name": "silog_backend",
+      "type": "stack",
+      "stack": "node",
+      "build": {
+        "path": "./SILOG",
+        "dockerfile": "Dockerfile.backend"
+      },
+      "env": [
+        {
+          "name": "PORT",
+          "value": "5000"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "ports": [
+        {
+          "port": 5000,
+          "Exposed": false
+        }
+      ]
+    },
+    {
+      "name": "silog_frontend",
+      "type": "stack",
+      "stack": "nginx",
+      "build": {
+        "path": "./SILOG",
+        "dockerfile": "Dockerfile"
+      },
+      "env": [],
+      "ports": [
+        {
+          "port": 5050,
+          "Exposed": true
+        }
+      ]
     }
   ]
 }

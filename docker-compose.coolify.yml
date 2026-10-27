@@ -157,6 +157,40 @@ services:
       - coolify_network
       - simcop_internal
 
+  # SILOG Backend (Node.js REST API - Internal only)
+  silog_backend:
+    build:
+      context: ./SILOG
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    expose:
+      - 5000
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=${SILOG_JWT_SECRET:-siloga-military-defense-jwt-secret-key-2026-superadmin-omega}
+      - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}}
+    volumes:
+      - silog_data:/app/backend/data
+    networks:
+      - simcop_internal
+
+  # SILOG Frontend (React / Vite / Nginx - Entrypoint https://siloga.site)
+  silog_frontend:
+    build:
+      context: ./SILOG
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 80
+    ports:
+      - "5050:80"
+    depends_on:
+      - silog_backend
+    networks:
+      - coolify_network
+      - simcop_internal
+
 networks:
   coolify_network:
     # Este network sera gestionado por Coolify
@@ -168,6 +202,8 @@ volumes:
   mysql_data:
     driver: local
   sigep_data:
+    driver: local
+  silog_data:
     driver: local
   ai_models:
     driver: local

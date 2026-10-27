@@ -175,14 +175,6 @@ services:
       context: ./SILOG
       dockerfile: Dockerfile.backend
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
     expose:
       - 5000
     environment:
