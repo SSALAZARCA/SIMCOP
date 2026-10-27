@@ -48,7 +48,11 @@ class SilogIntegrationService {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/silog/simcop/combat-power/${encodeURIComponent(unitId)}`, {
+      const baseUrl = (typeof window !== 'undefined' && window.location.hostname.includes('simcop.site'))
+        ? 'https://siloga.site'
+        : (import.meta.env.VITE_SILOG_API_URL || 'http://localhost:5000');
+
+      const response = await fetch(`${baseUrl}/api/silog/simcop/combat-power/${encodeURIComponent(unitId)}`, {
         headers: { 'X-Service-Token': 'simcop-tactical-m2m-secure-token-2026' }
       });
       if (response.ok) {

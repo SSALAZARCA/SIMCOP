@@ -1,0 +1,33 @@
+# ============================================================================
+# SILOGA BACKEND - PRODUCCIÓN MONOREPO SIMCOP (Puerto 5000)
+# Servidor REST API, Autenticación PBKDF2/JWT, 2FA y Kárdex Persistente
+# ============================================================================
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Usuario sin privilegios por directrices de ciberseguridad militar OWASP
+RUN addgroup -S siloggroup && adduser -S siloguser -G siloggroup
+
+# Copiar manifiesto e instalar dependencias de producción
+COPY package*.json ./
+RUN npm install --omit=dev --legacy-peer-deps
+
+# Copiar código del backend
+COPY backend ./backend
+
+# Directorio de persistencia para base de datos JSON local
+RUN mkdir -p ./backend/data && chown -R siloguser:siloggroup /app
+
+USER siloguser
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:5000/health || exit 1
+
+CMD ["node", "backend/server.js"]

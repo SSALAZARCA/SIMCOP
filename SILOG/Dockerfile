@@ -1,47 +1,30 @@
 # ============================================================================
-# DOCKERFILE PRODUCCIÓN - SILOGA (https://siloga.site)
-# Multi-stage build de alta seguridad y mínimo footprint
+# SILOGA FRONTEND - PRODUCCIÓN MONOREPO SIMCOP (https://siloga.site)
+# Nginx Servidor Web de Alto Rendimiento y Seguridad OWASP
 # ============================================================================
 
 # --- ETAPA 1: Compilación de Frontend Vite ---
-FROM node:20-alpine AS builder
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copiar manifiesto de dependencias
-COPY package.json ./
+# Instalar dependencias
+COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copiar código fuente
+# Copiar fuentes y compilar SPA
 COPY . .
-
-# Compilar SPA de producción
 RUN npm run build
 
-# --- ETAPA 2: Runtime de Producción Node.js ---
-FROM node:20-alpine AS runner
+# --- ETAPA 2: Servidor Nginx Producción ---
+FROM nginx:stable-alpine
 
-WORKDIR /app
+# Copiar bundle compilado al directorio web
+COPY --from=build /app/dist /usr/share/nginx/html
 
-ENV NODE_ENV=production
-ENV PORT=5000
+# Copiar configuración Nginx optimizada para Coolify / Traefik
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Crear usuario sin privilegios para seguridad (OWASP)
-RUN addgroup -S siloggroup && adduser -S siloguser -G siloggroup
+EXPOSE 80
 
-# Copiar archivos compilados y backend
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/backend ./backend
-
-# Crear y otorgar permisos sobre directorio de datos persistente
-RUN mkdir -p ./backend/data && chown -R siloguser:siloggroup /app
-
-USER siloguser
-
-EXPOSE 5000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:5000/health || exit 1
-
-CMD ["node", "backend/server.js"]
+CMD ["nginx", "-g", "daemon off;"]

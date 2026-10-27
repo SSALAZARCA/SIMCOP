@@ -254,16 +254,25 @@ const server = http.createServer((req, res) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-  // CORS restrictivo
+  // CORS restrictivo para monorepo militar
   const origin = req.headers.origin || '';
-  const allowedOrigins = ['https://siloga.site', 'http://localhost:5050', 'http://localhost:3010', 'http://localhost:5000'];
-  if (allowedOrigins.includes(origin) || origin.endsWith('.siloga.site')) {
+  const allowedOrigins = [
+    'https://siloga.site',
+    'https://simcop.site',
+    'https://sigep.site',
+    'http://localhost:5050',
+    'http://localhost:3010',
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://localhost:80'
+  ];
+  if (allowedOrigins.includes(origin) || origin.endsWith('.siloga.site') || origin.endsWith('.simcop.site') || origin.endsWith('.sigep.site')) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Service-Token');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
