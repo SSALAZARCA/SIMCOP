@@ -191,6 +191,7 @@ export interface PlatoonCombatCapability {
 // CONTROL DE ACCESO Y AUTENTICACIÓN LOGÍSTICA (SILOG RBAC)
 // -------------------------------------------------------------
 export type SilogUserRole = 
+  | 'SUPERADMIN'
   | 'OFICIAL_S4' 
   | 'COMANDANTE_BASPC' 
   | 'ALMACENISTA_CENTRAL_BASPC'

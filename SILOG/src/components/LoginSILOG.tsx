@@ -11,8 +11,8 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   const [authStep, setAuthStep] = useState<'CREDENTIALS' | '2FA'>('CREDENTIALS');
   const [pendingUser, setPendingUser] = useState<SilogUser | null>(null);
 
-  // Campos Paso 1: Credenciales
-  const [username, setUsername] = useState('');
+  // Campos Paso 1: Credenciales SuperAdmin
+  const [username, setUsername] = useState('santiago.salazar');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberUser, setRememberUser] = useState(true);
@@ -23,19 +23,15 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [liveTokenData, setLiveTokenData] = useState<{ code: string; secondsRemaining: number; phoneMasked: string; terminalId: string } | null>(null);
 
-  // Estados de validación e interacción
+  // Estados de validación
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCredentialDirOpen, setIsCredentialDirOpen] = useState(false);
-  const [dirBrigadeFilter, setDirBrigadeFilter] = useState('ALL');
-  const [dirEchelonFilter, setDirEchelonFilter] = useState('ALL');
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Referencias a inputs de dígitos OTP
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Restaurar usuario recordado al cargar
+  // Restaurar usuario recordado al cargar si existe
   useEffect(() => {
     try {
       const saved = localStorage.getItem('siloga_saved_username');
@@ -70,35 +66,6 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const predefinedAccounts = silogAuthService.getPredefinedAccounts();
-  const brigades = silogAuthService.getSimcopBrigades();
-
-  // Filtrado de directorio de credenciales oficiales JELOG
-  const filteredDirectory = predefinedAccounts.filter(acc => {
-    if (dirBrigadeFilter === '16-BRIG') {
-      if (!['16-BRIG', 'BASPC-16', 'BI-44', 'GM-16', 'BEING-16'].includes(acc.user.assignedUnitId)) return false;
-    } else if (dirBrigadeFilter === '18-BRIG') {
-      if (!['18-BRIG', 'BI-24', 'GM-18', 'BA-18'].includes(acc.user.assignedUnitId)) return false;
-    } else if (dirBrigadeFilter === 'BR23') {
-      if (!['BR23', 'BASPC-23', 'BIP-09', 'PEL-AURA-1'].includes(acc.user.assignedUnitId)) return false;
-    }
-
-    if (dirEchelonFilter === 'BASPC') {
-      return acc.user.role === 'ALMACENISTA_CENTRAL_BASPC' || acc.user.role === 'COMANDANTE_BASPC';
-    }
-    if (dirEchelonFilter === 'BATALLON') {
-      return acc.user.role === 'BODEGUERO_BATALLON' || acc.user.role.startsWith('ALMACENISTA_CLASE');
-    }
-    if (dirEchelonFilter === 'COMPANIA') {
-      return acc.user.role === 'ENCARGADO_COMPANIA' || acc.user.role === 'FURRIEL_PELOTON';
-    }
-    if (dirEchelonFilter === 'S4') {
-      return acc.user.role === 'OFICIAL_S4';
-    }
-
-    return true;
-  });
-
   // PASO 1: Validación de Credenciales Primarias
   const handleValidateCredentials = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,12 +73,12 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
     setSuccessNotice(null);
 
     if (!username.trim()) {
-      setError('Ingrese su Usuario militar o Cédula de Ciudadanía.');
+      setError('Por favor ingrese su usuario o cédula de Super Administrador.');
       return;
     }
 
     if (!password.trim()) {
-      setError('Ingrese su Contraseña o Clave Criptográfica institucional.');
+      setError('Por favor ingrese su clave criptográfica de Super Administrador.');
       return;
     }
 
@@ -139,9 +106,9 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
           otpInputRefs.current[0]?.focus();
         }, 150);
       } else {
-        setError(result.message || 'Credenciales inválidas. Verifique sus datos.');
+        setError(result.message || 'Credenciales inválidas de Super Administrador.');
       }
-    }, 450);
+    }, 400);
   };
 
   // PASO 2: Manejo de casillas de 6 dígitos con auto-avance
@@ -202,20 +169,20 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
       setIsLoading(false);
 
       if (result.success && result.user) {
-        setSuccessNotice('Identidad militar confirmada. Acceso concedido.');
+        setSuccessNotice('Identidad de Super Administrador confirmada. Ingresando...');
         setTimeout(() => {
           onLoginSuccess(result.user!);
-        }, 350);
+        }, 300);
       } else {
         setError(result.message || 'Código 2FA incorrecto o expirado.');
       }
-    }, 450);
+    }, 400);
   };
 
   const handleResendRadioCode = () => {
     if (resendCooldown > 0) return;
     setResendCooldown(45);
-    setSuccessNotice(`Código militar retransmitido al terminal satelital (${liveTokenData?.terminalId || 'RADIO-C2'}).`);
+    setSuccessNotice(`Código militar retransmitido al terminal satelital del Super Administrador (${liveTokenData?.terminalId || 'TERMINAL-C2'}).`);
     setTimeout(() => setSuccessNotice(null), 5000);
   };
 
@@ -227,22 +194,6 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
     setSuccessNotice(null);
   };
 
-  const handleSelectFromDirectory = (userUsername: string, userPasswordPlain: string) => {
-    setUsername(userUsername);
-    setPassword(userPasswordPlain);
-    setIsCredentialDirOpen(false);
-    setError(null);
-    if (authStep === '2FA') {
-      handleBackToCredentials();
-    }
-  };
-
-  const copyToClipboard = (text: string, fieldId: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldId);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
   return (
     <div className="min-h-screen bg-[#060810] text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 font-sans relative overflow-hidden">
       
@@ -252,7 +203,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.02] rounded-full blur-[180px] pointer-events-none" />
 
-      {/* Barra Superior Institucional (Header Strip) */}
+      {/* Barra Superior Institucional */}
       <header className="w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-3 relative z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -268,11 +219,11 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black tracking-widest text-white uppercase">SILOGA</span>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                  S-4 / JELOG
+                  SUPERADMINISTRADOR
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 tracking-wider font-medium block">
-                Ejército Nacional de Colombia
+                Comando General de las Fuerzas Militares • JELOG
               </span>
             </div>
           </div>
@@ -299,17 +250,17 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
         </div>
       </header>
 
-      {/* Contenedor Principal: Split-Screen Hero y Consola de Autenticación */}
+      {/* Contenedor Principal: Split-Screen Hero y Consola de SuperAdmin */}
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 flex-1 flex items-center justify-center relative z-10">
         <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Columna Izquierda: Identidad Doctrinal y Telemetría Operativa (Solo Desktop) */}
+          {/* Columna Izquierda: Identidad Doctrinal y Mando Operativo */}
           <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-8 pr-6">
             
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-transparent border border-amber-500/30 text-amber-300 text-xs font-mono font-bold tracking-wider">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                COMANDO Y CONTROL DE ABASTECIMIENTOS MILITARES
+                CONSOLA DE MANDO SUPREMO LOGÍSTICO (C2)
               </div>
 
               <h1 className="text-3xl xl:text-4xl font-black text-white tracking-tight leading-tight">
@@ -317,23 +268,23 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               </h1>
 
               <p className="text-sm text-slate-300/90 leading-relaxed max-w-xl">
-                Plataforma de alta seguridad para la trazabilidad de inventarios militares: 
-                reportes SAP MM, reserva estratégica BASPC, depósitos tácticos de batallón, 
-                suministro a compañías y kárdex individual sincronizado con SIGEP y SIMCOP.
+                Centro de comando de inventarios, polvorines estratégicos, reportes SAP MM, 
+                auditoría balística de kárdex y abastecimiento integral de la fuerza con acreditación 
+                de Super Administrador.
               </p>
             </div>
 
-            {/* Tarjetas de Telemetría Táctica Logística */}
+            {/* Tarjetas de Control Central */}
             <div className="grid grid-cols-3 gap-4 max-w-xl">
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-amber-400 mb-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
-                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400">Escalones</span>
+                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400">Jurisdicción</span>
                 </div>
-                <span className="text-2xl font-black text-white">4 Niveles</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">BASPC → Tropa</span>
+                <span className="text-2xl font-black text-white">Nacional</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Todas las Brigadas</span>
               </div>
 
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
@@ -344,7 +295,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                   <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400">Seguridad</span>
                 </div>
                 <span className="text-2xl font-black text-white">2FA Militar</span>
-                <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">TOTP + C2 Sat</span>
+                <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">TOTP + Master C2</span>
               </div>
 
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
@@ -352,45 +303,45 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400">Enlace M2M</span>
+                  <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400">Autorización</span>
                 </div>
-                <span className="text-2xl font-black text-white">SIMCOP C2</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Poder de Fuego</span>
+                <span className="text-2xl font-black text-white">Irrestricta</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Mando Supremo</span>
               </div>
             </div>
 
-            {/* Directiva de Seguridad */}
+            {/* Credenciales de Seguridad del SuperAdmin */}
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 max-w-xl">
               <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
               <p className="text-xs text-slate-400 leading-normal">
-                <strong className="text-slate-200">Acceso Estrictamente Restringido:</strong> El uso no autorizado de este sistema militar está sancionado por el Código Penal Militar y la Ley Estatutaria de Inteligencia 1621 de 2013.
+                <strong className="text-slate-200">Consola Protegida:</strong> Acceso reservado exclusivamente para el Super Administrador (<span className="font-mono text-amber-300">santiago.salazar</span>). Sesión monitoreada por el sistema de contramedidas ciberdefensa de SIMCOP.
               </p>
             </div>
 
           </div>
 
-          {/* Columna Derecha: Consola de Autenticación (Paso 1 y Paso 2) */}
+          {/* Columna Derecha: Tarjeta de Acceso del SuperAdmin */}
           <div className="lg:col-span-5 w-full max-w-md mx-auto">
             <div className="bg-[#0b0f19]/95 border border-slate-800 hover:border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl transition duration-300 relative">
               
-              {/* Resplandor decorativo de cabecera de la tarjeta */}
+              {/* Resplandor ámbar militar en la parte superior */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-amber-500/80 to-transparent rounded-full" />
 
-              {/* Encabezado del Formulario */}
+              {/* Encabezado */}
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
                     <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
-                      {authStep === 'CREDENTIALS' ? 'Autenticación Oficial' : 'Verificación 2FA'}
+                      {authStep === 'CREDENTIALS' ? 'Acceso SuperAdmin' : 'Verificación 2FA'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
-                    NIVEL SECRETO
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-purple-300 font-bold">
+                    ULTRASECRETO
                   </span>
                 </div>
 
@@ -400,12 +351,12 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
                     {authStep === 'CREDENTIALS' 
-                      ? 'Ingrese su usuario o cédula militar y clave de servicio.' 
+                      ? 'Ingrese sus credenciales de Super Administrador.' 
                       : 'Confirme su identidad con el token criptográfico táctico.'}
                   </p>
                 </div>
 
-                {/* Stepper Visual Elegante */}
+                {/* Stepper Visual */}
                 <div className="flex items-center gap-2 pt-1">
                   <div className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
                     authStep === 'CREDENTIALS' ? 'bg-amber-500 shadow-sm shadow-amber-500/50' : 'bg-emerald-500'
@@ -443,15 +394,15 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               )}
 
               {/* ============================================================ */}
-              {/* PASO 1: FORMULARIO DE CREDENCIALES                           */}
+              {/* PASO 1: FORMULARIO DE CREDENCIALES DEL SUPERADMIN            */}
               {/* ============================================================ */}
               {authStep === 'CREDENTIALS' && (
                 <form onSubmit={handleValidateCredentials} noValidate className="space-y-4">
                   {/* Campo: Usuario / Cédula Militar */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Usuario o Cédula Militar</span>
-                      <span className="text-[10px] font-mono text-slate-500 font-normal lowercase">ej: almacen.baspc16</span>
+                      <span>Usuario o Cédula</span>
+                      <span className="text-[10px] font-mono text-amber-400 font-bold">santiago.salazar</span>
                     </label>
                     <div className="relative flex items-center">
                       <div className="absolute left-3.5 text-slate-500 pointer-events-none">
@@ -463,7 +414,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Usuario militar o cédula"
+                        placeholder="santiago.salazar o CC-841209"
                         autoComplete="username"
                         className="w-full bg-[#070a13] border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-white text-xs rounded-xl pl-11 pr-4 py-3.5 focus:outline-none transition shadow-inner font-mono placeholder:text-slate-600"
                       />
@@ -510,7 +461,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                     </div>
                   </div>
 
-                  {/* Recordar Usuario y Enlace de Asistencia */}
+                  {/* Recordar Terminal */}
                   <div className="flex items-center justify-between text-xs pt-1">
                     <label className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-200">
                       <input
@@ -519,16 +470,12 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                         onChange={(e) => setRememberUser(e.target.checked)}
                         className="w-3.5 h-3.5 rounded bg-[#070a13] border-slate-700 text-amber-500 focus:ring-0 cursor-pointer"
                       />
-                      <span className="text-[11px]">Recordar terminal</span>
+                      <span className="text-[11px]">Recordar terminal seguro</span>
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsCredentialDirOpen(true)}
-                      className="text-[11px] text-amber-400 hover:text-amber-300 hover:underline font-bold transition cursor-pointer"
-                    >
-                      ¿Consultar cuentas?
-                    </button>
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      ● C2 Activo
+                    </span>
                   </div>
 
                   {/* Botón Principal: Validar Credenciales */}
@@ -543,11 +490,11 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                         </svg>
-                        <span>Verificando Credenciales...</span>
+                        <span>Verificando SuperAdmin...</span>
                       </>
                     ) : (
                       <>
-                        <span>Validar Credenciales e Iniciar 2FA</span>
+                        <span>Autenticar SuperAdmin e Iniciar 2FA</span>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
@@ -563,21 +510,21 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               {authStep === '2FA' && pendingUser && (
                 <form onSubmit={handleVerify2FA} noValidate className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                   
-                  {/* Tarjeta de Resumen del Oficial Autenticado */}
-                  <div className="bg-[#070a13] border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-inner">
+                  {/* Tarjeta de Resumen del SuperAdmin */}
+                  <div className="bg-[#070a13] border border-amber-500/30 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-inner">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-900 border border-amber-500/40 flex items-center justify-center text-sm font-black text-white shadow">
-                        {pendingUser.rank}
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-800 border border-amber-400/50 flex items-center justify-center text-sm font-black text-slate-950 shadow">
+                        MG.
                       </div>
                       <div>
                         <span className="text-xs font-bold text-white block">
                           {pendingUser.fullName}
                         </span>
                         <span className="text-[10px] text-amber-400 font-mono block">
-                          {pendingUser.roleTitle}
+                          Super Administrador • JELOG
                         </span>
                         <span className="text-[9px] text-slate-400 font-mono block">
-                          {pendingUser.unitName}
+                          Cédula: {pendingUser.militaryId} • Acreditación ULTRASECRETO
                         </span>
                       </div>
                     </div>
@@ -628,7 +575,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                   {/* Entrada de los 6 Dígitos OTP */}
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider text-center">
-                      Código de 6 Dígitos
+                      Código de 6 Dígitos del Token
                     </label>
 
                     <div className="flex items-center justify-center gap-2">
@@ -651,7 +598,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                     </div>
                   </div>
 
-                  {/* Monitor Táctico del Token en Vivo (Para Demostración / Inspección) */}
+                  {/* Monitor Táctico del Token en Vivo */}
                   {liveTokenData && (
                     <div className="bg-[#070a13] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between text-[10px] font-mono">
@@ -726,7 +673,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>Confirmar 2FA e Ingresar</span>
+                        <span>Confirmar 2FA e Ingresar a SILOGA</span>
                       </>
                     )}
                   </button>
@@ -748,218 +695,19 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                 </form>
               )}
 
-              {/* Botón Secundario: Directorio Oficial */}
-              <div className="mt-6 pt-4 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setIsCredentialDirOpen(true)}
-                  className="w-full py-2.5 px-3 bg-[#070a13] hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-amber-300 text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>Directorio Oficial de Cuentas y Credenciales JELOG</span>
-                </button>
-              </div>
-
             </div>
           </div>
 
         </div>
       </main>
 
-      {/* Footer Institucional Limpio y Minimalista */}
+      {/* Footer Institucional */}
       <footer className="w-full border-t border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-6 py-4 relative z-20 text-center">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-500 font-mono">
-          <span>SISTEMA INTEGRADO DE LOGÍSTICA OPERACIONAL (SILOGA) • DIRECCIÓN DE LOGÍSTICA (S-4 / G-4 / JELOG)</span>
+          <span>SISTEMA INTEGRADO DE LOGÍSTICA OPERACIONAL (SILOGA) • COMANDO GENERAL FF.MM.</span>
           <span className="text-slate-400">EJÉRCITO NACIONAL DE COLOMBIA • 2026</span>
         </div>
       </footer>
-
-      {/* ==================================================================== */}
-      {/* MODAL: DIRECTORIO OFICIAL DE CUENTAS ASIGNADAS JELOG                */}
-      {/* ==================================================================== */}
-      {isCredentialDirOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0b0f19] border border-amber-500/40 rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl max-h-[90vh] flex flex-col space-y-4 animate-in fade-in zoom-in-95">
-            
-            {/* Cabecera del Modal */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  <span>Directorio de Cuentas y Credenciales Asignadas (JELOG)</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Seleccione una cuenta autorizada para cargar sus credenciales en el formulario y pasar a la autenticación 2FA:
-                </p>
-              </div>
-              <button
-                onClick={() => setIsCredentialDirOpen(false)}
-                className="text-slate-400 hover:text-white text-xl p-1 transition cursor-pointer"
-                title="Cerrar"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Filtros de Gran Unidad y Escalón */}
-            <div className="flex flex-wrap items-center gap-2 bg-[#070a13] p-2.5 rounded-2xl border border-slate-800">
-              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">Gran Unidad:</span>
-                <select
-                  value={dirBrigadeFilter}
-                  onChange={(e) => setDirBrigadeFilter(e.target.value)}
-                  className="bg-slate-900 text-amber-300 font-bold text-xs p-2 rounded-xl border border-slate-700 focus:outline-none flex-1 cursor-pointer"
-                >
-                  {brigades.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1 flex-wrap">
-                {[
-                  { id: 'ALL', label: 'Todos' },
-                  { id: 'BASPC', label: '⭐ BASPC' },
-                  { id: 'BATALLON', label: '📦 Batallón' },
-                  { id: 'COMPANIA', label: '🪪 Compañía' },
-                  { id: 'S4', label: '👁️ S-4' }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setDirEchelonFilter(tab.id)}
-                    className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
-                      dirEchelonFilter === tab.id
-                        ? 'bg-amber-600 text-slate-950 font-black'
-                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Lista de Cuentas */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-              {filteredDirectory.map((acc) => {
-                const isBaspc = acc.user.role === 'ALMACENISTA_CENTRAL_BASPC' || acc.user.role === 'COMANDANTE_BASPC';
-                const isBodeguero = acc.user.role === 'BODEGUERO_BATALLON' || acc.user.role.startsWith('ALMACENISTA_CLASE');
-                const isCia = acc.user.role === 'ENCARGADO_COMPANIA' || acc.user.role === 'FURRIEL_PELOTON';
-
-                return (
-                  <div
-                    key={acc.user.id}
-                    className="bg-[#070a13] border border-slate-800 hover:border-slate-700 rounded-2xl p-4 space-y-2.5 transition"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-white">
-                            {acc.user.rank} {acc.user.fullName}
-                          </span>
-                          <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                            isBaspc ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
-                            isBodeguero ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                            isCia ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                            'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          }`}>
-                            {isBaspc ? 'ALMACÉN BASPC' : isBodeguero ? 'BODEGA BATALLÓN' : isCia ? 'COMPAÑÍA / TÁCTICO' : 'ESTADO MAYOR'}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold text-amber-400 block mt-0.5">
-                          {acc.user.roleTitle} • {acc.user.unitName}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleSelectFromDirectory(acc.user.username, acc.passwordPlain)}
-                        className="py-1.5 px-3 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[10px] rounded-xl transition shadow flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <svg className="w-3.5 h-3.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        <span>Cargar Credenciales</span>
-                      </button>
-                    </div>
-
-                    {/* Fila de Datos Clave */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-950/80 border border-slate-800/80 p-2.5 rounded-xl text-xs font-mono">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[9px] text-slate-500 block uppercase">Usuario:</span>
-                          <span className="text-emerald-400 font-bold">{acc.user.username}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(acc.user.username, `user-${acc.user.id}`)}
-                          className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 cursor-pointer"
-                          title="Copiar usuario"
-                        >
-                          {copiedField === `user-${acc.user.id}` ? '✓' : 'Copiar'}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[9px] text-slate-500 block uppercase">Cédula:</span>
-                          <span className="text-cyan-400">{acc.user.militaryId}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(acc.user.militaryId, `cc-${acc.user.id}`)}
-                          className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 cursor-pointer"
-                          title="Copiar cédula"
-                        >
-                          {copiedField === `cc-${acc.user.id}` ? '✓' : 'Copiar'}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[9px] text-slate-500 block uppercase">Contraseña:</span>
-                          <span className="text-amber-300 font-bold">{acc.passwordPlain}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(acc.passwordPlain, `pass-${acc.user.id}`)}
-                          className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 cursor-pointer"
-                          title="Copiar clave"
-                        >
-                          {copiedField === `pass-${acc.user.id}` ? '✓' : 'Copiar'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                      {acc.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Footer Modal */}
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Haga clic en <strong>"Cargar Credenciales"</strong> para pegarlas en el formulario y pasar a la autenticación 2FA.</span>
-              <button
-                type="button"
-                onClick={() => setIsCredentialDirOpen(false)}
-                className="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );
