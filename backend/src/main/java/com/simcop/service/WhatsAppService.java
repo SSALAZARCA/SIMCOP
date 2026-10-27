@@ -152,9 +152,29 @@ public class WhatsAppService {
         for (String baseUrl : getCandidateBaseUrls()) {
             String createUrl = baseUrl + "/instance/create";
             String connectUrl = baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
+            String stateUrl = baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE;
 
             try {
-                // 1. Intentar crear la instancia (Evolution API v2 retorna el QR en la creación si no existe)
+                // 0. Verificar si la sesión ya está abierta y activa
+                try {
+                    HttpEntity<Void> stateEntity = new HttpEntity<>(createHeaders());
+                    ResponseEntity<Map> stateResp = restTemplate.exchange(stateUrl, HttpMethod.GET, stateEntity, Map.class);
+                    if (stateResp.getStatusCode().is2xxSuccessful() && stateResp.getBody() != null) {
+                        cachedActiveUrl = baseUrl;
+                        String s = extractState(stateResp.getBody());
+                        if ("open".equalsIgnoreCase(s)) {
+                            responseMap.put("success", true);
+                            responseMap.put("connected", true);
+                            responseMap.put("status", "open");
+                            responseMap.put("message", "La sesión de WhatsApp ya se encuentra vinculada y activa.");
+                            return responseMap;
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Si no responde o da 404, procedemos al create/connect
+                }
+
+                // 1. Intentar crear la instancia (Evolution API v2)
                 Map<String, Object> createBody = new HashMap<>();
                 createBody.put("instanceName", DEFAULT_INSTANCE);
                 createBody.put("token", "simcop-comms-tactical-2026");
@@ -167,39 +187,62 @@ public class WhatsAppService {
                     if (createResp.getStatusCode().is2xxSuccessful() && createResp.getBody() != null) {
                         cachedActiveUrl = baseUrl;
                         Map body = createResp.getBody();
+                        logger.info("Instancia {} creada en Evolution API en {}: {}", DEFAULT_INSTANCE, baseUrl, body.keySet());
                         String qr = extractQr(body);
-                        if (qr != null) {
+                        String code = extractString(body, "code");
+                        String pairing = extractString(body, "pairingCode");
+                        if (qr != null || code != null) {
                             responseMap.put("success", true);
                             responseMap.put("qrcode", qr);
-                            responseMap.put("code", extractField(body, "code"));
-                            responseMap.put("pairingCode", extractField(body, "pairingCode"));
+                            responseMap.put("code", code);
+                            responseMap.put("pairingCode", pairing);
                             return responseMap;
                         }
                     }
-                } catch (Exception ignored) {
-                    // Si ya existe la instancia u ocurrió error leve en create, procedemos al connect
+                } catch (Exception e) {
+                    logger.debug("Create retornó: {} (probablemente la instancia ya existe)", e.getMessage());
                 }
 
-                // 2. Obtener QR code desde connect
+                // 2. Loop de polling con reintentos para conectar y obtener el QR de Baileys
+                // Baileys inicializa el handshake asíncronamente y emite el QR entre 1 y 3 segundos
                 HttpEntity<Void> connectEntity = new HttpEntity<>(createHeaders());
-                ResponseEntity<Map> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, Map.class);
-                if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
-                    cachedActiveUrl = baseUrl;
-                    Map body = connectResponse.getBody();
-                    String state = String.valueOf(body.get("state"));
-                    if ("open".equalsIgnoreCase(state)) {
-                        responseMap.put("success", true);
-                        responseMap.put("connected", true);
-                        responseMap.put("status", "open");
-                        return responseMap;
+                for (int attempt = 1; attempt <= 4; attempt++) {
+                    try {
+                        ResponseEntity<Map> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, Map.class);
+                        if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
+                            cachedActiveUrl = baseUrl;
+                            Map body = connectResponse.getBody();
+                            logger.info("Respuesta de connect en {} (intento {}): {}", baseUrl, attempt, body.keySet());
+
+                            String state = extractState(body);
+                            if ("open".equalsIgnoreCase(state)) {
+                                responseMap.put("success", true);
+                                responseMap.put("connected", true);
+                                responseMap.put("status", "open");
+                                return responseMap;
+                            }
+
+                            String qr = extractQr(body);
+                            String code = extractString(body, "code");
+                            String pairing = extractString(body, "pairingCode");
+
+                            if (qr != null || code != null) {
+                                responseMap.put("success", true);
+                                responseMap.put("qrcode", qr);
+                                responseMap.put("code", code);
+                                responseMap.put("pairingCode", pairing);
+                                return responseMap;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        logger.warn("Intento {} en connect ({}) falló: {}", attempt, connectUrl, ex.getMessage());
                     }
 
-                    String qr = extractQr(body);
-                    responseMap.put("success", true);
-                    responseMap.put("qrcode", qr);
-                    responseMap.put("code", extractField(body, "code"));
-                    responseMap.put("pairingCode", extractField(body, "pairingCode"));
-                    return responseMap;
+                    if (attempt < 4) {
+                        try {
+                            Thread.sleep(1500);
+                        } catch (InterruptedException ignored) {}
+                    }
                 }
             } catch (Exception e) {
                 logger.warn("Intento de conexión a {} falló: {}", baseUrl, e.getMessage());
@@ -207,31 +250,77 @@ public class WhatsAppService {
         }
 
         responseMap.put("success", false);
-        responseMap.put("error", "El servicio Evolution API se encuentra iniciando o conectando a la base de datos interna. Por favor intente nuevamente en unos instantes.");
+        responseMap.put("error", "Evolution API está inicializando el canal de WhatsApp. Por favor espere unos segundos y haga clic nuevamente en 'Vincular Teléfono'.");
         return responseMap;
     }
 
-    private String extractQr(Map body) {
+    private String extractState(Map<?, ?> body) {
         if (body == null) return null;
-        if (body.get("base64") != null) {
-            return String.valueOf(body.get("base64"));
+        Object inst = body.get("instance");
+        if (inst instanceof Map) {
+            Object s = ((Map<?, ?>) inst).get("state");
+            if (s != null) return String.valueOf(s);
         }
-        Object qrcodeObj = body.get("qrcode");
-        if (qrcodeObj instanceof Map) {
-            Object b64 = ((Map) qrcodeObj).get("base64");
-            if (b64 != null) return String.valueOf(b64);
-        } else if (qrcodeObj instanceof String && !((String) qrcodeObj).isEmpty()) {
-            return (String) qrcodeObj;
+        Object state = body.get("state");
+        if (state != null) return String.valueOf(state);
+        Object status = body.get("status");
+        if (status != null) return String.valueOf(status);
+        return null;
+    }
+
+    private String extractQr(Object data) {
+        if (data == null) return null;
+        if (data instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) data;
+            for (String key : new String[]{"base64", "qrcode", "qr", "Qrcode", "qrCode"}) {
+                Object val = map.get(key);
+                if (val instanceof String && !((String) val).trim().isEmpty()) {
+                    String str = (String) val;
+                    if (str.startsWith("data:image") || str.length() > 80) {
+                        return str;
+                    }
+                }
+            }
+            for (String subKey : new String[]{"qrcode", "data", "instance"}) {
+                Object sub = map.get(subKey);
+                if (sub instanceof Map) {
+                    String res = extractQr(sub);
+                    if (res != null) return res;
+                }
+            }
+        } else if (data instanceof String) {
+            String str = (String) data;
+            if (str.startsWith("data:image") || str.length() > 80) {
+                return str;
+            }
         }
         return null;
     }
 
-    private Object extractField(Map body, String key) {
-        if (body == null) return null;
-        if (body.containsKey(key)) return body.get(key);
-        Object qrcodeObj = body.get("qrcode");
-        if (qrcodeObj instanceof Map && ((Map) qrcodeObj).containsKey(key)) {
-            return ((Map) qrcodeObj).get(key);
+    private String extractString(Object data, String key) {
+        if (data == null) return null;
+        if (data instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) data;
+            if (map.containsKey(key) && map.get(key) != null) {
+                String val = String.valueOf(map.get(key)).trim();
+                if (!val.isEmpty() && !"null".equalsIgnoreCase(val)) {
+                    return val;
+                }
+            }
+            String capitalized = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+            if (map.containsKey(capitalized) && map.get(capitalized) != null) {
+                String val = String.valueOf(map.get(capitalized)).trim();
+                if (!val.isEmpty() && !"null".equalsIgnoreCase(val)) {
+                    return val;
+                }
+            }
+            for (String subKey : new String[]{"qrcode", "data", "instance"}) {
+                Object sub = map.get(subKey);
+                if (sub instanceof Map) {
+                    String res = extractString(sub, key);
+                    if (res != null) return res;
+                }
+            }
         }
         return null;
     }

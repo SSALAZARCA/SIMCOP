@@ -15,6 +15,9 @@ export interface WhatsAppQrResponse {
   qrcode?: string; // Base64 image
   code?: string;
   pairingCode?: string;
+  connected?: boolean;
+  status?: string;
+  message?: string;
   error?: string;
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   MessageSquare, 
   Smartphone, 
@@ -15,7 +16,8 @@ import {
   Crosshair,
   LogOut,
   Clock,
-  Lock
+  Lock,
+  KeyRound
 } from 'lucide-react';
 import type { User, ArtilleryPiece } from '../types';
 import { whatsAppService, type WhatsAppStatus } from '../services/whatsAppService';
@@ -42,6 +44,8 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   });
   const [loadingStatus, setLoadingStatus] = useState<boolean>(true);
   const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [qrCodeString, setQrCodeString] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState<boolean>(false);
   const [qrError, setQrError] = useState<string | null>(null);
 
@@ -86,10 +90,23 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const handleGenerateQr = async () => {
     setLoadingQr(true);
     setQrError(null);
+    setQrBase64(null);
+    setQrCodeString(null);
+    setPairingCode(null);
     try {
       const res = await whatsAppService.getQrCode();
-      if (res.success && res.qrcode) {
-        setQrBase64(res.qrcode);
+      if (res.connected) {
+        setStatus(prev => ({ ...prev, status: 'open', connected: true }));
+        setQrBase64(null);
+        setQrCodeString(null);
+        setPairingCode(null);
+        return;
+      }
+
+      if (res.success && (res.qrcode || res.code || res.pairingCode)) {
+        if (res.qrcode) setQrBase64(res.qrcode);
+        if (res.code) setQrCodeString(res.code);
+        if (res.pairingCode) setPairingCode(res.pairingCode);
       } else {
         setQrError(res.error || 'No se pudo obtener el código QR de Evolution API.');
       }
@@ -105,6 +122,8 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
     setLoadingStatus(true);
     await whatsAppService.disconnect();
     setQrBase64(null);
+    setQrCodeString(null);
+    setPairingCode(null);
     await loadStatus();
   };
 
@@ -272,21 +291,44 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
                 )}
               </div>
 
-              {/* RENDERIZADO DEL CÓDIGO QR */}
-              {qrBase64 && !status.connected && (
-                <div className="mt-4 p-4 bg-white rounded-lg flex flex-col items-center justify-center shadow-inner">
-                  <p className="text-[11px] text-slate-800 font-mono font-bold mb-2 text-center">
+              {/* RENDERIZADO DEL CÓDIGO QR / CÓDIGO DE VINCULACIÓN */}
+              {(qrBase64 || qrCodeString || pairingCode) && !status.connected && (
+                <div className="mt-4 p-4 bg-white rounded-lg flex flex-col items-center justify-center shadow-inner text-slate-800">
+                  <p className="text-[11px] text-slate-900 font-mono font-bold mb-2 text-center">
                     Escanee este código desde WhatsApp:
                     <br />
                     <span className="text-slate-600 font-normal">Ajustes &gt; Dispositivos vinculados</span>
                   </p>
-                  <img 
-                    src={qrBase64.startsWith('data:') ? qrBase64 : `data:image/png;base64,${qrBase64}`} 
-                    alt="Código QR de Vinculación WhatsApp" 
-                    className="w-56 h-56 object-contain"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-2 font-mono">
-                    El QR se renueva automáticamente cada 40 segundos
+
+                  {qrBase64 ? (
+                    <img 
+                      src={qrBase64.startsWith('data:') ? qrBase64 : `data:image/png;base64,${qrBase64}`} 
+                      alt="Código QR de Vinculación WhatsApp" 
+                      className="w-56 h-56 object-contain"
+                    />
+                  ) : qrCodeString ? (
+                    <div className="p-3 bg-white rounded-lg border border-slate-200">
+                      <QRCodeSVG value={qrCodeString} size={210} level="M" />
+                    </div>
+                  ) : null}
+
+                  {pairingCode && (
+                    <div className="mt-3 w-full bg-slate-100 p-2.5 rounded border border-slate-300 text-center">
+                      <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-600 font-bold uppercase mb-1">
+                        <KeyRound className="w-3 h-3 text-blue-600" />
+                        <span>Código Numérico Alternativo:</span>
+                      </div>
+                      <span className="text-base font-mono font-black text-blue-900 tracking-widest select-all">
+                        {pairingCode}
+                      </span>
+                      <p className="text-[9px] text-slate-500 mt-0.5">
+                        En WhatsApp: Vincular con el número de teléfono
+                      </p>
+                    </div>
+                  )}
+
+                  <span className="text-[10px] text-slate-500 mt-2 font-mono text-center">
+                    El código se renueva automáticamente al escanear
                   </span>
                 </div>
               )}

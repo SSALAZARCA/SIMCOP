@@ -39,7 +39,7 @@ public class WhatsAppController {
      * Genera o retorna el Código QR en Base64 para vincular la sesión.
      */
     @GetMapping("/qr")
-    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES')")
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getQrCode() {
         Map<String, Object> qrData = whatsAppService.getQrCode();
         return ResponseEntity.ok(qrData);
@@ -49,7 +49,7 @@ public class WhatsAppController {
      * Desconecta o cierra la sesión de WhatsApp de la instancia.
      */
     @PostMapping("/disconnect")
-    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES')")
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
     public ResponseEntity<?> disconnect() {
         boolean success = whatsAppService.disconnect();
         if (success) {
