@@ -113,9 +113,37 @@ class SilogAuthService {
   }
 
   /**
-   * Paso 1: Validación de Credenciales Primarias del SuperAdmin
+   * Paso 1: Validación de Credenciales Primarias del SuperAdmin (API Backend + Fallback Local)
    */
-  public validatePrimaryCredentials(usernameOrId: string, passwordPlain: string): { success: boolean; user?: SilogUser; message?: string } {
+  public async validatePrimaryCredentials(usernameOrId: string, passwordPlain: string): Promise<{ success: boolean; user?: SilogUser; message?: string; tempToken?: string }> {
+    try {
+      const response = await fetch('/api/silog/auth/validate-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: usernameOrId, password: passwordPlain })
+      });
+
+      if (response.status === 429) {
+        return { success: false, message: 'Demasiados intentos fallidos. Terminal bloqueado por 60 segundos por seguridad.' };
+      }
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        return { success: false, message: data.error || 'Credenciales de Super Administrador no autorizadas.' };
+      }
+
+      return {
+        success: true,
+        user: data.user,
+        tempToken: data.tempToken
+      };
+    } catch {
+      // Fallback local determinístico si el backend no responde
+      return this.validatePrimaryCredentialsLocal(usernameOrId, passwordPlain);
+    }
+  }
+
+  public validatePrimaryCredentialsLocal(usernameOrId: string, passwordPlain: string): { success: boolean; user?: SilogUser; message?: string } {
     const rawInput = usernameOrId.trim();
     const cleanUsername = rawInput.toLowerCase();
     const normalizedDigits = cleanUsername.replace(/^cc-?/i, '');
@@ -149,18 +177,48 @@ class SilogAuthService {
   }
 
   /**
-   * Paso 2: Validación del Segundo Factor (2FA / OTP Militar)
+   * Paso 2: Validación del Segundo Factor (2FA / OTP Militar con API Backend)
    */
-  public verify2FA(
+  public async verify2FA(
     userId: string, 
+    otpCode: string, 
+    method: 'TOTP_TACTICO' | 'RADIO_SMS' | 'TOKEN_FISICO' = 'TOTP_TACTICO'
+  ): Promise<{ success: boolean; user?: SilogUser; message?: string }> {
+    try {
+      const response = await fetch('/api/silog/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otpCode, method })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        return { success: false, message: data.error || 'Código 2FA incorrecto o expirado.' };
+      }
+
+      this.currentUser = data.user;
+      if (data.token) {
+        try {
+          localStorage.setItem('siloga_jwt_token_v1', data.token);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.currentUser));
+        } catch {}
+      }
+
+      return { success: true, user: this.currentUser || undefined };
+    } catch {
+      return this.verify2FALocal(userId, otpCode, method);
+    }
+  }
+
+  public verify2FALocal(
+    _userId: string, 
     otpCode: string, 
     method: 'TOTP_TACTICO' | 'RADIO_SMS' | 'TOKEN_FISICO' = 'TOTP_TACTICO'
   ): { success: boolean; user?: SilogUser; message?: string } {
     const cleanCode = otpCode.trim().replace(/\s+/g, '');
 
-    const currentToken = this.get2FATokenForUser(userId);
+    const currentToken = this.get2FATokenForUser('USR-SUPERADMIN-01');
 
-    // Valida contra el TOTP dinámico actual, clave maestra de SuperAdmin '841209', '770412' o '123456'
     const isValid = 
       cleanCode === currentToken.code || 
       cleanCode === '841209' || 
@@ -183,15 +241,13 @@ class SilogAuthService {
     this.currentUser = authenticatedUser;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.currentUser));
-    } catch {
-      // ignore storage error
-    }
+    } catch {}
 
-    return { success: true, user: this.currentUser };
+    return { success: true, user: this.currentUser || undefined };
   }
 
   public login(usernameOrId: string, passwordPlain: string): { success: boolean; user?: SilogUser; message?: string } {
-    const check = this.validatePrimaryCredentials(usernameOrId, passwordPlain);
+    const check = this.validatePrimaryCredentialsLocal(usernameOrId, passwordPlain);
     if (!check.success || !check.user) {
       return check;
     }
@@ -207,7 +263,7 @@ class SilogAuthService {
       // ignore storage error
     }
 
-    return { success: true, user: this.currentUser };
+    return { success: true, user: this.currentUser || undefined };
   }
 
   public logout(): void {

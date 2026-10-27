@@ -1105,6 +1105,7 @@ class SilogService {
       remisionActNumber: sapDocNumber
     };
     this.transferAuditLog.unshift(record);
+    this.syncToBackend();
 
     return {
       success: true,
@@ -1112,6 +1113,32 @@ class SilogService {
       sapDocNumber,
       message: `Contabilización masiva SAP completada: ${count} elementos/lotes ingresados a ${targetWh.name} (Doc SAP: ${sapDocNumber}).`
     };
+  }
+
+  /**
+   * Sincronización asíncrona de inventario persistente con el backend de producción
+   */
+  public syncToBackend(): void {
+    try {
+      const token = localStorage.getItem('siloga_jwt_token_v1');
+      const payload = {
+        weapons: this.weapons,
+        ammoLots: this.ammoLots,
+        armors: this.armors,
+        rtsBatches: this.rtsBatches,
+        comms: this.comms,
+        optronics: this.optronics,
+        sanityItems: this.sanityItems
+      };
+      fetch('/api/silog/inventory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    } catch {}
   }
 }
 

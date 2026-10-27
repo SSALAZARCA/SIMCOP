@@ -55,7 +55,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   }, [resendCooldown]);
 
   // PASO 1: Validación de Credenciales Primarias
-  const handleValidateCredentials = (e: React.FormEvent) => {
+  const handleValidateCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessNotice(null);
@@ -72,8 +72,8 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = silogAuthService.validatePrimaryCredentials(username, password);
+    try {
+      const result = await silogAuthService.validatePrimaryCredentials(username, password);
       setIsLoading(false);
 
       if (result.success && result.user) {
@@ -96,7 +96,10 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
       } else {
         setError(result.message || 'Credenciales inválidas de Super Administrador.');
       }
-    }, 400);
+    } catch {
+      setIsLoading(false);
+      setError('Error de comunicación con el servidor de seguridad.');
+    }
   };
 
   // PASO 2: Manejo de casillas de 6 dígitos con auto-avance
@@ -139,7 +142,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
     otpInputRefs.current[5]?.focus();
   };
 
-  const handleVerify2FA = (e: React.FormEvent) => {
+  const handleVerify2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingUser) return;
     setError(null);
@@ -152,8 +155,8 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = silogAuthService.verify2FA(pendingUser.id, fullCode, twoFactorMethod);
+    try {
+      const result = await silogAuthService.verify2FA(pendingUser.id, fullCode, twoFactorMethod);
       setIsLoading(false);
 
       if (result.success && result.user) {
@@ -164,7 +167,10 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
       } else {
         setError(result.message || 'Código 2FA incorrecto o expirado.');
       }
-    }, 400);
+    } catch {
+      setIsLoading(false);
+      setError('Error validando token con el servidor central.');
+    }
   };
 
   const handleResendRadioCode = () => {
