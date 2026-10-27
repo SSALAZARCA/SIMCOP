@@ -123,5 +123,13 @@ public class OperationsOrder {
         this.status = status;
     }
 
+    public String getMission() {
+        return mission;
+    }
+
+    public void setMission(String mission) {
+        this.mission = mission;
+    }
+
     // ... (Assume standard getters/setters for all fields)
 }
