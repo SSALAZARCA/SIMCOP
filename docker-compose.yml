@@ -218,7 +218,7 @@ services:
   # 9. EVOLUTION API (Servicio Central de Mensajería WhatsApp)
   # ============================================================
   evolution_api:
-    image: atiladuran/evolution-api:v2.2.2
+    image: evoapicloud/evolution-api:v2.2.2
     restart: unless-stopped
     expose:
       - 8082
