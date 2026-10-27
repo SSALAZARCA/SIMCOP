@@ -20,7 +20,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 12,
     unitOfMeasure: 'UN',
     serialNumber: 'CO-556-SAP-8901',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'POLV',
     manufacturingYear: 2026
   },
@@ -31,7 +31,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 2,
     unitOfMeasure: 'UN',
     serialNumber: 'M60-762-SAP-101',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'POLV',
     manufacturingYear: 2026
   },
@@ -42,7 +42,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 15000,
     unitOfMeasure: 'UN',
     batchNumber: 'IND-26-MB52-441',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'POLV',
     manufacturingYear: 2026
   },
@@ -53,7 +53,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 120,
     unitOfMeasure: 'UN',
     batchNumber: 'IND-26-HE-99',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'POLV',
     manufacturingYear: 2026
   },
@@ -64,7 +64,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 15,
     unitOfMeasure: 'UN',
     serialNumber: 'CH-IV-SAP-5501',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'BODG',
     manufacturingYear: 2026
   },
@@ -75,7 +75,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 600,
     unitOfMeasure: 'UN',
     batchNumber: 'MRE-26-LOTE-07',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'SUBS',
     expirationDate: '2028-10-26'
   },
@@ -86,7 +86,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 4,
     unitOfMeasure: 'UN',
     serialNumber: 'HF-152-SAP-3301',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'TCOM',
     manufacturingYear: 2026
   },
@@ -97,7 +97,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 6,
     unitOfMeasure: 'UN',
     serialNumber: 'NV-PVS14-SAP-77',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'OPTR',
     manufacturingYear: 2026
   },
@@ -108,7 +108,7 @@ const DEMO_SAP_DATA: SapMaterialRow[] = [
     quantity: 20,
     unitOfMeasure: 'UN',
     serialNumber: 'IFAK-SAP-2026',
-    sapPlant: '1601',
+    sapPlant: '2026',
     sapStorageLocation: 'SAN8',
     expirationDate: '2029-08-15'
   }
@@ -136,13 +136,13 @@ export const SapIngresoMasivoModal: React.FC<SapIngresoMasivoModalProps> = ({
   const handleLoadDemo = () => {
     setParsedRows(DEMO_SAP_DATA);
     setRawText(`Material\tTexto breve de material\tCantidad\tUMB\tLote\tCentro\tAlmacén
-10049201\tFusil de Asalto Galil ACE 23 5.56mm\t12\tUN\tCO-556-SAP-8901\t1601\tPOLV
-20081044\tMunición Indumil 5.56x45mm SS109\t15000\tUN\tIND-26-MB52-441\t1601\tPOLV
-30019240\tChaleco Balístico Nivel IV\t15\tUN\tCH-IV-SAP-5501\t1601\tBODG
-40055102\tRación de Campaña MRE Menú 07\t600\tUN\tMRE-26-LOTE-07\t1601\tSUBS
-50091012\tRadio Harris Falcon III PRC-152\t4\tUN\tHF-152-SAP-3301\t1601\tTCOM
-60012099\tVisor Nocturno AN/PVS-14 Gen 3+\t6\tUN\tNV-PVS14-SAP-77\t1601\tOPTR
-70034011\tBotiquín Individual IFAK CAT G7\t20\tUN\tIFAK-SAP-2026\t1601\tSAN8`);
+10049201\tFusil de Asalto Galil ACE 23 5.56mm\t12\tUN\tCO-556-SAP-8901\t2026\tPOLV
+20081044\tMunición Indumil 5.56x45mm SS109\t15000\tUN\tIND-26-MB52-441\t2026\tPOLV
+30019240\tChaleco Balístico Nivel IV\t15\tUN\tCH-IV-SAP-5501\t2026\tBODG
+40055102\tRación de Campaña MRE Menú 07\t600\tUN\tMRE-26-LOTE-07\t2026\tSUBS
+50091012\tRadio Harris Falcon III PRC-152\t4\tUN\tHF-152-SAP-3301\t2026\tTCOM
+60012099\tVisor Nocturno AN/PVS-14 Gen 3+\t6\tUN\tNV-PVS14-SAP-77\t2026\tOPTR
+70034011\tBotiquín Individual IFAK CAT G7\t20\tUN\tIFAK-SAP-2026\t2026\tSAN8`);
   };
 
   const handleParseRawText = (text: string) => {
@@ -170,7 +170,7 @@ export const SapIngresoMasivoModal: React.FC<SapIngresoMasivoModalProps> = ({
         const qty = parseInt(parts[2]?.trim().replace(/\./g, '').replace(/,/g, '')) || 1;
         const umb = (parts[3]?.trim() as any) || 'UN';
         const lot = parts[4]?.trim() || '';
-        const plant = parts[5]?.trim() || '1601';
+        const plant = parts[5]?.trim() || '2026';
         const sloc = parts[6]?.trim() || 'BASP';
 
         // Inferir categoría doctrinal
@@ -284,7 +284,7 @@ export const SapIngresoMasivoModal: React.FC<SapIngresoMasivoModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-xs">
             <div>
               <label className="text-[10px] text-slate-400 font-bold block uppercase mb-1">
-                Almacén BASPC Receptor (Centro SAP 1601/2301):
+                Almacén General BASPC Receptor:
               </label>
               <select
                 value={selectedWarehouseId}

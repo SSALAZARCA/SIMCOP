@@ -18,102 +18,19 @@ import {
   SapMaterialRow 
 } from '../types';
 
+export interface SimcopUnit {
+  id: string;
+  name: string;
+  type: string;
+  parentId?: string | null;
+  commander?: { rank?: string; name?: string };
+  location?: { lat: number; lon: number };
+  department?: string;
+  municipality?: string;
+}
+
 // Almacenes Centralizadores (BASPC) y Depósitos de Batallón concordantes con la Estructura de Fuerza SIMCOP
 const SEED_WAREHOUSES: MilitaryWarehouse[] = [
-  // --- 16ª BRIGADA (CASANARE - 8ª DIVISIÓN SIMCOP) ---
-  {
-    id: 'WH-BASPC-16',
-    name: 'Almacén General BASPC No. 16 (Centralizador 16ª Brigada)',
-    type: 'BASPC_CENTRAL',
-    unitId: 'BASPC-16',
-    unitName: 'Batallón de Apoyo y Servicios No. 16',
-    brigadeId: '16-BRIG',
-    department: 'CASANARE',
-    municipality: 'YOPAL',
-    location: { lat: 5.3380, lon: -72.4000 },
-    commanderInCharge: 'TC. Andrés Villar',
-    storekeeperName: 'SM. Gómez Silva Hernán',
-    securityLevel: 'POLVORIN_BLINDADO',
-    capacityStatus: 'OPTIMO'
-  },
-  {
-    id: 'WH-BI-44',
-    name: 'Depósito Táctico - Batallón de Infantería No. 44',
-    type: 'BATALLON_DEPOSITO',
-    unitId: 'BI-44',
-    unitName: 'Batallón de Infantería No. 44 Ramón Nonato Pérez',
-    brigadeId: '16-BRIG',
-    department: 'CASANARE',
-    municipality: 'TAURAMENA',
-    location: { lat: 4.9520, lon: -72.7530 },
-    commanderInCharge: 'TC. Gustavo Adolfo Rodríguez',
-    storekeeperName: 'SS. Vargas Peña Milton',
-    securityLevel: 'ALTA_SEGURIDAD',
-    capacityStatus: 'DISPONIBLE'
-  },
-  {
-    id: 'WH-GM-16',
-    name: 'Depósito Táctico - Grupo de Caballería No. 16',
-    type: 'BATALLON_DEPOSITO',
-    unitId: 'GM-16',
-    unitName: 'Grupo de Caballería Montado No. 16 Guías del Casanare',
-    brigadeId: '16-BRIG',
-    department: 'CASANARE',
-    municipality: 'YOPAL',
-    location: { lat: 5.3200, lon: -72.3800 },
-    commanderInCharge: 'TC. José Ramón Pérez',
-    storekeeperName: 'SV. Rentería Bravo Carlos',
-    securityLevel: 'ALTA_SEGURIDAD',
-    capacityStatus: 'DISPONIBLE'
-  },
-  {
-    id: 'WH-BEING-16',
-    name: 'Depósito Especial - Batallón de Ingenieros No. 16',
-    type: 'BATALLON_DEPOSITO',
-    unitId: 'BEING-16',
-    unitName: 'Batallón de Ingenieros No. 16 Rafael Navas Pardo',
-    brigadeId: '16-BRIG',
-    department: 'CASANARE',
-    municipality: 'YOPAL',
-    location: { lat: 5.3350, lon: -72.3980 },
-    commanderInCharge: 'TC. Óscar Marín',
-    storekeeperName: 'SS. Belalcázar Jaime',
-    securityLevel: 'POLVORIN_BLINDADO',
-    capacityStatus: 'OPTIMO'
-  },
-
-  // --- 18ª BRIGADA (ARAUCA - 8ª DIVISIÓN SIMCOP) ---
-  {
-    id: 'WH-BI-24',
-    name: 'Depósito Táctico - Batallón de Infantería No. 24',
-    type: 'BATALLON_DEPOSITO',
-    unitId: 'BI-24',
-    unitName: 'Batallón de Infantería No. 24 Luis Tovar Lucero',
-    brigadeId: '18-BRIG',
-    department: 'ARAUCA',
-    municipality: 'SARAVENA',
-    location: { lat: 7.0320, lon: -71.2720 },
-    commanderInCharge: 'TC. Juan Carlos Ortiz',
-    storekeeperName: 'SS. Roa Martínez David',
-    securityLevel: 'ALTA_SEGURIDAD',
-    capacityStatus: 'CRITICO'
-  },
-  {
-    id: 'WH-GM-18',
-    name: 'Depósito Táctico - Grupo de Caballería No. 18',
-    type: 'BATALLON_DEPOSITO',
-    unitId: 'GM-18',
-    unitName: 'Grupo de Caballería Mecanizado No. 18 Reveiz Pizarro',
-    brigadeId: '18-BRIG',
-    department: 'ARAUCA',
-    municipality: 'TAME',
-    location: { lat: 6.9530, lon: -71.8790 },
-    commanderInCharge: 'TC. Edwin Torres',
-    storekeeperName: 'SV. Pinzón Álvaro',
-    securityLevel: 'ALTA_SEGURIDAD',
-    capacityStatus: 'DISPONIBLE'
-  },
-
   // --- 23ª BRIGADA (NARIÑO - 3ª DIVISIÓN SIMCOP) ---
   {
     id: 'WH-BASPC-23',
@@ -166,6 +83,9 @@ class SilogService {
   private static instance: SilogService;
 
   private warehouses: MilitaryWarehouse[] = [...SEED_WAREHOUSES];
+  private simcopUnits: SimcopUnit[] = [];
+  private isSimcopSynced: boolean = false;
+  private listeners: Set<() => void> = new Set();
   private weapons: WeaponItem[] = [];
   private ammoLots: AmmunitionLotItem[] = [];
   private armors: BallisticArmorItem[] = [];
@@ -177,6 +97,7 @@ class SilogService {
 
   private constructor() {
     this.seedInitialInventory();
+    this.syncWithSimcop();
   }
 
   public static getInstance(): SilogService {
@@ -186,8 +107,116 @@ class SilogService {
     return SilogService.instance;
   }
 
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notifyListeners(): void {
+    this.listeners.forEach(fn => {
+      try { fn(); } catch (e) { console.error(e); }
+    });
+  }
+
+  public getSimcopUnits(): SimcopUnit[] {
+    return this.simcopUnits;
+  }
+
+  public isSyncedWithSimcop(): boolean {
+    return this.isSimcopSynced;
+  }
+
+  public mapUnitsToWarehouses(units: SimcopUnit[]): MilitaryWarehouse[] {
+    const list: MilitaryWarehouse[] = [];
+
+    units.forEach(u => {
+      const uType = (u.type || '').toUpperCase();
+      const lat = u.location?.lat || 4.5;
+      const lon = u.location?.lon || -74.0;
+      const cmdr = u.commander 
+        ? `${u.commander.rank || ''} ${u.commander.name || ''}`.trim() || 'Comandante Orgánico'
+        : 'Comandante Orgánico';
+
+      if (uType === 'BRIGADA' || uType === 'DIVISION') {
+        list.push({
+          id: `WH-BASPC-${u.id}`,
+          name: `Almacén General BASPC - ${u.name}`,
+          type: 'BASPC_CENTRAL',
+          unitId: u.id,
+          unitName: u.name,
+          brigadeId: u.id,
+          department: u.department || 'JURISDICCIÓN MILITAR',
+          municipality: u.municipality || u.name,
+          location: { lat, lon },
+          commanderInCharge: cmdr,
+          storekeeperName: 'Almacenista Centralizador BASPC',
+          securityLevel: 'POLVORIN_BLINDADO',
+          capacityStatus: 'OPTIMO'
+        });
+      } else if (uType === 'BATALLON') {
+        list.push({
+          id: `WH-BAT-${u.id}`,
+          name: `Depósito Táctico - ${u.name}`,
+          type: 'BATALLON_DEPOSITO',
+          unitId: u.id,
+          unitName: u.name,
+          brigadeId: u.parentId || 'BRIGADA_SUPERIOR',
+          department: u.department || 'JURISDICCIÓN OPERACIONAL',
+          municipality: u.municipality || u.name,
+          location: { lat, lon },
+          commanderInCharge: cmdr,
+          storekeeperName: 'Bodeguero de Batallón',
+          securityLevel: 'ALTA_SEGURIDAD',
+          capacityStatus: 'DISPONIBLE'
+        });
+      } else if (uType === 'COMPANIA' || uType === 'PELOTON') {
+        list.push({
+          id: `WH-COMP-${u.id}`,
+          name: `Armerillo / Depósito Táctico - ${u.name}`,
+          type: 'BASE_PATRULLA',
+          unitId: u.id,
+          unitName: u.name,
+          brigadeId: u.parentId || 'BATALLON_SUPERIOR',
+          department: u.department || 'ZONA DE OPERACIONES',
+          municipality: u.municipality || u.name,
+          location: { lat, lon },
+          commanderInCharge: cmdr,
+          storekeeperName: 'Furriel / Encargado de Armerillo',
+          securityLevel: 'CAMPAMENTO_AVANZADO',
+          capacityStatus: 'DISPONIBLE'
+        });
+      }
+    });
+
+    return list;
+  }
+
+  public async syncWithSimcop(): Promise<MilitaryWarehouse[]> {
+    try {
+      const response = await fetch('/api/silog/simcop/units');
+      if (response.ok) {
+        const json = await response.json();
+        const units: SimcopUnit[] = json.units || [];
+        this.simcopUnits = units;
+
+        if (units.length > 0) {
+          const mapped = this.mapUnitsToWarehouses(units);
+          if (mapped.length > 0) {
+            this.warehouses = mapped;
+            this.isSimcopSynced = true;
+            this.notifyListeners();
+            return this.warehouses;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SILOG] Sincronización en segundo plano con SIMCOP diferida:', e);
+    }
+    return this.warehouses;
+  }
+
   private seedInitialInventory() {
-    // 1. Armamento Clase V
+    // 1. Armamento Clase V (Exclusivamente unidades reales de doctrina)
     this.weapons = [
       // Base Samaniego (Nariño)
       { id: 'W-001', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CO-556-98124', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'ASIGNADO', roundsFiredEstimate: 1420, lastMaintenanceDate: '2026-08-15', assignedSoldierId: 'SLP-01' },
@@ -199,25 +228,7 @@ class SilogService {
       { id: 'W-007', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'MGL-40-1092', model: 'LANZAGRANADAS_MGL_40MM', caliber: '40mm', status: 'OPERATIVO', roundsFiredEstimate: 140, lastMaintenanceDate: '2026-09-01' },
       { id: 'W-008', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'MOR-60-551', model: 'MORTERO_COMMANDO_60MM', caliber: '60mm', status: 'OPERATIVO', roundsFiredEstimate: 210, lastMaintenanceDate: '2026-07-15' },
       { id: 'W-009', warehouseId: 'WH-BIP-09', serialNumber: 'CO-556-10041', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 320, lastMaintenanceDate: '2026-09-20' },
-      { id: 'W-010', warehouseId: 'WH-BASPC-23', serialNumber: 'M60-762-9901', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'EN_TALLER_BASPC', roundsFiredEstimate: 18200, lastMaintenanceDate: '2026-10-01' },
-
-      // BI-44 (Tauramena - 16ª Brigada)
-      { id: 'W-101', warehouseId: 'WH-BI-44', serialNumber: 'CO-556-44001', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 450, lastMaintenanceDate: '2026-09-18' },
-      { id: 'W-102', warehouseId: 'WH-BI-44', serialNumber: 'CO-556-44002', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 780, lastMaintenanceDate: '2026-09-18' },
-      { id: 'W-103', warehouseId: 'WH-BI-44', serialNumber: 'CO-556-44003', model: 'GALIL_SAR_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 2300, lastMaintenanceDate: '2026-08-05' },
-      { id: 'W-104', warehouseId: 'WH-BI-44', serialNumber: 'M60-762-1601', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'OPERATIVO', roundsFiredEstimate: 5100, lastMaintenanceDate: '2026-09-12' },
-      { id: 'W-105', warehouseId: 'WH-BI-44', serialNumber: 'MGL-40-1601', model: 'LANZAGRANADAS_MGL_40MM', caliber: '40mm', status: 'OPERATIVO', roundsFiredEstimate: 85, lastMaintenanceDate: '2026-09-15' },
-      { id: 'W-106', warehouseId: 'WH-BI-44', serialNumber: 'MOR-60-1601', model: 'MORTERO_COMMANDO_60MM', caliber: '60mm', status: 'OPERATIVO', roundsFiredEstimate: 120, lastMaintenanceDate: '2026-08-22' },
-
-      // BASPC-16 (Almacén Centralizador Casanare)
-      { id: 'W-201', warehouseId: 'WH-BASPC-16', serialNumber: 'CO-556-POLV-01', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 0, lastMaintenanceDate: '2026-10-01' },
-      { id: 'W-202', warehouseId: 'WH-BASPC-16', serialNumber: 'CO-556-POLV-02', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 0, lastMaintenanceDate: '2026-10-01' },
-      { id: 'W-203', warehouseId: 'WH-BASPC-16', serialNumber: 'M60-762-POLV-01', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'OPERATIVO', roundsFiredEstimate: 120, lastMaintenanceDate: '2026-09-29' },
-      { id: 'W-204', warehouseId: 'WH-BASPC-16', serialNumber: 'M60-762-REP-02', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'EN_TALLER_BASPC', roundsFiredEstimate: 16500, lastMaintenanceDate: '2026-10-15' },
-
-      // BI-24 (Saravena - 18ª Brigada Arauca)
-      { id: 'W-301', warehouseId: 'WH-BI-24', serialNumber: 'CO-556-24001', model: 'GALIL_ACE_23_556', caliber: '5.56x45mm', status: 'OPERATIVO', roundsFiredEstimate: 1620, lastMaintenanceDate: '2026-09-05' },
-      { id: 'W-302', warehouseId: 'WH-BI-24', serialNumber: 'M60-762-2401', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'OPERATIVO', roundsFiredEstimate: 9100, lastMaintenanceDate: '2026-09-10' }
+      { id: 'W-010', warehouseId: 'WH-BASPC-23', serialNumber: 'M60-762-9901', model: 'AMETRALLADORA_M60E4_762', caliber: '7.62x51mm', status: 'EN_TALLER_BASPC', roundsFiredEstimate: 18200, lastMaintenanceDate: '2026-10-01' }
     ];
 
     // 2. Municiones por Lote
@@ -229,20 +240,7 @@ class SilogService {
       { id: 'LOT-60MM-D', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', caliber: '60mm_MORTERO_HE', lotNumber: 'MORT-60-2024-2', quantityRounds: 24, packagingType: 'CAJA_MADERA', manufacturingYear: 2024, securityClassification: 'DOTACION_COMBATE' },
       
       // BASPC-23
-      { id: 'LOT-556-BASPC', warehouseId: 'WH-BASPC-23', caliber: '5.56x45mm', lotNumber: 'INDUMIL-26-POLV', quantityRounds: 85000, packagingType: 'CAJA_MADERA', manufacturingYear: 2026, securityClassification: 'RESERVA_ESTRATEGICA' },
-
-      // BI-44 (Casanare)
-      { id: 'LOT-556-BI44', warehouseId: 'WH-BI-44', caliber: '5.56x45mm', lotNumber: 'IND-26-BI44-A', quantityRounds: 14200, packagingType: 'CAJA_MADERA', manufacturingYear: 2026, securityClassification: 'DOTACION_COMBATE' },
-      { id: 'LOT-762-BI44', warehouseId: 'WH-BI-44', caliber: '7.62x51mm', lotNumber: 'IND-25-BI44-B', quantityRounds: 4800, packagingType: 'CANANA_METALICA', manufacturingYear: 2025, securityClassification: 'DOTACION_COMBATE' },
-      { id: 'LOT-40MM-BI44', warehouseId: 'WH-BI-44', caliber: '40mm_HE', lotNumber: 'IM-40-BI44-1', quantityRounds: 96, packagingType: 'CAJA_MADERA', manufacturingYear: 2025, securityClassification: 'DOTACION_COMBATE' },
-      { id: 'LOT-60MM-BI44', warehouseId: 'WH-BI-44', caliber: '60mm_MORTERO_HE', lotNumber: 'MORT-60-BI44', quantityRounds: 48, packagingType: 'CAJA_MADERA', manufacturingYear: 2024, securityClassification: 'DOTACION_COMBATE' },
-
-      // BASPC-16 (Almacén Centralizador Casanare)
-      { id: 'LOT-556-BASPC16', warehouseId: 'WH-BASPC-16', caliber: '5.56x45mm', lotNumber: 'IND-26-BASPC16-RES', quantityRounds: 120000, packagingType: 'CAJA_MADERA', manufacturingYear: 2026, securityClassification: 'RESERVA_ESTRATEGICA' },
-      { id: 'LOT-762-BASPC16', warehouseId: 'WH-BASPC-16', caliber: '7.62x51mm', lotNumber: 'IND-25-BASPC16-RES', quantityRounds: 35000, packagingType: 'CAJA_MADERA', manufacturingYear: 2025, securityClassification: 'RESERVA_ESTRATEGICA' },
-
-      // BI-24 (Arauca)
-      { id: 'LOT-556-BI24', warehouseId: 'WH-BI-24', caliber: '5.56x45mm', lotNumber: 'IND-26-BI24-SARA', quantityRounds: 9800, packagingType: 'CAJA_MADERA', manufacturingYear: 2026, securityClassification: 'DOTACION_COMBATE' }
+      { id: 'LOT-556-BASPC', warehouseId: 'WH-BASPC-23', caliber: '5.56x45mm', lotNumber: 'INDUMIL-26-POLV', quantityRounds: 85000, packagingType: 'CAJA_MADERA', manufacturingYear: 2026, securityClassification: 'RESERVA_ESTRATEGICA' }
     ];
 
     // 3. Intendencia y Blindaje Balístico Clase II
@@ -252,16 +250,7 @@ class SilogService {
       { id: 'AR-02', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CH-IV-99121', armorType: 'CHALECO_BALISTICO_IV', size: 'M', frontPlateSerial: 'PL-CERAMIC-9913-F', rearPlateSerial: 'PL-CERAMIC-9913-R', manufacturingDate: '2024-05-10', expirationDate: '2029-05-10', status: 'ASIGNADO', assignedSoldierId: 'CP-02' },
       { id: 'AR-03', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CH-IV-99122', armorType: 'CHALECO_BALISTICO_IV', size: 'L', frontPlateSerial: 'PL-CERAMIC-9914-F', rearPlateSerial: 'PL-CERAMIC-9914-R', manufacturingDate: '2024-05-10', expirationDate: '2029-05-10', status: 'ASIGNADO', assignedSoldierId: 'SS-03' },
       { id: 'AR-04', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CH-IV-99123', armorType: 'CHALECO_BALISTICO_IV', size: 'M', frontPlateSerial: 'PL-CERAMIC-9915-F', rearPlateSerial: 'PL-CERAMIC-9915-R', manufacturingDate: '2024-05-10', expirationDate: '2029-05-10', status: 'ASIGNADO', assignedSoldierId: 'TE-04' },
-      { id: 'AR-05', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CSK-MICH-4401', armorType: 'CASCO_KEVLAR_MICH', size: 'L', manufacturingDate: '2023-11-15', expirationDate: '2028-11-15', status: 'ASIGNADO', assignedSoldierId: 'SLP-01' },
-
-      // BI-44 (Casanare)
-      { id: 'AR-101', warehouseId: 'WH-BI-44', serialNumber: 'CH-IV-44010', armorType: 'CHALECO_BALISTICO_IV', size: 'L', frontPlateSerial: 'PL-CER-44010-F', rearPlateSerial: 'PL-CER-44010-R', manufacturingDate: '2025-01-10', expirationDate: '2030-01-10', status: 'OPERATIVO' },
-      { id: 'AR-102', warehouseId: 'WH-BI-44', serialNumber: 'CH-IV-44011', armorType: 'CHALECO_BALISTICO_IV', size: 'M', frontPlateSerial: 'PL-CER-44011-F', rearPlateSerial: 'PL-CER-44011-R', manufacturingDate: '2025-01-10', expirationDate: '2030-01-10', status: 'OPERATIVO' },
-      { id: 'AR-103', warehouseId: 'WH-BI-44', serialNumber: 'CSK-MICH-4410', armorType: 'CASCO_KEVLAR_MICH', size: 'L', manufacturingDate: '2024-06-15', expirationDate: '2029-06-15', status: 'OPERATIVO' },
-
-      // BASPC-16 (Almacén Centralizador Casanare)
-      { id: 'AR-201', warehouseId: 'WH-BASPC-16', serialNumber: 'CH-IV-BASPC-01', armorType: 'CHALECO_BALISTICO_IV', size: 'XL', frontPlateSerial: 'PL-CER-16001-F', rearPlateSerial: 'PL-CER-16001-R', manufacturingDate: '2025-03-20', expirationDate: '2030-03-20', status: 'OPERATIVO' },
-      { id: 'AR-202', warehouseId: 'WH-BASPC-16', serialNumber: 'CSK-MICH-1601', armorType: 'CASCO_KEVLAR_MICH', size: 'M', manufacturingDate: '2025-02-10', expirationDate: '2030-02-10', status: 'OPERATIVO' }
+      { id: 'AR-05', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'CSK-MICH-4401', armorType: 'CASCO_KEVLAR_MICH', size: 'L', manufacturingDate: '2023-11-15', expirationDate: '2028-11-15', status: 'ASIGNADO', assignedSoldierId: 'SLP-01' }
     ];
 
     // 4. Alimentación y Raciones de Campaña Clase I
@@ -270,13 +259,6 @@ class SilogService {
       { id: 'RAT-MRE-01', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', rationType: 'RACION_CAMPANA_MRE', menuNumber: 'Menú 02: Arroz Atollado con Pollo y Galletas', lotNumber: 'LOTE-MRE-COL-2026-03', expirationDate: '2028-03-30', quantityOnHand: 540, caloriesPerUnit: 3200, daysOfAutonomyEquivalent: 5 },
       { id: 'RAT-MRE-02', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', rationType: 'RACION_CAMPANA_MRE', menuNumber: 'Menú 05: Carne Desmechada con Frijoles', lotNumber: 'LOTE-MRE-COL-2026-04', expirationDate: '2028-04-15', quantityOnHand: 480, caloriesPerUnit: 3400, daysOfAutonomyEquivalent: 4 },
       { id: 'RAT-AGUA-01', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', rationType: 'PASTILLAS_PURIFICADORAS', menuNumber: 'Aquatabs Tácticas Militares (Tiras x 50)', lotNumber: 'AQUA-MED-2026', expirationDate: '2029-01-01', quantityOnHand: 320, caloriesPerUnit: 0, daysOfAutonomyEquivalent: 15 },
-
-      // BI-44 (Casanare)
-      { id: 'RAT-BI44-01', warehouseId: 'WH-BI-44', rationType: 'RACION_CAMPANA_MRE', menuNumber: 'Menú 01: Pollo con Vegetales y Granola', lotNumber: 'LOTE-MRE-BI44-01', expirationDate: '2028-06-30', quantityOnHand: 1800, caloriesPerUnit: 3100, daysOfAutonomyEquivalent: 12 },
-      { id: 'RAT-BI44-AGUA', warehouseId: 'WH-BI-44', rationType: 'PASTILLAS_PURIFICADORAS', menuNumber: 'Aquatabs Purificadoras (Caja x 500)', lotNumber: 'AQUA-BI44-2026', expirationDate: '2029-05-15', quantityOnHand: 650, caloriesPerUnit: 0, daysOfAutonomyEquivalent: 25 },
-
-      // BASPC-16
-      { id: 'RAT-BASPC16-C1', warehouseId: 'WH-BASPC-16', rationType: 'RACION_CAMPANA_MRE', menuNumber: 'Surtido General de Raciones Campaña Casanare', lotNumber: 'LOTE-CENTRAL-BASPC16-2026', expirationDate: '2028-12-31', quantityOnHand: 22000, caloriesPerUnit: 3300, daysOfAutonomyEquivalent: 60 },
 
       // BASPC-23
       { id: 'RAT-BASPC-C1', warehouseId: 'WH-BASPC-23', rationType: 'RACION_CAMPANA_MRE', menuNumber: 'Surtido General de Raciones Campaña Ejército', lotNumber: 'LOTE-CENTRAL-BASPC-2026', expirationDate: '2028-12-31', quantityOnHand: 14500, caloriesPerUnit: 3300, daysOfAutonomyEquivalent: 45 }
@@ -288,9 +270,7 @@ class SilogService {
       { id: 'COM-02', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'HF-117-4410', model: 'HARRIS_MANPACK_PRC117G', frequencyBand: 'HF_TACTICO', status: 'OPERATIVO', batteryType: 'BB_2590_LITIO', cryptoKeyLoaded: true },
       { id: 'COM-03', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'MOT-APX-112', model: 'MOTOROLA_APX8000', frequencyBand: 'VHF_UHF_SATCOM', status: 'ASIGNADO', batteryType: 'LI_ION_RECARGABLE', assignedSoldierId: 'TE-04', cryptoKeyLoaded: false },
       { id: 'COM-04', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'REP-CERRO-DONA', model: 'REPETIDORA_TACTICA_VHF', frequencyBand: 'VHF_UHF_SATCOM', status: 'OPERATIVO', batteryType: 'PANEL_SOLAR_CAMPANA', cryptoKeyLoaded: true },
-      { id: 'COM-05', warehouseId: 'WH-BASPC-23', serialNumber: 'HF-152-8809', model: 'HARRIS_FALCON_III_PRC152', frequencyBand: 'VHF_UHF_SATCOM', status: 'EN_REPARACION_S6', batteryType: 'BB_2590_LITIO', cryptoKeyLoaded: false },
-      { id: 'COM-101', warehouseId: 'WH-BI-44', serialNumber: 'HF-152-4401', model: 'HARRIS_FALCON_III_PRC152', frequencyBand: 'VHF_UHF_SATCOM', status: 'OPERATIVO', batteryType: 'BB_2590_LITIO', cryptoKeyLoaded: true },
-      { id: 'COM-201', warehouseId: 'WH-BASPC-16', serialNumber: 'HF-117-1601', model: 'HARRIS_MANPACK_PRC117G', frequencyBand: 'HF_TACTICO', status: 'OPERATIVO', batteryType: 'BB_2590_LITIO', cryptoKeyLoaded: true }
+      { id: 'COM-05', warehouseId: 'WH-BASPC-23', serialNumber: 'HF-152-8809', model: 'HARRIS_FALCON_III_PRC152', frequencyBand: 'VHF_UHF_SATCOM', status: 'EN_REPARACION_S6', batteryType: 'BB_2590_LITIO', cryptoKeyLoaded: false }
     ];
 
     // 6. Material Especial y Optoelectrónica
@@ -298,18 +278,14 @@ class SilogService {
       { id: 'OPT-01', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'NV-PVS14-8812', deviceType: 'VISOR_NOCTURNO_PVS14', generation: 'GEN_3_FOM_1800', status: 'ASIGNADO', batteryLevelPct: 95, assignedSoldierId: 'TE-04' },
       { id: 'OPT-02', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'NV-PVS14-8813', deviceType: 'VISOR_NOCTURNO_PVS14', generation: 'GEN_3_FOM_1800', status: 'ASIGNADO', batteryLevelPct: 88, assignedSoldierId: 'SLP-01' },
       { id: 'OPT-03', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'DRN-MAVIC-T01', deviceType: 'DRON_TACTICO_MAVIC3T', generation: 'TERMICO_640x512', status: 'OPERATIVO', batteryLevelPct: 100 },
-      { id: 'OPT-04', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'EOD-VALLON-09', deviceType: 'DETECTOR_METALES_VALLON_EOD', generation: 'INDUCCION_PULSOS', status: 'OPERATIVO', batteryLevelPct: 92 },
-      { id: 'OPT-101', warehouseId: 'WH-BI-44', serialNumber: 'NV-PVS14-4401', deviceType: 'VISOR_NOCTURNO_PVS14', generation: 'GEN_3_FOM_1800', status: 'OPERATIVO', batteryLevelPct: 90 },
-      { id: 'OPT-102', warehouseId: 'WH-BI-44', serialNumber: 'DRN-MAVIC-T16', deviceType: 'DRON_TACTICO_MAVIC3T', generation: 'TERMICO_640x512', status: 'OPERATIVO', batteryLevelPct: 98 }
+      { id: 'OPT-04', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', serialNumber: 'EOD-VALLON-09', deviceType: 'DETECTOR_METALES_VALLON_EOD', generation: 'INDUCCION_PULSOS', status: 'OPERATIVO', batteryLevelPct: 92 }
     ];
 
     // 7. Sanidad Militar y Trauma Clase VIII
     this.sanityItems = [
       { id: 'SAN-01', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', kitType: 'IFAK_INDIVIDUAL_TRAUMA', serialOrLotNumber: 'IFAK-COL-2026-99', tourniquetCatLot: 'CAT-GEN7-LOT26A', tourniquetExpiration: '2029-06-30', hemostaticGauzeUnits: 2, status: 'ASIGNADO', assignedSoldierId: 'SLP-01' },
       { id: 'SAN-02', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', kitType: 'IFAK_INDIVIDUAL_TRAUMA', serialOrLotNumber: 'IFAK-COL-2026-98', tourniquetCatLot: 'CAT-GEN7-LOT26A', tourniquetExpiration: '2029-06-30', hemostaticGauzeUnits: 2, status: 'ASIGNADO', assignedSoldierId: 'CP-02' },
-      { id: 'SAN-03', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', kitType: 'MOCHILA_ENFERMERO_COMBATE', serialOrLotNumber: 'MEDPACK-COMBAT-01', tourniquetCatLot: 'CAT-GEN7-LOT26A', tourniquetExpiration: '2029-06-30', hemostaticGauzeUnits: 8, status: 'ASIGNADO', assignedSoldierId: 'SS-03' },
-      { id: 'SAN-101', warehouseId: 'WH-BI-44', kitType: 'IFAK_INDIVIDUAL_TRAUMA', serialOrLotNumber: 'IFAK-BI44-2026-01', tourniquetCatLot: 'CAT-GEN7-LOT26B', tourniquetExpiration: '2029-08-30', hemostaticGauzeUnits: 2, status: 'OPERATIVO' },
-      { id: 'SAN-201', warehouseId: 'WH-BASPC-16', kitType: 'MOCHILA_ENFERMERO_COMBATE', serialOrLotNumber: 'MEDPACK-BASPC-16', tourniquetCatLot: 'CAT-GEN7-LOT26A', tourniquetExpiration: '2029-06-30', hemostaticGauzeUnits: 12, status: 'OPERATIVO' }
+      { id: 'SAN-03', warehouseId: 'WH-BASE-PATRULLA-SAMANIEGO', kitType: 'MOCHILA_ENFERMERO_COMBATE', serialOrLotNumber: 'MEDPACK-COMBAT-01', tourniquetCatLot: 'CAT-GEN7-LOT26A', tourniquetExpiration: '2029-06-30', hemostaticGauzeUnits: 8, status: 'ASIGNADO', assignedSoldierId: 'SS-03' }
     ];
 
     // 8. Kárdex inicial sincronizado con los soldados de SIGEP

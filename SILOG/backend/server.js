@@ -43,6 +43,64 @@ const SUPERADMIN_PASSWORD_HASH = hashPassword(process.env.SIMCOP_SUPERADMIN_PASS
 const TOTP_SECRET_KEY = crypto.createHash('sha256').update('JELOG-SUPERADMIN-TOTP-SECRET-KEY-841209').digest('hex');
 
 // ============================================================================
+// CONEXIÓN M2M CON SIMCOP (C2 OPERACIONAL) Y SIGEP (PERSONAL)
+// ============================================================================
+const SIMCOP_API_URL = process.env.SIMCOP_API_URL || 'http://backend:8080/api';
+const SIMCOP_SERVICE_TOKEN = process.env.SIMCOP_SERVICE_TOKEN || 'simcop-tactical-m2m-secure-token-2026';
+const SIGEP_API_URL = process.env.SIGEP_API_URL || 'http://sigep_backend:4000/api/simcop';
+const SIMCOP_CACHE_FILE = path.join(DATA_DIR, 'simcop_units_cache.json');
+
+async function fetchSimcopUnits() {
+  const isDocker = fs.existsSync('/.dockerenv') || process.env.DOCKER_CONTAINER;
+  const candidateUrls = isDocker ? [
+    `${SIMCOP_API_URL.replace(/\/$/, '')}/units`,
+    'http://backend:8080/api/units',
+    'http://localhost:8085/api/units'
+  ] : [
+    'http://localhost:8085/api/units',
+    'http://127.0.0.1:8085/api/units',
+    `${SIMCOP_API_URL.replace(/\/$/, '')}/units`,
+    'http://backend:8080/api/units',
+    'http://localhost:8080/api/units'
+  ];
+
+  for (const targetUrl of candidateUrls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(targetUrl, {
+        headers: {
+          'X-Service-Token': SIMCOP_SERVICE_TOKEN,
+          'Authorization': `Bearer ${SIMCOP_SERVICE_TOKEN}`
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const units = await res.json();
+        if (Array.isArray(units)) {
+          fs.writeFileSync(SIMCOP_CACHE_FILE, JSON.stringify(units, null, 2), 'utf8');
+          console.log(`[SIMCOP M2M] Sincronizadas ${units.length} unidades reales desde ${targetUrl}`);
+          return units;
+        }
+      }
+    } catch {
+      // Intentar siguiente URL candidata
+    }
+  }
+
+  // Leer caché persistente si el enlace directo está inaccesible temporalmente
+  if (fs.existsSync(SIMCOP_CACHE_FILE)) {
+    try {
+      const cached = JSON.parse(fs.readFileSync(SIMCOP_CACHE_FILE, 'utf8'));
+      if (Array.isArray(cached)) return cached;
+    } catch {}
+  }
+
+  return [];
+}
+
+// ============================================================================
 // 2. RATE LIMITER & PROTECCIÓN ANTI-BRUTE FORCE
 // ============================================================================
 const loginAttempts = new Map(); // key: ip, value: { count, lockUntil }
@@ -636,6 +694,39 @@ const server = http.createServer((req, res) => {
       authorizedBy: 'Santiago Salazar (SuperAdmin)',
       message: 'Militar certificado a paz y salvo en el Kárdex Oficial SILOGA.'
     }));
+    return;
+  }
+
+  // 8. Sincronización M2M de Unidades Reales Creadas en SIMCOP (/api/silog/simcop/units)
+  if (req.method === 'GET' && pathname === '/api/silog/simcop/units') {
+    fetchSimcopUnits()
+      .then(units => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: units.length, units }));
+      })
+      .catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message, units: [] }));
+      });
+    return;
+  }
+
+  // 9. Forzar Re-sincronización con SIMCOP (/api/silog/simcop/sync)
+  if (req.method === 'POST' && pathname === '/api/silog/simcop/sync') {
+    fetchSimcopUnits()
+      .then(units => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          message: 'Sincronización con SIMCOP completada.',
+          count: units.length,
+          units
+        }));
+      })
+      .catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      });
     return;
   }
 

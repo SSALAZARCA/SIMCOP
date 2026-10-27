@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { silogService } from './services/silogService';
 import { silogAuthService } from './services/silogAuthService';
 import { MilitaryWarehouse, SilogUser } from './types';
@@ -23,6 +23,32 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SilogUser | null>(silogAuthService.getCurrentUser());
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Sincronización en vivo con Unidades Militares creadas en SIMCOP
+  useEffect(() => {
+    silogService.syncWithSimcop().then(syncedWarehouses => {
+      if (syncedWarehouses && syncedWarehouses.length > 0) {
+        setSelectedWarehouse(prev => {
+          const match = syncedWarehouses.find(w => w.id === prev?.id);
+          return match || syncedWarehouses[0];
+        });
+        setRefreshKey(k => k + 1);
+      }
+    });
+
+    const unsubscribe = silogService.subscribe(() => {
+      const live = silogService.getWarehouses();
+      if (live && live.length > 0) {
+        setSelectedWarehouse(prev => {
+          const match = live.find(w => w.id === prev?.id);
+          return match || live[0];
+        });
+      }
+      setRefreshKey(k => k + 1);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Estados del modal de Ingreso de Material (Solo Bodegueros / Almacenistas)
   const [isAddMaterialOpen, setIsAddMaterialOpen] = useState<boolean>(false);

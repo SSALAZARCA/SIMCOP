@@ -182,6 +182,9 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=${SILOG_JWT_SECRET:-siloga-military-defense-jwt-secret-key-2026-superadmin-omega}
       - SIMCOP_SUPERADMIN_PASSWORD=${SIMCOP_SUPERADMIN_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-${DATABASE_PASSWORD}}}
+      - SIMCOP_API_URL=${SIMCOP_API_URL:-http://backend:8080/api}
+      - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
+      - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
     volumes:
       - silog_data:/app/backend/data
     networks:

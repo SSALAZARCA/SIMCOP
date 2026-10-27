@@ -17,11 +17,20 @@ export const AlmacenesHierarchyView: React.FC<AlmacenesHierarchyViewProps> = ({
 }) => {
   const [selectedBrigadeFilter, setSelectedBrigadeFilter] = useState<string>('ALL');
 
+  // Derivar dinámicamente las Brigadas u Órganos Superiores reales de los almacenes
+  const uniqueBrigades = Array.from(
+    new Set(warehouses.map(w => w.brigadeId).filter((b): b is string => Boolean(b)))
+  ).map(bId => {
+    const parentWh = warehouses.find(w => w.unitId === bId || w.brigadeId === bId);
+    return {
+      id: bId,
+      name: parentWh?.unitName || `Unidad ${bId}`
+    };
+  });
+
   const brigades = [
-    { id: 'ALL', name: 'Todas las Brigadas' },
-    { id: '16-BRIG', name: '16ª Brigada (Casanare)' },
-    { id: '18-BRIG', name: '18ª Brigada (Arauca)' },
-    { id: 'BR23', name: '23ª Brigada (Nariño)' }
+    { id: 'ALL', name: 'Todas las Unidades Orgánicas' },
+    ...uniqueBrigades
   ];
 
   const filteredWarehouses = warehouses.filter(wh => {
@@ -62,8 +71,21 @@ export const AlmacenesHierarchyView: React.FC<AlmacenesHierarchyViewProps> = ({
       </div>
 
       {/* Grid de Almacenes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        {filteredWarehouses.map(wh => {
+      {filteredWarehouses.length === 0 ? (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl">
+            🏛️
+          </div>
+          <h3 className="text-sm font-black uppercase text-amber-300 tracking-wider">
+            Sincronización con Estructura de Fuerza SIMCOP
+          </h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            No se han registrado unidades u almacenes para este filtro. Las unidades operacionales creadas en SIMCOP (Brigadas, Batallones y Compañías) se reflejan automáticamente como depósitos y armerillos oficiales de SILOGA.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filteredWarehouses.map(wh => {
           const isSelected = wh.id === selectedWarehouse.id;
           
           // Métricas en tiempo real de este almacén
@@ -174,7 +196,8 @@ export const AlmacenesHierarchyView: React.FC<AlmacenesHierarchyViewProps> = ({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -44,14 +44,20 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
     otherWarehouses[0]?.id || ''
   );
 
-  // Destino Batallón -> Compañía
-  const battalionCompanies = [
-    { id: 'CIA-A', name: 'Compañía A "Vencedores"' },
-    { id: 'CIA-B', name: 'Compañía B "Cazadores"' },
-    { id: 'CIA-C', name: 'Compañía C "Bravos"' },
-    { id: 'CIA-ASPC', name: 'Compañía de Apoyo y Servicios (ASPC)' },
-    { id: 'BASE-AVANZADA', name: 'Base de Patrulla / Puesto Avanzado' }
-  ];
+  // Destino Batallón -> Compañía (Derivado de Unidades Orgánicas de SIMCOP)
+  const simcopUnits = silogService.getSimcopUnits();
+  const currentWh = warehouses.find(w => w.id === currentWarehouseId);
+  const realCompanies = simcopUnits
+    .filter(u => (u.type || '').toUpperCase() === 'COMPANIA' && (!currentWh?.unitId || u.parentId === currentWh.unitId || !u.parentId))
+    .map(u => ({ id: u.id, name: u.name }));
+
+  const battalionCompanies = realCompanies.length > 0 
+    ? realCompanies 
+    : [
+        { id: 'CIA-A', name: 'Compañía A (Orgánica de Maniobra SIMCOP)' },
+        { id: 'CIA-B', name: 'Compañía B (Orgánica de Maniobra SIMCOP)' },
+        { id: 'CIA-ASPC', name: 'Compañía de Apoyo y Servicios (ASPC)' }
+      ];
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(battalionCompanies[0].id);
 
   // Destino Compañía -> Soldado

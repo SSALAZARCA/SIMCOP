@@ -377,10 +377,7 @@ class SilogAuthService {
 
   public getSimcopBrigades(): { id: string; name: string }[] {
     return [
-      { id: 'ALL', name: 'Todas las Unidades de la Estructura de Fuerza' },
-      { id: '16-BRIG', name: 'Décima Sexta Brigada (Casanare / 8ª División)' },
-      { id: '18-BRIG', name: 'Décima Octava Brigada (Arauca / 8ª División)' },
-      { id: 'BR23', name: 'Vigésima Tercera Brigada (Nariño / 3ª División)' }
+      { id: 'ALL', name: 'Todas las Unidades de la Estructura de Fuerza SIMCOP' }
     ];
   }
 
