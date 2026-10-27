@@ -7,7 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -27,18 +29,49 @@ public class WhatsAppService {
     private final RestTemplate restTemplate;
     private final UserRepository userRepository;
     private final ArtilleryPieceRepository artilleryRepository;
+    private volatile String cachedActiveUrl = null;
 
     public WhatsAppService(UserRepository userRepository, ArtilleryPieceRepository artilleryRepository) {
-        this.restTemplate = new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(12000);
+        this.restTemplate = new RestTemplate(factory);
         this.userRepository = userRepository;
         this.artilleryRepository = artilleryRepository;
     }
 
-    private String getBaseUrl() {
-        if (evolutionApiUrl == null || evolutionApiUrl.trim().isEmpty()) {
-            return "http://evolution_api:8082";
+    private List<String> getCandidateBaseUrls() {
+        List<String> urls = new ArrayList<>();
+        if (cachedActiveUrl != null) {
+            urls.add(cachedActiveUrl);
         }
-        return evolutionApiUrl.replaceAll("/+$", "");
+
+        String primary = (evolutionApiUrl != null && !evolutionApiUrl.trim().isEmpty())
+                ? evolutionApiUrl.replaceAll("/+$", "")
+                : "http://evolution_api:8082";
+
+        if (!urls.contains(primary)) {
+            urls.add(primary);
+        }
+
+        // Si la URL primaria tiene 8082, añadir 8080 como fallback (y viceversa)
+        if (primary.contains(":8082")) {
+            String alt = primary.replace(":8082", ":8080");
+            if (!urls.contains(alt)) urls.add(alt);
+        } else if (primary.contains(":8080")) {
+            String alt = primary.replace(":8080", ":8082");
+            if (!urls.contains(alt)) urls.add(alt);
+        }
+
+        // Fallbacks locales para entornos de desarrollo / test
+        if (!urls.contains("http://localhost:8082")) urls.add("http://localhost:8082");
+        if (!urls.contains("http://localhost:8080")) urls.add("http://localhost:8080");
+
+        return urls;
+    }
+
+    private String getBaseUrl() {
+        return cachedActiveUrl != null ? cachedActiveUrl : getCandidateBaseUrls().get(0);
     }
 
     private String getApiKey() {
@@ -71,7 +104,7 @@ public class WhatsAppService {
     }
 
     /**
-     * Consulta el estado de conexión de la instancia de WhatsApp.
+     * Consulta el estado de conexión de la instancia de WhatsApp probando URLs candidatas.
      */
     public Map<String, Object> getInstanceStatus() {
         Map<String, Object> result = new HashMap<>();
@@ -79,28 +112,33 @@ public class WhatsAppService {
         result.put("status", "close");
         result.put("connected", false);
 
-        String url = getBaseUrl() + "/instance/connectionState/" + DEFAULT_INSTANCE;
-        try {
-            HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map body = response.getBody();
-                Object state = body.get("instance");
-                if (state instanceof Map) {
-                    String s = String.valueOf(((Map) state).get("state"));
-                    result.put("status", s);
-                    result.put("connected", "open".equalsIgnoreCase(s));
-                } else if (body.containsKey("state")) {
-                    String s = String.valueOf(body.get("state"));
-                    result.put("status", s);
-                    result.put("connected", "open".equalsIgnoreCase(s));
+        for (String baseUrl : getCandidateBaseUrls()) {
+            String url = baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE;
+            try {
+                HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+                ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    cachedActiveUrl = baseUrl;
+                    Map body = response.getBody();
+                    Object state = body.get("instance");
+                    if (state instanceof Map) {
+                        String s = String.valueOf(((Map) state).get("state"));
+                        result.put("status", s);
+                        result.put("connected", "open".equalsIgnoreCase(s));
+                    } else if (body.containsKey("state")) {
+                        String s = String.valueOf(body.get("state"));
+                        result.put("status", s);
+                        result.put("connected", "open".equalsIgnoreCase(s));
+                    }
+                    return result;
                 }
+            } catch (Exception e) {
+                logger.debug("Evolution API no respondió en {}: {}", baseUrl, e.getMessage());
             }
-        } catch (Exception e) {
-            logger.debug("Instancia aún no creada o Evolution API no disponible: {}", e.getMessage());
-            result.put("status", "disconnected");
-            result.put("error", e.getMessage());
         }
+
+        result.put("status", "disconnected");
+        result.put("error", "Evolution API no disponible temporalmente en la red interna.");
         return result;
     }
 
@@ -109,58 +147,112 @@ public class WhatsAppService {
      */
     public Map<String, Object> getQrCode() {
         Map<String, Object> responseMap = new HashMap<>();
-        String createUrl = getBaseUrl() + "/instance/create";
-        String connectUrl = getBaseUrl() + "/instance/connect/" + DEFAULT_INSTANCE;
+        responseMap.put("instanceName", DEFAULT_INSTANCE);
 
-        try {
-            // 1. Intentar crear la instancia si no existe
-            Map<String, Object> createBody = new HashMap<>();
-            createBody.put("instanceName", DEFAULT_INSTANCE);
-            createBody.put("token", "simcop-comms-tactical-2026");
-            createBody.put("qrcode", true);
-            createBody.put("integration", "WHATSAPP-BAILEYS");
+        for (String baseUrl : getCandidateBaseUrls()) {
+            String createUrl = baseUrl + "/instance/create";
+            String connectUrl = baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
 
-            HttpEntity<Map<String, Object>> createEntity = new HttpEntity<>(createBody, createHeaders());
             try {
-                restTemplate.postForEntity(createUrl, createEntity, Map.class);
-            } catch (Exception ignored) {
-                // Si ya existe la instancia, continuará al paso connect
-            }
+                // 1. Intentar crear la instancia (Evolution API v2 retorna el QR en la creación si no existe)
+                Map<String, Object> createBody = new HashMap<>();
+                createBody.put("instanceName", DEFAULT_INSTANCE);
+                createBody.put("token", "simcop-comms-tactical-2026");
+                createBody.put("qrcode", true);
+                createBody.put("integration", "WHATSAPP-BAILEYS");
 
-            // 2. Obtener QR code
-            HttpEntity<Void> connectEntity = new HttpEntity<>(createHeaders());
-            ResponseEntity<Map> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, Map.class);
-            if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
-                Map body = connectResponse.getBody();
-                responseMap.put("success", true);
-                responseMap.put("instanceName", DEFAULT_INSTANCE);
-                responseMap.put("qrcode", body.get("base64") != null ? body.get("base64") : body.get("qrcode"));
-                responseMap.put("code", body.get("code"));
-                responseMap.put("pairingCode", body.get("pairingCode"));
-                return responseMap;
+                HttpEntity<Map<String, Object>> createEntity = new HttpEntity<>(createBody, createHeaders());
+                try {
+                    ResponseEntity<Map> createResp = restTemplate.postForEntity(createUrl, createEntity, Map.class);
+                    if (createResp.getStatusCode().is2xxSuccessful() && createResp.getBody() != null) {
+                        cachedActiveUrl = baseUrl;
+                        Map body = createResp.getBody();
+                        String qr = extractQr(body);
+                        if (qr != null) {
+                            responseMap.put("success", true);
+                            responseMap.put("qrcode", qr);
+                            responseMap.put("code", extractField(body, "code"));
+                            responseMap.put("pairingCode", extractField(body, "pairingCode"));
+                            return responseMap;
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Si ya existe la instancia u ocurrió error leve en create, procedemos al connect
+                }
+
+                // 2. Obtener QR code desde connect
+                HttpEntity<Void> connectEntity = new HttpEntity<>(createHeaders());
+                ResponseEntity<Map> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, Map.class);
+                if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
+                    cachedActiveUrl = baseUrl;
+                    Map body = connectResponse.getBody();
+                    String state = String.valueOf(body.get("state"));
+                    if ("open".equalsIgnoreCase(state)) {
+                        responseMap.put("success", true);
+                        responseMap.put("connected", true);
+                        responseMap.put("status", "open");
+                        return responseMap;
+                    }
+
+                    String qr = extractQr(body);
+                    responseMap.put("success", true);
+                    responseMap.put("qrcode", qr);
+                    responseMap.put("code", extractField(body, "code"));
+                    responseMap.put("pairingCode", extractField(body, "pairingCode"));
+                    return responseMap;
+                }
+            } catch (Exception e) {
+                logger.warn("Intento de conexión a {} falló: {}", baseUrl, e.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Error al generar QR de Evolution API: {}", e.getMessage());
-            responseMap.put("success", false);
-            responseMap.put("error", e.getMessage());
         }
 
+        responseMap.put("success", false);
+        responseMap.put("error", "El servicio Evolution API se encuentra iniciando o conectando a la base de datos interna. Por favor intente nuevamente en unos instantes.");
         return responseMap;
+    }
+
+    private String extractQr(Map body) {
+        if (body == null) return null;
+        if (body.get("base64") != null) {
+            return String.valueOf(body.get("base64"));
+        }
+        Object qrcodeObj = body.get("qrcode");
+        if (qrcodeObj instanceof Map) {
+            Object b64 = ((Map) qrcodeObj).get("base64");
+            if (b64 != null) return String.valueOf(b64);
+        } else if (qrcodeObj instanceof String && !((String) qrcodeObj).isEmpty()) {
+            return (String) qrcodeObj;
+        }
+        return null;
+    }
+
+    private Object extractField(Map body, String key) {
+        if (body == null) return null;
+        if (body.containsKey(key)) return body.get(key);
+        Object qrcodeObj = body.get("qrcode");
+        if (qrcodeObj instanceof Map && ((Map) qrcodeObj).containsKey(key)) {
+            return ((Map) qrcodeObj).get(key);
+        }
+        return null;
     }
 
     /**
      * Desconecta o cierra la sesión de WhatsApp.
      */
     public boolean disconnect() {
-        String url = getBaseUrl() + "/instance/logout/" + DEFAULT_INSTANCE;
-        try {
-            HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.DELETE, entity, Map.class);
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            logger.error("Error al desconectar WhatsApp: {}", e.getMessage());
-            return false;
+        for (String baseUrl : getCandidateBaseUrls()) {
+            String url = baseUrl + "/instance/logout/" + DEFAULT_INSTANCE;
+            try {
+                HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+                ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.DELETE, entity, Map.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    return true;
+                }
+            } catch (Exception e) {
+                logger.debug("Error logout en {}: {}", baseUrl, e.getMessage());
+            }
         }
+        return false;
     }
 
     /**
@@ -173,8 +265,6 @@ public class WhatsAppService {
             return false;
         }
 
-        String url = getBaseUrl() + "/message/sendText/" + DEFAULT_INSTANCE;
-
         Map<String, Object> body = new HashMap<>();
         body.put("number", targetNumber);
         body.put("text", text);
@@ -184,20 +274,22 @@ public class WhatsAppService {
         options.put("presence", "composing");
         body.put("options", options);
 
-        try {
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, createHeaders());
-            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            if (response.getStatusCode().is2xxSuccessful()) {
-                logger.info("✅ Mensaje WhatsApp despachado a {}: {}", targetNumber, text.length() > 50 ? text.substring(0, 50) + "..." : text);
-                return true;
-            } else {
-                logger.warn("Fallo al enviar WhatsApp a {}. Status: {}, Body: {}", targetNumber, response.getStatusCode(), response.getBody());
-                return false;
+        for (String baseUrl : getCandidateBaseUrls()) {
+            String url = baseUrl + "/message/sendText/" + DEFAULT_INSTANCE;
+            try {
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, createHeaders());
+                ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    cachedActiveUrl = baseUrl;
+                    logger.info("✅ Mensaje WhatsApp despachado a {}: {}", targetNumber, text.length() > 50 ? text.substring(0, 50) + "..." : text);
+                    return true;
+                }
+            } catch (Exception e) {
+                logger.warn("Error enviando WhatsApp vía {}: {}", baseUrl, e.getMessage());
             }
-        } catch (Exception e) {
-            logger.error("Error despachando WhatsApp a {}: {}", targetNumber, e.getMessage());
-            return false;
         }
+
+        return false;
     }
 
     // =========================================================================
