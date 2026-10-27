@@ -280,19 +280,23 @@ class SilogAuthService {
   }
 
   public login(usernameOrId: string, passwordPlain: string): { success: boolean; user?: SilogUser; message?: string } {
-    const cleanUsername = usernameOrId.trim().toLowerCase();
+    const rawInput = usernameOrId.trim();
+    const cleanUsername = rawInput.toLowerCase();
+    const normalizedDigits = cleanUsername.replace(/^cc-?/i, '');
+
     const entry = PREDEFINED_USERS.find(
       p => p.user.username.toLowerCase() === cleanUsername || 
            p.user.militaryId.toLowerCase() === cleanUsername ||
+           p.user.militaryId.toLowerCase().replace(/^cc-?/i, '') === normalizedDigits ||
            p.user.id.toLowerCase() === cleanUsername
     );
 
     if (!entry) {
-      return { success: false, message: 'Usuario no registrado en la base de datos de personal logístico (JELOG).' };
+      return { success: false, message: 'Usuario o Cédula Militar no registrado en la base de datos de personal logístico (JELOG).' };
     }
 
     if (entry.passwordHash !== passwordPlain.trim()) {
-      return { success: false, message: 'Contraseña o código criptográfico incorrecto. Verifique sus credenciales.' };
+      return { success: false, message: 'Contraseña o clave criptográfica incorrecta. Verifique sus credenciales institucionales.' };
     }
 
     this.currentUser = entry.user;
