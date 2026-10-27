@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { silogAuthService } from '../services/silogAuthService';
 import { SilogUser } from '../types';
 
@@ -7,7 +8,7 @@ interface LoginSILOGProps {
 }
 
 export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
-  // Flujo: Paso 1 (Credenciales) o Paso 2 (Doble Factor 2FA)
+  // Flujo: Paso 1 (Credenciales) o Paso 2 (Doble Factor 2FA con Google Authenticator)
   const [authStep, setAuthStep] = useState<'CREDENTIALS' | '2FA'>('CREDENTIALS');
   const [pendingUser, setPendingUser] = useState<SilogUser | null>(null);
 
@@ -17,11 +18,13 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberUser, setRememberUser] = useState(false);
 
-  // Campos Paso 2: Doble Factor (2FA)
-  const [twoFactorMethod, setTwoFactorMethod] = useState<'TOTP_TACTICO' | 'RADIO_SMS'>('TOTP_TACTICO');
+  // Campos Paso 2: Doble Factor (Google Authenticator RFC-6238)
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [resendCooldown, setResendCooldown] = useState<number>(0);
-  const [liveTokenData, setLiveTokenData] = useState<{ code: string; secondsRemaining: number; phoneMasked: string; terminalId: string } | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+
+  // Datos de vinculación TOTP oficial
+  const totpSetup = silogAuthService.getTotpSetupInfo();
 
   // Estados de validación
   const [error, setError] = useState<string | null>(null);
@@ -30,29 +33,6 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
 
   // Referencias a inputs de dígitos OTP
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Timer para actualizar en tiempo real el token TOTP dinámico de 30s
-  useEffect(() => {
-    if (authStep !== '2FA' || !pendingUser) return;
-
-    const updateToken = () => {
-      const token = silogAuthService.get2FATokenForUser(pendingUser.id);
-      setLiveTokenData(token);
-    };
-
-    updateToken();
-    const interval = setInterval(updateToken, 1000);
-    return () => clearInterval(interval);
-  }, [authStep, pendingUser]);
-
-  // Timer para cuenta regresiva de reenvío por radiomensajería
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setTimeout(() => {
-      setResendCooldown(prev => prev - 1);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [resendCooldown]);
 
   // PASO 1: Validación de Credenciales Primarias
   const handleValidateCredentials = async (e: React.FormEvent) => {
@@ -134,12 +114,14 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleAutocompleteLiveToken = () => {
-    if (!liveTokenData) return;
-    const digits = liveTokenData.code.split('');
-    setOtpDigits(digits);
-    setError(null);
-    otpInputRefs.current[5]?.focus();
+  const handleCopySecret = async () => {
+    try {
+      await navigator.clipboard.writeText(totpSetup.rawSecret);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 3000);
+    } catch {
+      setCopiedSecret(false);
+    }
   };
 
   const handleVerify2FA = async (e: React.FormEvent) => {
@@ -149,35 +131,28 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
 
     const fullCode = otpDigits.join('');
     if (fullCode.length < 6) {
-      setError('Complete los 6 dígitos del código de seguridad 2FA.');
+      setError('Por favor ingrese los 6 dígitos de su aplicación Google Authenticator.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const result = await silogAuthService.verify2FA(pendingUser.id, fullCode, twoFactorMethod);
+      const result = await silogAuthService.verify2FA(pendingUser.id, fullCode);
       setIsLoading(false);
 
       if (result.success && result.user) {
-        setSuccessNotice('Identidad de Super Administrador confirmada. Ingresando...');
+        setSuccessNotice('Firma digital verificada. Ingresando a la consola de mando...');
         setTimeout(() => {
           onLoginSuccess(result.user!);
         }, 300);
       } else {
-        setError(result.message || 'Código 2FA incorrecto o expirado.');
+        setError(result.message || 'Código de Google Authenticator incorrecto o expirado.');
       }
     } catch {
       setIsLoading(false);
       setError('Error validando token con el servidor central.');
     }
-  };
-
-  const handleResendRadioCode = () => {
-    if (resendCooldown > 0) return;
-    setResendCooldown(45);
-    setSuccessNotice(`Código militar retransmitido al terminal satelital del Super Administrador (${liveTokenData?.terminalId || 'TERMINAL-C2'}).`);
-    setTimeout(() => setSuccessNotice(null), 5000);
   };
 
   const handleBackToCredentials = () => {
@@ -505,7 +480,7 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
               )}
 
               {/* ============================================================ */}
-              {/* PASO 2: VERIFICACIÓN 2FA (OTP MILITAR DE 6 DÍGITOS)         */}
+              {/* PASO 2: VERIFICACIÓN 2FA CON GOOGLE AUTHENTICATOR (RFC-6238) */}
               {/* ============================================================ */}
               {authStep === '2FA' && pendingUser && (
                 <form onSubmit={handleVerify2FA} noValidate className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -534,48 +509,23 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                     </span>
                   </div>
 
-                  {/* Selector de Método 2FA */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                      Método de Doble Factor
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTwoFactorMethod('TOTP_TACTICO')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                          twoFactorMethod === 'TOTP_TACTICO'
-                            ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm'
-                            : 'bg-[#070a13] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <span>Token TOTP</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTwoFactorMethod('RADIO_SMS')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                          twoFactorMethod === 'RADIO_SMS'
-                            ? 'bg-cyan-500/15 border-cyan-500 text-cyan-300 shadow-sm'
-                            : 'bg-[#070a13] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <span>Radiomensajería</span>
-                      </button>
+                  {/* Encabezado Instructivo de Google Authenticator */}
+                  <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3.5 text-center space-y-1">
+                    <div className="flex items-center justify-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                      <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span>Google Authenticator / Microsoft Authenticator</span>
                     </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Abra la aplicación en su teléfono móvil e ingrese el código dinámico de 6 dígitos para validar su identidad y habilitar su <strong>Firma Digital</strong>.
+                    </p>
                   </div>
 
                   {/* Entrada de los 6 Dígitos OTP */}
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider text-center">
-                      Código de 6 Dígitos del Token
+                      Código de 6 Dígitos del Autenticador
                     </label>
 
                     <div className="flex items-center justify-center gap-2">
@@ -594,73 +544,83 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                           autoComplete="off"
                           style={{ backgroundColor: '#070a13', color: '#ffffff', caretColor: '#06b6d4' }}
                           className="w-11 sm:w-12 h-14 text-center text-xl font-black font-mono !bg-[#070a13] !text-white border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 rounded-xl focus:outline-none transition shadow-inner"
-                          placeholder="-"
+                          placeholder="•"
                         />
                       ))}
                     </div>
                   </div>
 
-                  {/* Monitor Táctico del Token en Vivo */}
-                  {liveTokenData && (
-                    <div className="bg-[#070a13] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>Terminal Táctico ({liveTokenData.terminalId}):</span>
-                        </span>
-                        <span className="text-amber-400 font-bold">
-                          {liveTokenData.secondsRemaining}s
-                        </span>
-                      </div>
+                  {/* Botón Plegable: Configurar / Vincular Google Authenticator */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowSetupGuide(!showSetupGuide)}
+                      className="w-full py-2 px-3 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950/60 text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center justify-between transition cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                        <span>{showSetupGuide ? 'Ocultar código QR de vinculación' : '¿Vincular Google Authenticator? Ver Código QR y Clave'}</span>
+                      </span>
+                      <span className="text-xs text-slate-500 font-mono">{showSetupGuide ? '▲' : '▼'}</span>
+                    </button>
 
-                      {/* Barra de progreso de cuenta regresiva de 30s */}
-                      <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-amber-500 to-cyan-400 h-full transition-all duration-1000 ease-linear"
-                          style={{ width: `${(liveTokenData.secondsRemaining / 30) * 100}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="text-xs font-mono font-black text-cyan-300 tracking-widest bg-cyan-950/40 border border-cyan-800/60 px-3 py-1 rounded-lg">
-                          {liveTokenData.code.slice(0, 3)} {liveTokenData.code.slice(3, 6)}
+                    {showSetupGuide && (
+                      <div className="mt-2.5 p-4 rounded-2xl bg-[#070a13] border border-cyan-500/30 space-y-4 animate-in fade-in duration-200">
+                        <div className="text-center space-y-1">
+                          <span className="text-xs font-bold text-white block">
+                            Escanear con Google Authenticator
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Abra la app en su celular, toque (+) y escanee este código QR:
+                          </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={handleAutocompleteLiveToken}
-                          className="py-1 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          <span>Autocompletar Código</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                        {/* Código QR Generado con qrcode.react */}
+                        <div className="flex justify-center p-3 bg-white rounded-xl mx-auto w-fit shadow-md">
+                          <QRCodeSVG
+                            value={totpSetup.otpauthUrl}
+                            size={160}
+                            bgColor="#ffffff"
+                            fgColor="#000000"
+                            level="M"
+                          />
+                        </div>
 
-                  {/* Opción de Reenvío Satelital */}
-                  {twoFactorMethod === 'RADIO_SMS' && (
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={handleResendRadioCode}
-                        disabled={resendCooldown > 0}
-                        className="text-[11px] text-cyan-400 hover:text-cyan-300 disabled:text-slate-600 transition font-bold cursor-pointer"
-                      >
-                        {resendCooldown > 0 
-                          ? `Retransmitir en ${resendCooldown}s` 
-                          : '📡 Retransmitir nuevo código por radiomensajería'}
-                      </button>
-                    </div>
-                  )}
+                        {/* Clave Manual en Base32 */}
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block text-center">
+                            O ingrese la clave manualmente:
+                          </span>
+                          <div className="flex items-center justify-between gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-xl">
+                            <span className="text-xs font-mono font-bold text-amber-300 tracking-wider select-all">
+                              {totpSetup.secretBase32}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleCopySecret}
+                              className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold rounded-lg border border-amber-500/40 transition whitespace-nowrap cursor-pointer"
+                            >
+                              {copiedSecret ? '✓ Copiado' : 'Copiar'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-800/80 pt-2 text-[10px] text-slate-400 space-y-1 font-mono">
+                          <div>• <strong>Cuenta:</strong> {totpSetup.account}</div>
+                          <div>• <strong>Tipo:</strong> Basado en tiempo (30 segundos)</div>
+                          <div>• <strong>Uso:</strong> Acceso seguro y Firma Digital de despachos</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Botón Principal: Confirmar 2FA */}
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/60 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.99]"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/60 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.99] mt-2"
                   >
                     {isLoading ? (
                       <>
@@ -668,14 +628,14 @@ export const LoginSILOG: React.FC<LoginSILOGProps> = ({ onLoginSuccess }) => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                         </svg>
-                        <span>Verificando Token...</span>
+                        <span>Verificando Firma Digital...</span>
                       </>
                     ) : (
                       <>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>Confirmar 2FA e Ingresar a SILOGA</span>
+                        <span>Confirmar Token y Firmar Acceso</span>
                       </>
                     )}
                   </button>

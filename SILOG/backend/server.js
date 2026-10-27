@@ -144,14 +144,34 @@ function verifyJwt(token) {
 }
 
 // ============================================================================
-// 4. MOTOR RFC 6238 TOTP (Doble Factor Criptográfico)
+// 4. MOTOR RFC 6238 TOTP (Google Authenticator / Microsoft Authenticator)
 // ============================================================================
-function computeTotpCode(secretHex, timeStepOffset = 0) {
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const TOTP_SECRET_BASE32 = process.env.SILOG_TOTP_SECRET_BASE32 || 'BZKH3O2LW4NISCTY6HO5OMQ2DK4JSF52';
+
+function base32ToBuffer(base32) {
+  let bits = '';
+  const clean = base32.toUpperCase().replace(/=+$/, '').replace(/\s+/g, '');
+  for (let i = 0; i < clean.length; i++) {
+    const val = BASE32_ALPHABET.indexOf(clean[i]);
+    if (val === -1) continue;
+    bits += val.toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.substr(i, 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+const TOTP_KEY_BUFFER = base32ToBuffer(TOTP_SECRET_BASE32);
+
+function computeTotpCode(timeStepOffset = 0) {
   const timeStep = Math.floor(Date.now() / 30000) + timeStepOffset;
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigInt64BE(BigInt(timeStep), 0);
 
-  const hmac = crypto.createHmac('sha1', Buffer.from(secretHex, 'hex'));
+  const hmac = crypto.createHmac('sha1', TOTP_KEY_BUFFER);
   hmac.update(counterBuffer);
   const digest = hmac.digest();
 
@@ -167,16 +187,17 @@ function computeTotpCode(secretHex, timeStepOffset = 0) {
 }
 
 function verifyTotp(inputCode) {
+  if (!inputCode) return false;
   const cleanCode = inputCode.trim().replace(/\s+/g, '');
 
   // Claves de contingencia militar de emergencia
-  if (cleanCode === '841209' || cleanCode === '770412' || cleanCode === '123456') {
+  if (cleanCode === '841209' || cleanCode === '770412') {
     return true;
   }
 
   // Comprobar ventana actual y deriva de reloj (+/- 1 ventana de 30 segundos)
   for (let offset of [0, -1, 1]) {
-    const validOtp = computeTotpCode(TOTP_SECRET_KEY, offset);
+    const validOtp = computeTotpCode(offset);
     if (cleanCode === validOtp) return true;
   }
   return false;
@@ -388,13 +409,10 @@ const server = http.createServer((req, res) => {
         step: '2FA_PENDING'
       }, 300);
 
-      const liveOtp = computeTotpCode(TOTP_SECRET_KEY, 0);
-      const secondsRemaining = 30 - (Math.floor(Date.now() / 1000) % 30);
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
-        message: 'Paso 1 completado. Proceda a la verificación de doble factor.',
+        message: 'Credenciales validadas. Ingrese el código de 6 dígitos de Google Authenticator.',
         tempToken: temp2faToken,
         user: {
           id: 'USR-SUPERADMIN-01',
@@ -407,10 +425,12 @@ const server = http.createServer((req, res) => {
           militaryId: SUPERADMIN_MILITARY_ID,
           securityClearance: 'ULTRASECRETO'
         },
-        liveTokenInfo: {
-          code: liveOtp,
-          secondsRemaining: secondsRemaining === 0 ? 30 : secondsRemaining,
-          terminalId: 'TERMINAL-C2-SUPERADMIN-01'
+        totpSetup: {
+          issuer: 'SILOGA FF.MM.',
+          account: SUPERADMIN_USERNAME,
+          secretBase32: 'BZKH 3O2L W4NI SCTY 6HO5 OMQ2 DK4J SF52',
+          rawSecret: 'BZKH3O2LW4NISCTY6HO5OMQ2DK4JSF52',
+          otpauthUrl: 'otpauth://totp/SILOGA:santiago.salazar?secret=BZKH3O2LW4NISCTY6HO5OMQ2DK4JSF52&issuer=SILOGA'
         }
       }));
     });
@@ -422,14 +442,14 @@ const server = http.createServer((req, res) => {
     parseBody((err, data) => {
       if (err || !data.otpCode) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Código 2FA requerido.' }));
+        res.end(JSON.stringify({ error: 'Código 2FA de Google Authenticator requerido.' }));
         return;
       }
 
       const isValid = verifyTotp(data.otpCode);
       if (!isValid) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Código 2FA incorrecto o expirado.' }));
+        res.end(JSON.stringify({ error: 'Código de Google Authenticator incorrecto o expirado.' }));
         return;
       }
 
@@ -439,7 +459,7 @@ const server = http.createServer((req, res) => {
         username: SUPERADMIN_USERNAME,
         role: 'SUPERADMIN',
         twoFactorVerified: true,
-        method: data.method || 'TOTP_TACTICO'
+        method: 'GOOGLE_AUTHENTICATOR_TOTP'
       }, 86400);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -453,16 +473,46 @@ const server = http.createServer((req, res) => {
           rank: 'MG.',
           role: 'SUPERADMIN',
           roleTitle: 'Super Administrador / Comandante General JELOG',
-          unit: 'COMANDO-GENERAL',
-          unitName: 'Comando General FF.MM. / Jefatura de Logística (JELOG)',
-          assignedUnitId: 'COMANDO-GENERAL',
-          assignedEchelon: 'DIVISION',
-          allowedWarehouseIds: [],
+          unitName: 'Comando General FF.MM. / JELOG',
           militaryId: SUPERADMIN_MILITARY_ID,
-          securityClearance: 'ULTRASECRETO',
-          twoFactorVerified: true,
-          twoFactorMethod: data.method || 'TOTP_TACTICO'
+          securityClearance: 'ULTRASECRETO'
         }
+      }));
+    });
+    return;
+  }
+
+  // 3. Firma Digital Operacional con Google Authenticator (No-repudio Militar)
+  if (req.method === 'POST' && pathname === '/api/silog/auth/verify-signature') {
+    parseBody((err, data) => {
+      if (err || !data.otpCode) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Código de firma digital de Google Authenticator requerido.' }));
+        return;
+      }
+
+      const isValid = verifyTotp(data.otpCode);
+      if (!isValid) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token de firma digital inválido o expirado en Google Authenticator.' }));
+        return;
+      }
+
+      const certificateId = `FD-JELOG-2026-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const signatureHash = crypto.createHash('sha256')
+        .update(`${data.actionDescription || 'DESPACHO'}-${data.otpCode}-${Date.now()}-${SUPERADMIN_MILITARY_ID}`)
+        .digest('hex');
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        verified: true,
+        certificate: certificateId,
+        hash: signatureHash,
+        signedBy: 'MG. Santiago Salazar',
+        militaryId: SUPERADMIN_MILITARY_ID,
+        method: 'Google Authenticator (RFC-6238 TOTP)',
+        timestamp: new Date().toISOString()
       }));
     });
     return;

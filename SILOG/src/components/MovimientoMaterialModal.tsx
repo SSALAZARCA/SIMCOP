@@ -61,11 +61,33 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
 
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [digitalSignatureCode, setDigitalSignatureCode] = useState<string>('');
+
+  // Verificación de Firma Digital con Google Authenticator (No-repudio Militar)
+  const verifySignature = async (actionDescription: string) => {
+    if (!digitalSignatureCode.trim()) {
+      setErrorMsg('Debe ingresar el código de 6 dígitos de Google Authenticator para firmar digitalmente la operación militar.');
+      return null;
+    }
+    const res = await silogAuthService.verifyDigitalSignature(digitalSignatureCode, actionDescription);
+    if (!res.success) {
+      setErrorMsg(res.message || 'Código de firma digital inválido o expirado. Verifique su aplicación Google Authenticator.');
+      return null;
+    }
+    return res;
+  };
 
   // 1. Ejecutar Despacho BASPC
-  const handleDispatchFromBaspc = () => {
-    setLoading(true);
+  const handleDispatchFromBaspc = async () => {
     setErrorMsg(null);
+    setLoading(true);
+
+    const sig = await verifySignature('DESPACHO_BASPC_BATALLON');
+    if (!sig) {
+      setLoading(false);
+      return;
+    }
+
     const res = silogService.transferBaspcToBattalion(
       itemCategory,
       itemId,
@@ -76,7 +98,7 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
     );
     setLoading(false);
     if (res.success) {
-      onSuccess(res.message);
+      onSuccess(`${res.message} [✓ Firmado Digitalmente: ${sig.certificate}]`);
       onClose();
     } else {
       setErrorMsg(res.message);
@@ -84,9 +106,16 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
   };
 
   // 2. Ejecutar Asignación Batallón a Compañía
-  const handleAssignToCompany = () => {
-    setLoading(true);
+  const handleAssignToCompany = async () => {
     setErrorMsg(null);
+    setLoading(true);
+
+    const sig = await verifySignature('DISTRIBUCION_BATALLON_COMPANIA');
+    if (!sig) {
+      setLoading(false);
+      return;
+    }
+
     const targetComp = battalionCompanies.find(c => c.id === selectedCompanyId);
     const res = silogService.assignBattalionToCompany(
       itemCategory,
@@ -99,7 +128,7 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
     );
     setLoading(false);
     if (res.success) {
-      onSuccess(res.message);
+      onSuccess(`${res.message} [✓ Firmado Digitalmente: ${sig.certificate}]`);
       onClose();
     } else {
       setErrorMsg(res.message);
@@ -107,9 +136,16 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
   };
 
   // 3. Ejecutar Asignación Individual a Soldado
-  const handleAssignToSoldier = () => {
-    setLoading(true);
+  const handleAssignToSoldier = async () => {
     setErrorMsg(null);
+    setLoading(true);
+
+    const sig = await verifySignature('ASIGNACION_INDIVIDUAL_KARDEX');
+    if (!sig) {
+      setLoading(false);
+      return;
+    }
+
     const res = silogService.assignCompanyToSoldier(
       itemCategory,
       itemId,
@@ -120,7 +156,7 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
     );
     setLoading(false);
     if (res.success) {
-      onSuccess(res.message);
+      onSuccess(`${res.message} [✓ Firmado Digitalmente: ${sig.certificate}]`);
       onClose();
     } else {
       setErrorMsg(res.message);
@@ -128,9 +164,16 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
   };
 
   // 4. Reintegrar de soldado
-  const handleUnassignSoldier = () => {
-    setLoading(true);
+  const handleUnassignSoldier = async () => {
     setErrorMsg(null);
+    setLoading(true);
+
+    const sig = await verifySignature('REINTEGRO_ARMERILLO');
+    if (!sig) {
+      setLoading(false);
+      return;
+    }
+
     const res = silogService.unassignFromSoldier(
       itemCategory,
       itemId,
@@ -140,7 +183,7 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
     );
     setLoading(false);
     if (res.success) {
-      onSuccess(res.message);
+      onSuccess(`${res.message} [✓ Firmado Digitalmente: ${sig.certificate}]`);
       onClose();
     } else {
       setErrorMsg(res.message);
@@ -203,6 +246,42 @@ export const MovimientoMaterialModal: React.FC<MovimientoMaterialModalProps> = (
         {errorMsg && (
           <div className="bg-red-950/60 border border-red-500/50 p-3 rounded-xl text-xs text-red-200">
             ⚠️ {errorMsg}
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* REQUISITO OBLIGATORIO: FIRMA DIGITAL MILITAR (GOOGLE AUTHENTICATOR) */}
+        {/* ================================================================= */}
+        {(canDispatchBaspc || canAssignCompany || canAssignSoldier) && (
+          <div className="bg-slate-950/90 border border-amber-500/40 rounded-xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 text-sm">🔏</span>
+                <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider">
+                  Firma Digital Operacional (No-Repudio Militar)
+                </span>
+              </div>
+              <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                RFC-6238 TOTP
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Para autorizar este movimiento de material militar, ingrese el código de 6 dígitos generado en su aplicación <strong>Google Authenticator</strong> o <strong>Microsoft Authenticator</strong>. Se estampará un certificado criptográfico SHA-256 en el acta del Kárdex.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={digitalSignatureCode}
+                onChange={(e) => setDigitalSignatureCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="w-36 bg-slate-900 border border-amber-500/60 rounded-lg px-3 py-2 text-center text-sm font-mono tracking-[0.3em] font-black text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              <span className="text-[10px] text-slate-400 font-mono">
+                {digitalSignatureCode.length === 6 ? '✓ Código listo para firmar' : 'Requerido: 6 dígitos activos del Authenticator'}
+              </span>
+            </div>
           </div>
         )}
 
