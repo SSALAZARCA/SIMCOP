@@ -57,6 +57,24 @@ export const whatsAppService = {
   },
 
   /**
+   * Fuerza el reinicio y purga de la sesión en Evolution API, generando un nuevo QR
+   */
+  async resetInstance(): Promise<WhatsAppQrResponse> {
+    try {
+      const response = await apiClient.fetch(`${WHATSAPP_API_URL}/reset`, {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        throw new Error('No se pudo reiniciar la sesión de WhatsApp');
+      }
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error al reiniciar sesión de WhatsApp:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Desconecta o cierra la sesión de WhatsApp
    */
   async disconnect(): Promise<boolean> {

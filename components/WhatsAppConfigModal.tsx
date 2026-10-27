@@ -117,6 +117,33 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
     }
   };
 
+  const handleResetInstance = async () => {
+    setLoadingQr(true);
+    setQrError(null);
+    setQrBase64(null);
+    setQrCodeString(null);
+    setPairingCode(null);
+    try {
+      const res = await whatsAppService.resetInstance();
+      if (res.connected) {
+        setStatus(prev => ({ ...prev, status: 'open', connected: true }));
+        return;
+      }
+
+      if (res.success && (res.qrcode || res.code || res.pairingCode)) {
+        if (res.qrcode) setQrBase64(res.qrcode);
+        if (res.code) setQrCodeString(res.code);
+        if (res.pairingCode) setPairingCode(res.pairingCode);
+      } else {
+        setQrError(res.error || 'No se pudo regenerar la sesión de WhatsApp.');
+      }
+    } catch (e: any) {
+      setQrError(e.message || 'Error al recrear instancia');
+    } finally {
+      setLoadingQr(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     if (!window.confirm('¿Está seguro de que desea desconectar la línea oficial de WhatsApp?')) return;
     setLoadingStatus(true);
@@ -280,14 +307,25 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
                     Desconectar o Rotar Línea WhatsApp
                   </button>
                 ) : (
-                  <button
-                    onClick={handleGenerateQr}
-                    disabled={loadingQr}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-900/30 transition-all disabled:opacity-50"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    {loadingQr ? 'Generando Código QR...' : 'Vincular Teléfono (Generar Código QR)'}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleGenerateQr}
+                      disabled={loadingQr}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-900/30 transition-all disabled:opacity-50"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      {loadingQr ? 'Generando Código QR...' : 'Vincular Teléfono (Generar Código QR)'}
+                    </button>
+                    <button
+                      onClick={handleResetInstance}
+                      disabled={loadingQr}
+                      className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono border border-slate-700 transition-all disabled:opacity-50"
+                      title="Elimina cualquier sesión previa atascada y genera un QR completamente nuevo"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingQr ? 'animate-spin' : ''}`} />
+                      Recrear Instancia Limpia / Forzar Nuevo QR
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -334,9 +372,19 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
               )}
 
               {qrError && (
-                <div className="mt-3 p-3 rounded bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{qrError}</span>
+                <div className="mt-3 p-3 rounded bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{qrError}</span>
+                  </div>
+                  <button
+                    onClick={handleResetInstance}
+                    disabled={loadingQr}
+                    className="w-full py-1.5 px-2 rounded bg-rose-900/60 hover:bg-rose-800 text-white font-mono text-[11px] font-bold border border-rose-600/50 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingQr ? 'animate-spin' : ''}`} />
+                    Purgar y Regenerar Instancia Ahora
+                  </button>
                 </div>
               )}
             </div>

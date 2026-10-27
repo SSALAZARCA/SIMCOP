@@ -213,6 +213,11 @@ services:
       - POSTGRES_USER=evolution
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-simcop_evolution_pass_2026}
       - POSTGRES_DB=evolution
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 4s
+      timeout: 3s
+      retries: 5
     volumes:
       - evolution_postgres_data:/var/lib/postgresql/data
     networks:
@@ -223,7 +228,8 @@ services:
     image: evoapicloud/evolution-api:v2.2.2
     restart: unless-stopped
     depends_on:
-      - evolution_postgres
+      evolution_postgres:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -235,6 +241,7 @@ services:
     ports:
       - "8082:8082"
     environment:
+      - DOCKER_ENV=true
       - SERVER_TYPE=http
       - SERVER_PORT=8082
       - SERVER_URL=${EVOLUTION_SERVER_URL:-http://evolution_api:8082}
@@ -252,6 +259,11 @@ services:
       - DATABASE_SAVE_DATA_CONTACTS=false
       - CACHE_REDIS_ENABLED=false
       - CACHE_LOCAL_ENABLED=true
+      - DEL_INSTANCE=false
+      - CONFIG_SESSION_PHONE_CLIENT=SIMCOP Central
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG
+      - LOG_COLOR=true
       - WEBSOCKET_ENABLED=false
       - DELAY_MESSAGE=1200
     volumes:

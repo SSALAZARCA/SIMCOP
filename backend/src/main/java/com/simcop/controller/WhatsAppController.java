@@ -46,6 +46,16 @@ public class WhatsAppController {
     }
 
     /**
+     * Reinicia y purga la instancia en Evolution API, regenerando un QR limpio.
+     */
+    @PostMapping("/reset")
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> resetInstance() {
+        Map<String, Object> qrData = whatsAppService.resetAndGetQr();
+        return ResponseEntity.ok(qrData);
+    }
+
+    /**
      * Desconecta o cierra la sesión de WhatsApp de la instancia.
      */
     @PostMapping("/disconnect")
