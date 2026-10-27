@@ -159,6 +159,12 @@ export const NavbarSILOG: React.FC<NavbarSILOGProps> = ({
                 {currentUser.roleTitle}
               </span>
             </div>
+            {currentUser.twoFactorVerified && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hidden sm:flex items-center gap-1 font-bold" title="Sesión con Doble Factor de Autenticación Criptográfico Verificado">
+                <span>🛡️</span>
+                <span>2FA OK</span>
+              </span>
+            )}
             <button
               onClick={onLogout}
               className="ml-2 p-1 px-2 bg-red-950/60 hover:bg-red-800/80 border border-red-500/40 text-red-300 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1"

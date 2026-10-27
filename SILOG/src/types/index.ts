@@ -249,4 +249,6 @@ export interface SilogUser {
   allowedWarehouseIds: string[]; // Almacenes autorizados según posición en la Estructura de Fuerza
   securityClearance: 'SECRETO' | 'ULTRASECRETO' | 'RESERVADO';
   militaryId: string;
+  twoFactorVerified?: boolean;
+  twoFactorMethod?: 'TOTP_TACTICO' | 'RADIO_SMS' | 'TOKEN_FISICO';
 }
