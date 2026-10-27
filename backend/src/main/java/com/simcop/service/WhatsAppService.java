@@ -359,8 +359,8 @@ public class WhatsAppService {
 
         StringBuilder msg = new StringBuilder();
         msg.append("📜 *[SIMCOP - NUEVA ORDEN DE OPERACIONES]* 📜\n\n");
-        msg.append("*CÓDIGO:* ").append(ordop.getOrderNumber()).append("\n");
-        msg.append("*OPERACIÓN:* ").append(ordop.getOperationName()).append("\n");
+        msg.append("*ID ORDEN:* `").append(ordop.getId() != null ? (ordop.getId().length() > 8 ? ordop.getId().substring(0, 8) : ordop.getId()) : "N/A").append("`\n");
+        msg.append("*TÍTULO:* ").append(ordop.getTitle() != null ? ordop.getTitle() : "Orden de Operaciones").append("\n");
         msg.append("*MISIÓN:* ").append(ordop.getMission() != null ? ordop.getMission() : "Consultar documento").append("\n\n");
         msg.append("👉 Descargue la orden completa y mapas en https://simcop.site");
 
