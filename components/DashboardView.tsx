@@ -8,7 +8,17 @@ import { EyeIcon } from './icons/EyeIcon';
 import { BellAlertIcon } from './icons/BellAlertIcon';
 import { AcademicCapIcon } from './icons/AcademicCapIcon';
 import { LightBulbIcon } from './icons/LightBulbIcon';
+import { MapPinIcon } from './icons/MapPinIcon';
+import { XMarkIcon } from './icons/XMarkIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { getProactiveAnalysis, useAITask, shouldTriggerAutoAI } from '../utils/geminiService';
+import {
+  getActiveCOTLocation,
+  COLOMBIA_STRATEGIC_LOCATIONS,
+  COT_STORAGE_KEY,
+  COT_COORDS_STORAGE_KEY,
+  resolveColombiaLocation
+} from '../utils/colombiaGeoUtils';
 
 interface ProactiveAnalysisComponentProps {
   units: MilitaryUnit[];
@@ -187,6 +197,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .filter(u => u.status !== UnitStatus.ON_LEAVE_RETRAINING && u.status !== UnitStatus.AAR_PENDING)
     .slice(0, 3);
 
+  // Ubicación del Centro de Operaciones Tácticas (COT) dinámica y configurable
+  const [cotInfo, setCotInfo] = useState(() => getActiveCOTLocation(units, currentUser));
+  const [isCotModalOpen, setIsCotModalOpen] = useState(false);
+  const [customCotInput, setCustomCotInput] = useState('');
+
+  // Actualizar cotInfo dinámicamente si cambian las unidades o el usuario (si no es custom manual)
+  useEffect(() => {
+    setCotInfo(getActiveCOTLocation(units, currentUser));
+  }, [units, currentUser]);
+
+  const handleSelectPreset = (preset: { municipio: string; departamento: string; lat: number; lon: number }) => {
+    const name = `${preset.municipio}, ${preset.departamento}`.toUpperCase();
+    localStorage.setItem(COT_STORAGE_KEY, name);
+    localStorage.setItem(COT_COORDS_STORAGE_KEY, JSON.stringify({ lat: preset.lat, lon: preset.lon }));
+    setCotInfo({ name, lat: preset.lat, lon: preset.lon, isCustom: true });
+    setIsCotModalOpen(false);
+  };
+
+  const handleSelectUnit = (unit: MilitaryUnit) => {
+    if (!unit.location) return;
+    const resolved = resolveColombiaLocation(unit.location.lat, unit.location.lon);
+    const name = `${unit.name} (${resolved.municipio}, ${resolved.departamento})`.toUpperCase();
+    localStorage.setItem(COT_STORAGE_KEY, name);
+    localStorage.setItem(COT_COORDS_STORAGE_KEY, JSON.stringify(unit.location));
+    setCotInfo({ name, lat: unit.location.lat, lon: unit.location.lon, isCustom: true });
+    setIsCotModalOpen(false);
+  };
+
+  const handleSaveCustom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customCotInput.trim()) return;
+    const name = customCotInput.trim().toUpperCase();
+    localStorage.setItem(COT_STORAGE_KEY, name);
+    setCotInfo(prev => ({ ...prev, name, isCustom: true }));
+    setCustomCotInput('');
+    setIsCotModalOpen(false);
+  };
+
+  const handleResetAuto = () => {
+    localStorage.removeItem(COT_STORAGE_KEY);
+    localStorage.removeItem(COT_COORDS_STORAGE_KEY);
+    const autoLoc = getActiveCOTLocation(units, currentUser);
+    setCotInfo(autoLoc);
+    setIsCotModalOpen(false);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-6 gap-4">
@@ -194,15 +250,160 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Mando y Control</h2>
           <p className="text-xs font-bold text-gray-500 uppercase tracking-[0.2em] mt-2">Centro de Operaciones Tácticas - SIMCOP 3.0</p>
         </div>
-        <div className="flex items-center gap-4 bg-gray-900/50 px-4 py-2 rounded-2xl border border-white/5 shadow-inner">
+        <button
+          onClick={() => setIsCotModalOpen(true)}
+          className="flex items-center gap-4 bg-gray-900/60 hover:bg-gray-800/80 px-4 py-2 rounded-2xl border border-white/10 hover:border-cyan-500/50 shadow-inner transition-all group cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          title="Clic para cambiar o configurar la Sede del Centro de Operaciones Tácticas (COT)"
+        >
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,1)]"></div>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">RED OPERATIVA</span>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-gray-300">RED OPERATIVA</span>
           </div>
           <div className="w-px h-4 bg-gray-700"></div>
-          <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">YOPAL, CASANARE</span>
-        </div>
+          <div className="flex items-center gap-1.5">
+            <MapPinIcon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest group-hover:text-cyan-300">
+              {cotInfo.name}
+            </span>
+            <span className="text-[10px] text-gray-500 group-hover:text-cyan-400 ml-1">✎</span>
+          </div>
+        </button>
       </div>
+
+      {/* Modal de Configuración y Cambio de Sede del COT */}
+      {isCotModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-gray-900 border border-cyan-500/80 rounded-2xl p-6 w-full max-w-2xl shadow-2xl my-8">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-cyan-950/80 rounded-xl border border-cyan-500/50">
+                  <MapPinIcon className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white tracking-wide">Sede del Centro de Operaciones Tácticas (COT)</h3>
+                  <p className="text-xs text-gray-400 font-mono">Configuración y despliegue del Puesto de Mando Principal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCotModalOpen(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-lg"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-5 mt-5 text-xs">
+              {/* Sede Actual */}
+              <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">SEDE ACTIVA EN RED</span>
+                  <p className="text-base font-black text-cyan-300 font-mono">{cotInfo.name}</p>
+                  <p className="text-[11px] text-gray-400 font-mono mt-0.5">
+                    Coordenadas Base: Lat {cotInfo.lat.toFixed(4)}°, Lon {cotInfo.lon.toFixed(4)}°
+                    {cotInfo.isCustom && <span className="text-amber-400 ml-2">(Fijada manualmente)</span>}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetAuto}
+                  className="bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs px-3 py-1.5 rounded-lg border border-gray-600 transition-colors"
+                  title="Detectar automáticamente según el Puesto de Mando o tropas en el terreno"
+                >
+                  🔄 Auto-Detectar por Tropas
+                </button>
+              </div>
+
+              {/* Guarniciones y Jurisdicciones Militares Estratégicas de Colombia */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-2">
+                  Guarniciones Estratégicas y Puestos de Mando (Colombia)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-44 overflow-y-auto custom-scrollbar p-1">
+                  {COLOMBIA_STRATEGIC_LOCATIONS.map((loc) => {
+                    const isSelected = cotInfo.name.includes(loc.municipio.toUpperCase());
+                    return (
+                      <button
+                        key={`${loc.municipio}-${loc.departamento}`}
+                        type="button"
+                        onClick={() => handleSelectPreset(loc)}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          isSelected
+                            ? 'bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-md font-bold'
+                            : 'bg-gray-800/60 border-gray-700/80 text-gray-300 hover:bg-gray-700 hover:border-gray-600'
+                        }`}
+                      >
+                        <span className="block text-xs font-semibold">{loc.municipio}</span>
+                        <span className="block text-[10px] text-gray-400">{loc.departamento}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Unidades Militares en Terreno */}
+              {units.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-2">
+                    Vincular a Unidad Militar Desplegada
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
+                    {units.slice(0, 10).map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => handleSelectUnit(u)}
+                        className="p-2 rounded-lg bg-gray-800/60 border border-gray-700/80 hover:bg-gray-700 hover:border-gray-600 text-left transition-all flex items-center justify-between"
+                      >
+                        <div className="truncate mr-2">
+                          <span className="block text-xs font-semibold text-white truncate">{u.name}</span>
+                          <span className="block text-[10px] text-gray-400">{u.type}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-cyan-400 shrink-0">
+                          {u.location ? `${u.location.lat.toFixed(2)}, ${u.location.lon.toFixed(2)}` : 'Sin GPS'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Nombre Personalizado */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1">
+                  O Establecer Nombre Personalizado de Puesto de Mando (COT)
+                </label>
+                <form onSubmit={handleSaveCustom} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customCotInput}
+                    onChange={(e) => setCustomCotInput(e.target.value)}
+                    placeholder="Ej. PUESTO DE MANDO AVANZADO - TUMACO, NARIÑO"
+                    className="flex-1 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg p-2.5 text-white text-xs font-mono"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!customCotInput.trim()}
+                    className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1.5"
+                  >
+                    <CheckCircleIcon className="w-4 h-4" />
+                    Establecer
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={() => setIsCotModalOpen(false)}
+                className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         {summaryStats.map(stat => (
