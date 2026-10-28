@@ -19,6 +19,8 @@ export interface WhatsAppQrResponse {
   status?: string;
   message?: string;
   error?: string;
+  rawResponse?: string;
+  activeUrl?: string;
 }
 
 const WHATSAPP_API_URL = `${API_BASE_URL}/api/whatsapp`;

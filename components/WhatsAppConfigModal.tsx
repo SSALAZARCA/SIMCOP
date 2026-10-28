@@ -51,6 +51,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState<boolean>(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrRawResponse, setQrRawResponse] = useState<string | null>(null);
   const [diagInfo, setDiagInfo] = useState<any>(null);
   const [runningDiag, setRunningDiag] = useState<boolean>(false);
   const [showDiag, setShowDiag] = useState<boolean>(false);
@@ -96,11 +97,13 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const handleGenerateQr = async () => {
     setLoadingQr(true);
     setQrError(null);
+    setQrRawResponse(null);
     setQrBase64(null);
     setQrCodeString(null);
     setPairingCode(null);
     try {
       const res = await whatsAppService.getQrCode();
+      setQrRawResponse(res.rawResponse || null);
       if (res.connected) {
         setStatus(prev => ({ ...prev, status: 'open', connected: true }));
         setQrBase64(null);
@@ -126,11 +129,13 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const handleResetInstance = async () => {
     setLoadingQr(true);
     setQrError(null);
+    setQrRawResponse(null);
     setQrBase64(null);
     setQrCodeString(null);
     setPairingCode(null);
     try {
       const res = await whatsAppService.resetInstance();
+      setQrRawResponse(res.rawResponse || null);
       if (res.connected) {
         setStatus(prev => ({ ...prev, status: 'open', connected: true }));
         return;
@@ -397,6 +402,16 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
                     <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
                     <span>{qrError}</span>
                   </div>
+
+                  {qrRawResponse && (
+                    <details className="text-[10px] text-slate-400">
+                      <summary className="cursor-pointer hover:text-slate-200">Ver respuesta técnica de Evolution API</summary>
+                      <pre className="mt-1 p-2 bg-black/80 rounded border border-slate-800 text-[9px] overflow-x-auto text-slate-300 max-h-36 whitespace-pre-wrap font-mono">
+                        {qrRawResponse}
+                      </pre>
+                    </details>
+                  )}
+
                   <button
                     onClick={handleResetInstance}
                     disabled={loadingQr}
@@ -424,17 +439,32 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 
                 {showDiag && diagInfo && (
                   <div className="mt-2 p-2.5 rounded bg-black/60 border border-slate-800 text-[10px] font-mono text-slate-300 space-y-1.5">
-                    <div className="text-slate-400 font-bold border-b border-slate-800 pb-1">
-                      URL Configurada: <span className="text-blue-300">{diagInfo.configuredUrl || 'N/A'}</span>
+                    <div className="text-slate-400 font-bold border-b border-slate-800 pb-1 flex justify-between">
+                      <span>URL Configurada: <strong className="text-blue-300">{diagInfo.configuredUrl || 'N/A'}</strong></span>
+                      {diagInfo.cachedActiveUrl && (
+                        <span className="text-emerald-400 font-bold">Activo: {diagInfo.cachedActiveUrl}</span>
+                      )}
                     </div>
                     {diagInfo.probes && Array.isArray(diagInfo.probes) && (
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {diagInfo.probes.map((p: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between p-1 bg-slate-900/80 rounded border border-slate-800">
-                            <span className="truncate max-w-[170px]" title={p.baseUrl}>{p.baseUrl}</span>
-                            <span className={p.reachable ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
-                              {p.reachable ? `HTTP ${p.httpStatus} (${p.latencyMs}ms)` : (p.error || 'No alcanzable')}
-                            </span>
+                          <div key={idx} className="p-1.5 bg-slate-900/80 rounded border border-slate-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="truncate max-w-[170px] font-bold" title={p.baseUrl}>{p.baseUrl}</span>
+                              <span className={p.reachable ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                                {p.reachable ? `HTTP ${p.httpStatus} (${p.latencyMs}ms)` : (p.error || 'No alcanzable')}
+                              </span>
+                            </div>
+                            {p.instanceState && (
+                              <div className="text-[9px] text-slate-400">
+                                Estado Sesión: <span className="text-amber-300">{p.instanceState}</span>
+                              </div>
+                            )}
+                            {p.connectProbe && (
+                              <div className="text-[9px] text-slate-400 truncate" title={p.connectProbe}>
+                                Enlace: <span className="text-blue-300">{p.connectProbe.length > 50 ? p.connectProbe.substring(0, 50) + '...' : p.connectProbe}</span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

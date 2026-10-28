@@ -3,6 +3,8 @@ package com.simcop.service;
 import com.simcop.model.*;
 import com.simcop.repository.UserRepository;
 import com.simcop.repository.ArtilleryPieceRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +33,7 @@ public class WhatsAppService {
     private final RestTemplate restTemplate;
     private final UserRepository userRepository;
     private final ArtilleryPieceRepository artilleryRepository;
+    private final ObjectMapper objectMapper;
     private volatile String cachedActiveUrl = null;
 
     public WhatsAppService(UserRepository userRepository, ArtilleryPieceRepository artilleryRepository) {
@@ -40,23 +43,23 @@ public class WhatsAppService {
         this.restTemplate = new RestTemplate(factory);
         this.userRepository = userRepository;
         this.artilleryRepository = artilleryRepository;
+        this.objectMapper = new ObjectMapper();
     }
 
     private List<String> getCandidateBaseUrls() {
         List<String> urls = new ArrayList<>();
-        if (cachedActiveUrl != null) {
+        if (cachedActiveUrl != null && !cachedActiveUrl.trim().isEmpty()) {
             urls.add(cachedActiveUrl);
+            return urls;
         }
 
         String primary = (evolutionApiUrl != null && !evolutionApiUrl.trim().isEmpty())
                 ? evolutionApiUrl.replaceAll("/+$", "")
                 : "http://evolution_api:8080";
 
-        if (!urls.contains(primary)) {
-            urls.add(primary);
-        }
+        urls.add(primary);
 
-        // Si la URL primaria tiene 8080, añadir 8082 como fallback (y viceversa)
+        // Fallbacks solo si la URL primaria no responde
         if (primary.contains(":8080")) {
             String alt = primary.replace(":8080", ":8082");
             if (!urls.contains(alt)) urls.add(alt);
@@ -65,7 +68,6 @@ public class WhatsAppService {
             if (!urls.contains(alt)) urls.add(alt);
         }
 
-        // Fallbacks locales para entornos de desarrollo / test
         if (!urls.contains("http://localhost:8082")) urls.add("http://localhost:8082");
         if (!urls.contains("http://localhost:8080")) urls.add("http://localhost:8080");
 
@@ -198,6 +200,7 @@ public class WhatsAppService {
             String createUrl = baseUrl + "/instance/create";
             String connectUrl = baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
             String stateUrl = baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE;
+            boolean baseUrlResponded = false;
 
             try {
                 // Si se solicitó reinicio forzado, purgar la instancia previa primero
@@ -214,8 +217,10 @@ public class WhatsAppService {
                         ResponseEntity<String> stateResp = restTemplate.exchange(stateUrl, HttpMethod.GET, stateEntity, String.class);
                         if (stateResp.getStatusCode().is2xxSuccessful() && stateResp.getBody() != null) {
                             cachedActiveUrl = baseUrl;
+                            baseUrlResponded = true;
                             String raw = stateResp.getBody();
-                            if (raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
+                            QrResult qrRes = extractQrComprehensive(raw);
+                            if (qrRes.isOpen || raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
                                 logger.info("Instancia {} ya se encuentra conectada en {}", DEFAULT_INSTANCE, baseUrl);
                                 responseMap.put("success", true);
                                 responseMap.put("connected", true);
@@ -241,19 +246,23 @@ public class WhatsAppService {
                     ResponseEntity<String> createResp = restTemplate.postForEntity(createUrl, createEntity, String.class);
                     if (createResp.getStatusCode().is2xxSuccessful() && createResp.getBody() != null) {
                         cachedActiveUrl = baseUrl;
+                        baseUrlResponded = true;
                         String raw = createResp.getBody();
                         lastRawResponse = raw;
                         logger.info("Instancia {} creada en Evolution API en {}. Raw: {}", DEFAULT_INSTANCE, baseUrl, raw);
 
-                        String qr = extractQrFromRaw(raw);
-                        String code = extractCodeFromRaw(raw);
-                        String pairing = extractPairingFromRaw(raw);
-
-                        if (qr != null || code != null) {
+                        QrResult qrRes = extractQrComprehensive(raw);
+                        if (qrRes.isOpen) {
                             responseMap.put("success", true);
-                            responseMap.put("qrcode", qr);
-                            responseMap.put("code", code);
-                            responseMap.put("pairingCode", pairing);
+                            responseMap.put("connected", true);
+                            responseMap.put("status", "open");
+                            return responseMap;
+                        }
+                        if (qrRes.qrcode != null || qrRes.code != null || qrRes.pairingCode != null) {
+                            responseMap.put("success", true);
+                            responseMap.put("qrcode", qrRes.qrcode);
+                            responseMap.put("code", qrRes.code);
+                            responseMap.put("pairingCode", qrRes.pairingCode);
                             return responseMap;
                         }
                     }
@@ -265,37 +274,41 @@ public class WhatsAppService {
                 HttpEntity<Void> connectEntity = new HttpEntity<>(createHeaders());
                 boolean autoPurged = false;
 
-                for (int attempt = 1; attempt <= 5; attempt++) {
+                for (int attempt = 1; attempt <= 6; attempt++) {
                     try {
                         ResponseEntity<String> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, String.class);
                         if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
                             cachedActiveUrl = baseUrl;
+                            baseUrlResponded = true;
                             String raw = connectResponse.getBody();
                             lastRawResponse = raw;
                             logger.info("Respuesta connect en {} (intento {}): {}", baseUrl, attempt, raw);
 
-                            if (raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
+                            QrResult qrRes = extractQrComprehensive(raw);
+                            if (qrRes.isOpen || raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
                                 responseMap.put("success", true);
                                 responseMap.put("connected", true);
                                 responseMap.put("status", "open");
                                 return responseMap;
                             }
 
-                            String qr = extractQrFromRaw(raw);
-                            String code = extractCodeFromRaw(raw);
-                            String pairing = extractPairingFromRaw(raw);
-
-                            if (qr != null || code != null) {
+                            if (qrRes.qrcode != null || qrRes.code != null || qrRes.pairingCode != null) {
                                 responseMap.put("success", true);
-                                responseMap.put("qrcode", qr);
-                                responseMap.put("code", code);
-                                responseMap.put("pairingCode", pairing);
+                                responseMap.put("qrcode", qrRes.qrcode);
+                                responseMap.put("code", qrRes.code);
+                                responseMap.put("pairingCode", qrRes.pairingCode);
                                 return responseMap;
                             }
                         }
                     } catch (Exception ex) {
                         lastErrorDetail = "Connect a " + connectUrl + " falló: " + ex.getMessage();
                         logger.warn("Intento {} en connect ({}) falló: {}", attempt, connectUrl, ex.getMessage());
+                        // Si la instancia no existe en connect (404), intentar crearla de inmediato
+                        if (ex.getMessage() != null && ex.getMessage().contains("404")) {
+                            try {
+                                restTemplate.postForEntity(createUrl, createEntity, String.class);
+                            } catch (Exception ignored) {}
+                        }
                     }
 
                     // Auto-recuperación en el intento 3 si aún no emite código
@@ -309,9 +322,14 @@ public class WhatsAppService {
                         autoPurged = true;
                     }
 
-                    if (attempt < 5) {
-                        try { Thread.sleep(1800); } catch (InterruptedException ignored) {}
+                    if (attempt < 6) {
+                        try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
                     }
+                }
+
+                // Si este baseUrl respondió (ej. evolution_api:8080), NO saltar a otros puertos caídos
+                if (baseUrlResponded) {
+                    break;
                 }
             } catch (Exception e) {
                 lastErrorDetail = "Fallo general en " + baseUrl + ": " + e.getMessage();
@@ -326,6 +344,7 @@ public class WhatsAppService {
         responseMap.put("error", finalMsg);
         responseMap.put("rawResponse", lastRawResponse);
         responseMap.put("attemptedUrls", triedUrls);
+        responseMap.put("activeUrl", cachedActiveUrl);
         return responseMap;
     }
 
@@ -347,6 +366,23 @@ public class WhatsAppService {
                 probe.put("httpStatus", resp.getStatusCode().value());
                 probe.put("latencyMs", System.currentTimeMillis() - start);
                 probe.put("raw", resp.getBody());
+                cachedActiveUrl = baseUrl;
+
+                // Sondeo del estado de SIMCOP_CENTRAL si el host respondió
+                try {
+                    ResponseEntity<String> stateResp = restTemplate.exchange(baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE, HttpMethod.GET, entity, String.class);
+                    probe.put("instanceState", stateResp.getBody());
+                } catch (Exception se) {
+                    probe.put("instanceState", "Error: " + se.getMessage());
+                }
+
+                // Sondeo de connect de SIMCOP_CENTRAL
+                try {
+                    ResponseEntity<String> connResp = restTemplate.exchange(baseUrl + "/instance/connect/" + DEFAULT_INSTANCE, HttpMethod.GET, entity, String.class);
+                    probe.put("connectProbe", connResp.getBody());
+                } catch (Exception ce) {
+                    probe.put("connectProbe", "Error: " + ce.getMessage());
+                }
             } catch (Exception e) {
                 probe.put("reachable", false);
                 probe.put("latencyMs", System.currentTimeMillis() - start);
@@ -362,31 +398,114 @@ public class WhatsAppService {
         return report;
     }
 
-    private String extractQrFromRaw(String json) {
-        if (json == null) return null;
-        Matcher m1 = Pattern.compile("data:image/png;base64,[A-Za-z0-9+/=]+").matcher(json);
-        if (m1.find()) return m1.group();
+    // =========================================================================
+    // ESTRUCTURAS Y MÉTODOS DE EXTRACCIÓN ROBUSTA DE QR
+    // =========================================================================
 
-        Matcher m2 = Pattern.compile("\"base64\"\\s*:\\s*\"([A-Za-z0-9+/=]{100,})\"").matcher(json);
-        if (m2.find()) return "data:image/png;base64," + m2.group(1);
-
-        return null;
+    public static class QrResult {
+        public String qrcode;
+        public String code;
+        public String pairingCode;
+        public boolean isOpen = false;
     }
 
-    private String extractCodeFromRaw(String json) {
-        if (json == null) return null;
-        Matcher m = Pattern.compile("2@[A-Za-z0-9+/=,@_-]{20,}").matcher(json);
-        if (m.find()) return m.group();
-        return null;
-    }
+    private QrResult extractQrComprehensive(String raw) {
+        QrResult res = new QrResult();
+        if (raw == null || raw.trim().isEmpty()) return res;
 
-    private String extractPairingFromRaw(String json) {
-        if (json == null) return null;
-        Matcher m = Pattern.compile("\"pairingCode\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
-        if (m.find()) {
-            String val = m.group(1);
+        // 1. Jackson Parsing Estructurado
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+
+            // Verificar si el estado ya está "open"
+            String state = extractFieldRecursively(root, "state", "status");
+            if ("open".equalsIgnoreCase(state)) {
+                res.isOpen = true;
+                return res;
+            }
+
+            // Extraer QR Base64
+            String b64 = extractFieldRecursively(root, "base64", "qrcode", "qr", "qrCode");
+            if (b64 != null && !b64.equalsIgnoreCase("null") && !b64.trim().isEmpty()) {
+                if (b64.startsWith("data:image")) {
+                    res.qrcode = b64;
+                } else if (b64.length() > 60) {
+                    res.qrcode = "data:image/png;base64," + b64;
+                }
+            }
+
+            // Extraer code
+            String codeVal = extractFieldRecursively(root, "code");
+            if (codeVal != null && !codeVal.equals("200") && !codeVal.equalsIgnoreCase("null") && codeVal.length() > 10) {
+                res.code = codeVal;
+            }
+
+            // Extraer pairingCode
+            String pairing = extractFieldRecursively(root, "pairingCode", "pairing");
+            if (pairing != null && !pairing.equalsIgnoreCase("null") && !pairing.trim().isEmpty()) {
+                res.pairingCode = pairing;
+            }
+
+            if (res.qrcode != null || res.code != null || res.pairingCode != null) {
+                return res;
+            }
+        } catch (Exception ex) {
+            logger.debug("Jackson parse no extrajo QR: {}", ex.getMessage());
+        }
+
+        // 2. Fallback de Expresiones Regulares sobre string normalizado
+        String normalized = raw.replace("\\/", "/");
+
+        // Prefijo data:image
+        Matcher m1 = Pattern.compile("data:image/[a-zA-Z0-9.+_-]+;base64,[A-Za-z0-9+/=]+").matcher(normalized);
+        if (m1.find()) {
+            res.qrcode = m1.group();
+            return res;
+        }
+
+        // Campo base64
+        Matcher m2 = Pattern.compile("\"base64\"\\s*:\\s*\"([^\"]{60,})\"").matcher(normalized);
+        if (m2.find()) {
+            String val = m2.group(1);
+            res.qrcode = val.startsWith("data:") ? val : "data:image/png;base64," + val;
+            return res;
+        }
+
+        // Campo code
+        Matcher m3 = Pattern.compile("\"code\"\\s*:\\s*\"([^\"]{15,})\"").matcher(normalized);
+        if (m3.find()) {
+            res.code = m3.group(1);
+        }
+
+        // Campo pairingCode
+        Matcher m4 = Pattern.compile("\"pairingCode\"\\s*:\\s*\"([^\"]+)\"").matcher(normalized);
+        if (m4.find()) {
+            String val = m4.group(1);
             if (!val.equalsIgnoreCase("null") && !val.trim().isEmpty()) {
-                return val;
+                res.pairingCode = val;
+            }
+        }
+
+        return res;
+    }
+
+    private String extractFieldRecursively(JsonNode node, String... fieldNames) {
+        if (node == null || node.isNull()) return null;
+        for (String fieldName : fieldNames) {
+            if (node.hasNonNull(fieldName)) {
+                JsonNode child = node.get(fieldName);
+                if (child.isTextual()) {
+                    String text = child.asText().trim();
+                    if (!text.isEmpty()) return text;
+                }
+            }
+        }
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            if (entry.getValue().isObject()) {
+                String found = extractFieldRecursively(entry.getValue(), fieldNames);
+                if (found != null) return found;
             }
         }
         return null;
