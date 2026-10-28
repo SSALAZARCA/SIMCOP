@@ -56,19 +56,41 @@ export enum UnitSituationINSITOP {
 export interface UAVAsset {
   id: string;
   type: 'ATTACK' | 'INTEL' | 'SPECIALIZED';
+  modelName?: string;
   batteryStatus: number; // 0-100
   currentPayload: number; // For attack drones
   streamUrl?: string; // For specialized intel drones
   location?: GeoLocation; // If deployed
   operationalRadius: number; // In km
+  connectionProtocol?: 'MAVLINK' | 'RTSP' | 'WEBHOOK' | 'SIMULATED';
+  ipAddress?: string;
+  port?: number;
+  telemetryToken?: string;
+  altitudeMeters?: number;
+  speedKmh?: number;
+  headingDegrees?: number;
+  cameraMode?: 'EO' | 'FLIR' | 'NVG';
+  flightStatus?: string;
+  signalStrength?: number;
+  satellites?: number;
+  lastHeartbeat?: number;
 }
 
 export interface UAVTelemetryDTO {
   uavId: string;
+  modelName?: string;
   batteryLevel: number;
   location: GeoLocation;
   status: string;
   streamUrl?: string;
+  altitude?: number;
+  speed?: number;
+  heading?: number;
+  cameraMode?: string;
+  connectionProtocol?: string;
+  satellites?: number;
+  signalStrength?: number;
+  timestamp?: number;
 }
 
 export interface MilitaryUnit {

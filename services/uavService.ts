@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiClient } from '../utils/apiClient';
-import { MilitaryUnit, GeoLocation } from '../types';
+import { MilitaryUnit, GeoLocation, UAVAsset, UAVTelemetryDTO } from '../types';
 
 const API_URL = `${API_BASE_URL}/api/uav`;
 
@@ -41,6 +41,32 @@ export const uavService = {
         if (!response.ok) throw new Error('Error al asignar activo UAV');
     },
 
+    connectUAV: async (unitId: string, asset: Partial<UAVAsset>): Promise<UAVAsset> => {
+        const response = await apiClient.fetch(`${API_URL}/connect?unitId=${unitId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(asset)
+        });
+        if (!response.ok) throw new Error('Error al conectar dron / GCS');
+        return response.json();
+    },
+
+    sendCommand: async (uavId: string, command: string, params?: Record<string, any>): Promise<any> => {
+        const response = await apiClient.fetch(`${API_URL}/${uavId}/command?command=${command}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params || {})
+        });
+        if (!response.ok) throw new Error(`Error ejecutando comando ${command}`);
+        return response.json();
+    },
+
+    getConnectionGuide: async (uavId: string): Promise<any> => {
+        const response = await apiClient.fetch(`${API_URL}/${uavId}/connection-guide`);
+        if (!response.ok) throw new Error('Error al obtener guía de conexión');
+        return response.json();
+    },
+
     deleteAsset: async (unitId: string, assetId: string): Promise<void> => {
         const response = await apiClient.fetch(`${API_URL}/asset?unitId=${unitId}&assetId=${assetId}`, {
             method: 'DELETE'
@@ -48,18 +74,21 @@ export const uavService = {
         if (!response.ok) throw new Error('Error al eliminar activo UAV');
     },
 
-    getTelemetry: async (): Promise<UAVTelemetry[]> => {
+    getTelemetry: async (): Promise<UAVTelemetryDTO[]> => {
         const response = await apiClient.fetch(`${API_URL}/telemetry`);
         if (!response.ok) throw new Error('Error al obtener telemetría UAV');
         return response.json();
+    },
+
+    sendTelemetry: async (telemetry: Partial<UAVTelemetryDTO>): Promise<void> => {
+        const response = await apiClient.fetch(`${API_URL}/telemetry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(telemetry)
+        });
+        if (!response.ok) throw new Error('Error al enviar telemetría UAV');
     }
 };
 
-export interface UAVTelemetry {
-    uavId: string;
-    batteryLevel: number;
-    location: GeoLocation;
-    status: string;
-    streamUrl?: string;
-}
+export type UAVTelemetry = UAVTelemetryDTO;
 

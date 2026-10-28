@@ -84,6 +84,44 @@ public class UAVController {
         return uavService.getAllUAVTelemetry();
     }
 
+    @PostMapping("/connect")
+    public ResponseEntity<com.simcop.model.embeddable.UAVAsset> connectUAV(
+            @RequestParam String unitId,
+            @RequestBody com.simcop.model.embeddable.UAVAsset asset) {
+        try {
+            com.simcop.model.embeddable.UAVAsset connected = uavService.connectUAV(unitId, asset);
+            return ResponseEntity.ok(connected);
+        } catch (Exception e) {
+            logger.error("❌ Error conectando UAV a la unidad {}: {}", unitId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/{uavId}/command")
+    public ResponseEntity<java.util.Map<String, Object>> executeCommand(
+            @PathVariable String uavId,
+            @RequestParam String command,
+            @RequestBody(required = false) java.util.Map<String, Object> params) {
+        try {
+            java.util.Map<String, Object> result = uavService.executeCommand(uavId, command, params);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("❌ Error ejecutando comando {} en UAV {}: {}", command, uavId, e.getMessage());
+            return ResponseEntity.internalServerError().body(java.util.Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{uavId}/connection-guide")
+    public ResponseEntity<java.util.Map<String, Object>> getConnectionGuide(@PathVariable String uavId) {
+        try {
+            java.util.Map<String, Object> guide = uavService.getConnectionGuide(uavId);
+            return ResponseEntity.ok(guide);
+        } catch (Exception e) {
+            logger.error("❌ Error obteniendo guía de conexión UAV {}: {}", uavId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     // DTO for Request
     static class UAVMissionRequest {
         private String requesterId;
