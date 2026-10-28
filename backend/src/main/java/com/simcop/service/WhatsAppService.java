@@ -13,6 +13,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class WhatsAppService {
@@ -20,7 +22,7 @@ public class WhatsAppService {
     private static final Logger logger = LoggerFactory.getLogger(WhatsAppService.class);
     private static final String DEFAULT_INSTANCE = "SIMCOP_CENTRAL";
 
-    @Value("${evolution.api.url:http://evolution_api:8082}")
+    @Value("${evolution.api.url:http://evolution_api:8080}")
     private String evolutionApiUrl;
 
     @Value("${evolution.api.key:simcop-evolution-tactical-key-2026}")
@@ -33,7 +35,7 @@ public class WhatsAppService {
 
     public WhatsAppService(UserRepository userRepository, ArtilleryPieceRepository artilleryRepository) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000);
+        factory.setConnectTimeout(6000);
         factory.setReadTimeout(12000);
         this.restTemplate = new RestTemplate(factory);
         this.userRepository = userRepository;
@@ -48,18 +50,18 @@ public class WhatsAppService {
 
         String primary = (evolutionApiUrl != null && !evolutionApiUrl.trim().isEmpty())
                 ? evolutionApiUrl.replaceAll("/+$", "")
-                : "http://evolution_api:8082";
+                : "http://evolution_api:8080";
 
         if (!urls.contains(primary)) {
             urls.add(primary);
         }
 
-        // Si la URL primaria tiene 8082, añadir 8080 como fallback (y viceversa)
-        if (primary.contains(":8082")) {
-            String alt = primary.replace(":8082", ":8080");
-            if (!urls.contains(alt)) urls.add(alt);
-        } else if (primary.contains(":8080")) {
+        // Si la URL primaria tiene 8080, añadir 8082 como fallback (y viceversa)
+        if (primary.contains(":8080")) {
             String alt = primary.replace(":8080", ":8082");
+            if (!urls.contains(alt)) urls.add(alt);
+        } else if (primary.contains(":8082")) {
+            String alt = primary.replace(":8082", ":8080");
             if (!urls.contains(alt)) urls.add(alt);
         }
 
@@ -82,6 +84,7 @@ public class WhatsAppService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("apikey", getApiKey());
+        headers.set("Authorization", "Bearer " + getApiKey());
         return headers;
     }
 
@@ -159,7 +162,7 @@ public class WhatsAppService {
         String deleteUrl = baseUrl + "/instance/delete/" + DEFAULT_INSTANCE;
         try {
             HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
-            ResponseEntity<Map> response = restTemplate.exchange(deleteUrl, HttpMethod.DELETE, entity, Map.class);
+            ResponseEntity<String> response = restTemplate.exchange(deleteUrl, HttpMethod.DELETE, entity, String.class);
             logger.info("Instancia {} eliminada limpiamente en {}: status {}", DEFAULT_INSTANCE, baseUrl, response.getStatusCode());
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
@@ -172,45 +175,56 @@ public class WhatsAppService {
      * Fuerza la recreación limpia de la instancia y retorna inmediatamente el QR nuevo.
      */
     public Map<String, Object> resetAndGetQr() {
-        logger.info("🔄 Forzando reinicio y recreación limpia de la instancia WhatsApp {}", DEFAULT_INSTANCE);
-        deleteInstance();
-        try {
-            Thread.sleep(1200);
-        } catch (InterruptedException ignored) {}
-        return getQrCode();
+        return fetchQrInternal(true);
     }
 
     /**
      * Garantiza la existencia de la instancia y retorna el QR o datos de conexión.
      */
     public Map<String, Object> getQrCode() {
+        return fetchQrInternal(false);
+    }
+
+    private Map<String, Object> fetchQrInternal(boolean forceReset) {
         Map<String, Object> responseMap = new HashMap<>();
         responseMap.put("instanceName", DEFAULT_INSTANCE);
 
+        List<String> triedUrls = new ArrayList<>();
+        String lastErrorDetail = null;
+        String lastRawResponse = null;
+
         for (String baseUrl : getCandidateBaseUrls()) {
+            triedUrls.add(baseUrl);
             String createUrl = baseUrl + "/instance/create";
             String connectUrl = baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
             String stateUrl = baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE;
 
             try {
+                // Si se solicitó reinicio forzado, purgar la instancia previa primero
+                if (forceReset) {
+                    logger.info("Purgando instancia {} en {}", DEFAULT_INSTANCE, baseUrl);
+                    deleteInstance(baseUrl);
+                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                }
+
                 // 0. Verificar si la sesión ya está abierta y activa
-                try {
-                    HttpEntity<Void> stateEntity = new HttpEntity<>(createHeaders());
-                    ResponseEntity<Map> stateResp = restTemplate.exchange(stateUrl, HttpMethod.GET, stateEntity, Map.class);
-                    if (stateResp.getStatusCode().is2xxSuccessful() && stateResp.getBody() != null) {
-                        cachedActiveUrl = baseUrl;
-                        String s = extractState(stateResp.getBody());
-                        if ("open".equalsIgnoreCase(s)) {
-                            logger.info("Instancia {} ya se encuentra conectada (state: open)", DEFAULT_INSTANCE);
-                            responseMap.put("success", true);
-                            responseMap.put("connected", true);
-                            responseMap.put("status", "open");
-                            responseMap.put("message", "La sesión de WhatsApp ya se encuentra vinculada y activa.");
-                            return responseMap;
+                if (!forceReset) {
+                    try {
+                        HttpEntity<Void> stateEntity = new HttpEntity<>(createHeaders());
+                        ResponseEntity<String> stateResp = restTemplate.exchange(stateUrl, HttpMethod.GET, stateEntity, String.class);
+                        if (stateResp.getStatusCode().is2xxSuccessful() && stateResp.getBody() != null) {
+                            cachedActiveUrl = baseUrl;
+                            String raw = stateResp.getBody();
+                            if (raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
+                                logger.info("Instancia {} ya se encuentra conectada en {}", DEFAULT_INSTANCE, baseUrl);
+                                responseMap.put("success", true);
+                                responseMap.put("connected", true);
+                                responseMap.put("status", "open");
+                                responseMap.put("message", "La sesión de WhatsApp ya se encuentra vinculada y activa.");
+                                return responseMap;
+                            }
                         }
-                    }
-                } catch (Exception ignored) {
-                    // Si no responde o da 404, procedemos al create/connect
+                    } catch (Exception ignored) {}
                 }
 
                 // 1. Intentar crear la instancia (Evolution API v2)
@@ -224,14 +238,17 @@ public class WhatsAppService {
 
                 HttpEntity<Map<String, Object>> createEntity = new HttpEntity<>(createBody, createHeaders());
                 try {
-                    ResponseEntity<Map> createResp = restTemplate.postForEntity(createUrl, createEntity, Map.class);
+                    ResponseEntity<String> createResp = restTemplate.postForEntity(createUrl, createEntity, String.class);
                     if (createResp.getStatusCode().is2xxSuccessful() && createResp.getBody() != null) {
                         cachedActiveUrl = baseUrl;
-                        Map body = createResp.getBody();
-                        logger.info("Instancia {} creada en Evolution API en {}. Payload: {}", DEFAULT_INSTANCE, baseUrl, body);
-                        String qr = extractQr(body);
-                        String code = extractString(body, "code");
-                        String pairing = extractString(body, "pairingCode");
+                        String raw = createResp.getBody();
+                        lastRawResponse = raw;
+                        logger.info("Instancia {} creada en Evolution API en {}. Raw: {}", DEFAULT_INSTANCE, baseUrl, raw);
+
+                        String qr = extractQrFromRaw(raw);
+                        String code = extractCodeFromRaw(raw);
+                        String pairing = extractPairingFromRaw(raw);
+
                         if (qr != null || code != null) {
                             responseMap.put("success", true);
                             responseMap.put("qrcode", qr);
@@ -241,33 +258,32 @@ public class WhatsAppService {
                         }
                     }
                 } catch (Exception e) {
-                    logger.debug("Create retornó: {} (probablemente la instancia ya existe)", e.getMessage());
+                    logger.debug("Create en {} retornó: {}", baseUrl, e.getMessage());
                 }
 
-                // 2. Loop de polling con reintentos para conectar y obtener el QR de Baileys
-                // Baileys inicializa el handshake asíncronamente y emite el QR entre 1 y 3 segundos
+                // 2. Loop de polling en connectUrl
                 HttpEntity<Void> connectEntity = new HttpEntity<>(createHeaders());
-                boolean triedAutoRecreate = false;
+                boolean autoPurged = false;
 
                 for (int attempt = 1; attempt <= 5; attempt++) {
                     try {
-                        ResponseEntity<Map> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, Map.class);
+                        ResponseEntity<String> connectResponse = restTemplate.exchange(connectUrl, HttpMethod.GET, connectEntity, String.class);
                         if (connectResponse.getStatusCode().is2xxSuccessful() && connectResponse.getBody() != null) {
                             cachedActiveUrl = baseUrl;
-                            Map body = connectResponse.getBody();
-                            logger.info("Respuesta de connect en {} (intento {}): {}", baseUrl, attempt, body);
+                            String raw = connectResponse.getBody();
+                            lastRawResponse = raw;
+                            logger.info("Respuesta connect en {} (intento {}): {}", baseUrl, attempt, raw);
 
-                            String state = extractState(body);
-                            if ("open".equalsIgnoreCase(state)) {
+                            if (raw.contains("\"open\"") || raw.contains("\"OPEN\"")) {
                                 responseMap.put("success", true);
                                 responseMap.put("connected", true);
                                 responseMap.put("status", "open");
                                 return responseMap;
                             }
 
-                            String qr = extractQr(body);
-                            String code = extractString(body, "code");
-                            String pairing = extractString(body, "pairingCode");
+                            String qr = extractQrFromRaw(raw);
+                            String code = extractCodeFromRaw(raw);
+                            String pairing = extractPairingFromRaw(raw);
 
                             if (qr != null || code != null) {
                                 responseMap.put("success", true);
@@ -278,35 +294,102 @@ public class WhatsAppService {
                             }
                         }
                     } catch (Exception ex) {
+                        lastErrorDetail = "Connect a " + connectUrl + " falló: " + ex.getMessage();
                         logger.warn("Intento {} en connect ({}) falló: {}", attempt, connectUrl, ex.getMessage());
                     }
 
-                    // Auto-recuperación: si en el intento 3 no hay QR ni conexión, purgar y recrear limpia
-                    if (attempt == 3 && !triedAutoRecreate) {
-                        logger.warn("Instancia {} no emitió QR tras 3 intentos. Purgando y recreando en limpio...", DEFAULT_INSTANCE);
+                    // Auto-recuperación en el intento 3 si aún no emite código
+                    if (attempt == 3 && !autoPurged && !forceReset) {
+                        logger.warn("Auto-purgando instancia zombi {} en {}", DEFAULT_INSTANCE, baseUrl);
                         deleteInstance(baseUrl);
                         try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
                         try {
-                            restTemplate.postForEntity(createUrl, createEntity, Map.class);
-                            logger.info("Instancia {} recreada tras purga automática", DEFAULT_INSTANCE);
+                            restTemplate.postForEntity(createUrl, createEntity, String.class);
                         } catch (Exception ignored) {}
-                        triedAutoRecreate = true;
+                        autoPurged = true;
                     }
 
                     if (attempt < 5) {
-                        try {
-                            Thread.sleep(1800);
-                        } catch (InterruptedException ignored) {}
+                        try { Thread.sleep(1800); } catch (InterruptedException ignored) {}
                     }
                 }
             } catch (Exception e) {
+                lastErrorDetail = "Fallo general en " + baseUrl + ": " + e.getMessage();
                 logger.warn("Intento de conexión a {} falló: {}", baseUrl, e.getMessage());
             }
         }
 
         responseMap.put("success", false);
-        responseMap.put("error", "Evolution API está inicializando el canal de WhatsApp. Presione 'Recrear Instancia Limpia' para forzar la emisión del código.");
+        String finalMsg = (lastErrorDetail != null) ? lastErrorDetail : 
+                          (lastRawResponse != null && lastRawResponse.length() > 5) ? "Evolution API respondió pero sin código QR: " + (lastRawResponse.length() > 200 ? lastRawResponse.substring(0, 200) + "..." : lastRawResponse) :
+                          "No se pudo establecer conexión con Evolution API en los puertos probados: " + triedUrls;
+        responseMap.put("error", finalMsg);
+        responseMap.put("rawResponse", lastRawResponse);
+        responseMap.put("attemptedUrls", triedUrls);
         return responseMap;
+    }
+
+    /**
+     * Diagnóstico integral del enlace con Evolution API para telemetría en tiempo real.
+     */
+    public Map<String, Object> diagnose() {
+        Map<String, Object> report = new HashMap<>();
+        List<Map<String, Object>> probes = new ArrayList<>();
+
+        for (String baseUrl : getCandidateBaseUrls()) {
+            Map<String, Object> probe = new HashMap<>();
+            probe.put("baseUrl", baseUrl);
+            long start = System.currentTimeMillis();
+            try {
+                HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+                ResponseEntity<String> resp = restTemplate.exchange(baseUrl + "/instance/fetchInstances", HttpMethod.GET, entity, String.class);
+                probe.put("reachable", true);
+                probe.put("httpStatus", resp.getStatusCode().value());
+                probe.put("latencyMs", System.currentTimeMillis() - start);
+                probe.put("raw", resp.getBody());
+            } catch (Exception e) {
+                probe.put("reachable", false);
+                probe.put("latencyMs", System.currentTimeMillis() - start);
+                probe.put("error", e.getMessage());
+            }
+            probes.add(probe);
+        }
+
+        report.put("probes", probes);
+        report.put("configuredUrl", evolutionApiUrl);
+        report.put("cachedActiveUrl", cachedActiveUrl);
+        report.put("timestamp", new Date());
+        return report;
+    }
+
+    private String extractQrFromRaw(String json) {
+        if (json == null) return null;
+        Matcher m1 = Pattern.compile("data:image/png;base64,[A-Za-z0-9+/=]+").matcher(json);
+        if (m1.find()) return m1.group();
+
+        Matcher m2 = Pattern.compile("\"base64\"\\s*:\\s*\"([A-Za-z0-9+/=]{100,})\"").matcher(json);
+        if (m2.find()) return "data:image/png;base64," + m2.group(1);
+
+        return null;
+    }
+
+    private String extractCodeFromRaw(String json) {
+        if (json == null) return null;
+        Matcher m = Pattern.compile("2@[A-Za-z0-9+/=,@_-]{20,}").matcher(json);
+        if (m.find()) return m.group();
+        return null;
+    }
+
+    private String extractPairingFromRaw(String json) {
+        if (json == null) return null;
+        Matcher m = Pattern.compile("\"pairingCode\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        if (m.find()) {
+            String val = m.group(1);
+            if (!val.equalsIgnoreCase("null") && !val.trim().isEmpty()) {
+                return val;
+            }
+        }
+        return null;
     }
 
     private String extractState(Map<?, ?> body) {

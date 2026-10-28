@@ -75,6 +75,21 @@ export const whatsAppService = {
   },
 
   /**
+   * Diagnóstico técnico de conectividad y sondeo de Evolution API
+   */
+  async getDiagnostics(): Promise<any> {
+    try {
+      const response = await apiClient.fetch(`${WHATSAPP_API_URL}/diagnose`);
+      if (!response.ok) {
+        return { error: `HTTP ${response.status}: Error al obtener diagnóstico` };
+      }
+      return await response.json();
+    } catch (error: any) {
+      return { error: error.message || 'Error de red en diagnóstico' };
+    }
+  },
+
+  /**
    * Desconecta o cierra la sesión de WhatsApp
    */
   async disconnect(): Promise<boolean> {

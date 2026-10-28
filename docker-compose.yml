@@ -50,7 +50,7 @@ services:
       - OSINT_WEBHOOK_SECRET=${OSINT_WEBHOOK_SECRET:-simcop_secure_webhook_secret_2026}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
       - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8080}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     depends_on:
       - mysql
@@ -142,7 +142,7 @@ services:
       - AI_MODEL=${AI_MODEL:-omni-default}
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8080}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     volumes:
       - sigep_data:/app/data
@@ -189,7 +189,7 @@ services:
       - SIMCOP_API_URL=${SIMCOP_API_URL:-http://backend:8080/api}
       - SIMCOP_SERVICE_TOKEN=${SIMCOP_SERVICE_TOKEN:-simcop-tactical-m2m-secure-token-2026}
       - SIGEP_API_URL=${SIGEP_API_URL:-http://sigep_backend:4000/api/simcop}
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8082}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-http://evolution_api:8080}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
     volumes:
       - silog_data:/app/backend/data
@@ -254,15 +254,15 @@ services:
           cpus: '1.0'
           memory: 512M
     expose:
-      - 8082
       - 8080
+      - 8082
     ports:
-      - "8082:8082"
+      - "8082:8080"
     environment:
       - DOCKER_ENV=true
       - SERVER_TYPE=http
-      - SERVER_PORT=8082
-      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://evolution_api:8082}
+      - SERVER_PORT=8080
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://evolution_api:8080}
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-simcop-evolution-tactical-key-2026}
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true

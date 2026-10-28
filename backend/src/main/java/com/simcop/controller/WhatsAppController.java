@@ -56,6 +56,16 @@ public class WhatsAppController {
     }
 
     /**
+     * Diagnóstico técnico detallado de enlace con Evolution API para telemetría operacional.
+     */
+    @GetMapping("/diagnose")
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> diagnose() {
+        Map<String, Object> report = whatsAppService.diagnose();
+        return ResponseEntity.ok(report);
+    }
+
+    /**
      * Desconecta o cierra la sesión de WhatsApp de la instancia.
      */
     @PostMapping("/disconnect")

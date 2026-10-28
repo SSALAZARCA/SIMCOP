@@ -17,7 +17,10 @@ import {
   LogOut,
   Clock,
   Lock,
-  KeyRound
+  KeyRound,
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import type { User, ArtilleryPiece } from '../types';
 import { whatsAppService, type WhatsAppStatus } from '../services/whatsAppService';
@@ -48,6 +51,9 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState<boolean>(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [diagInfo, setDiagInfo] = useState<any>(null);
+  const [runningDiag, setRunningDiag] = useState<boolean>(false);
+  const [showDiag, setShowDiag] = useState<boolean>(false);
 
   // Estados de prueba
   const [testPhone, setTestPhone] = useState<string>('');
@@ -141,6 +147,20 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
       setQrError(e.message || 'Error al recrear instancia');
     } finally {
       setLoadingQr(false);
+    }
+  };
+
+  const handleRunDiagnostics = async () => {
+    setRunningDiag(true);
+    try {
+      const data = await whatsAppService.getDiagnostics();
+      setDiagInfo(data);
+      setShowDiag(true);
+    } catch (e: any) {
+      setDiagInfo({ error: e.message });
+      setShowDiag(true);
+    } finally {
+      setRunningDiag(false);
     }
   };
 
@@ -387,6 +407,44 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
                   </button>
                 </div>
               )}
+
+              {/* PANEL DE DIAGNÓSTICO OPERACIONAL */}
+              <div className="mt-3 pt-3 border-t border-slate-800">
+                <button
+                  onClick={handleRunDiagnostics}
+                  disabled={runningDiag}
+                  className="w-full flex items-center justify-between py-1.5 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-mono transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Activity className={`w-3.5 h-3.5 text-blue-400 ${runningDiag ? 'animate-spin' : ''}`} />
+                    <span>Diagnóstico de Red y Puertos Evolution</span>
+                  </div>
+                  {showDiag ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showDiag && diagInfo && (
+                  <div className="mt-2 p-2.5 rounded bg-black/60 border border-slate-800 text-[10px] font-mono text-slate-300 space-y-1.5">
+                    <div className="text-slate-400 font-bold border-b border-slate-800 pb-1">
+                      URL Configurada: <span className="text-blue-300">{diagInfo.configuredUrl || 'N/A'}</span>
+                    </div>
+                    {diagInfo.probes && Array.isArray(diagInfo.probes) && (
+                      <div className="space-y-1">
+                        {diagInfo.probes.map((p: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between p-1 bg-slate-900/80 rounded border border-slate-800">
+                            <span className="truncate max-w-[170px]" title={p.baseUrl}>{p.baseUrl}</span>
+                            <span className={p.reachable ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                              {p.reachable ? `HTTP ${p.httpStatus} (${p.latencyMs}ms)` : (p.error || 'No alcanzable')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {diagInfo.error && (
+                      <div className="text-rose-400">{diagInfo.error}</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* CAJA DE PRUEBA RÁPIDA */}
