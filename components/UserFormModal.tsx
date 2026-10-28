@@ -25,6 +25,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
 }) => {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.COMANDANTE_PELOTON);
@@ -64,6 +65,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     if (existingUser) {
       setUsername(existingUser.username);
       setDisplayName(existingUser.displayName);
+      setPhoneNumber(existingUser.phoneNumber || '');
       setRole(existingUser.role);
       // Cast existing permissions to keys if they are strings
       setPermissions([...existingUser.permissions] as (keyof typeof ViewTypeEnum)[]);
@@ -73,6 +75,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     } else {
       setUsername('');
       setDisplayName('');
+      setPhoneNumber('');
       setPassword('');
       setConfirmPassword('');
       setRole(UserRole.COMANDANTE_PELOTON);
@@ -114,6 +117,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       role,
       permissions: permissions.map(key => ViewType[key]),
       assignedUnitId: (role === UserRole.ADMINISTRATOR || role === UserRole.COMANDANTE_EJERCITO) ? null : assignedUnitId,
+      phoneNumber: phoneNumber.trim() || undefined,
     };
 
     if (!existingUser) {
@@ -156,6 +160,27 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               required
               className="mt-1 w-full bg-gray-700 p-2 rounded-md text-sm border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-300">
+                📱 WhatsApp Militar (Alertas Operacionales)
+              </label>
+              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                Alerta Roja Combate
+              </span>
+            </div>
+            <input
+              type="text"
+              id="phoneNumber"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="ej: 573101234567 o 3101234567"
+              className="mt-1 w-full bg-gray-700 p-2 rounded-md text-sm border border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 placeholder-gray-500 text-gray-200"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              Recibe notificaciones inmediatas si una unidad entra en combate o se emite una orden prioritaria.
+            </p>
           </div>
           {!existingUser && (
             <>

@@ -32,6 +32,9 @@ public class MilitaryUnitController {
     @Autowired
     private com.simcop.repository.UserRepository userRepository;
 
+    @Autowired
+    private com.simcop.service.WhatsAppService whatsAppService;
+
     @GetMapping
     @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public List<MilitaryUnit> getAllUnits() {
@@ -119,6 +122,7 @@ public class MilitaryUnitController {
         return repository.findById(id)
                 .map(unit -> {
                     try {
+                        UnitStatus previousStatus = unit.getStatus();
                         if (unitDetails.getName() != null) unit.setName(unitDetails.getName());
                         unit.setType(unitDetails.getType());
                         if (unitDetails.getCommander() != null) unit.setCommander(unitDetails.getCommander());
@@ -158,6 +162,16 @@ public class MilitaryUnitController {
 
                         MilitaryUnit updated = repository.save(unit);
                         logger.info("✅ Unidad ID: {} actualizada y persistida correctamente.", id);
+
+                        // Alerta inmediata por WhatsApp al Comandante de Batallón si entra en combate
+                        if (unitDetails.getStatus() == UnitStatus.ENGAGED && previousStatus != UnitStatus.ENGAGED) {
+                            try {
+                                whatsAppService.notifyCombatEngagement(updated, "Unidad reportó contacto armado directo.");
+                            } catch (Exception we) {
+                                logger.error("❌ Error al despachar notificación WhatsApp de combate para unidad {}: {}", id, we.getMessage());
+                            }
+                        }
+
                         return ResponseEntity.ok(updated);
                     } catch (Exception e) {
                         logger.error("❌ Fallo crítico al actualizar unidad ID {}: {}", id, e.getMessage());

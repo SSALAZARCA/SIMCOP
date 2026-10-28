@@ -3,6 +3,7 @@ package com.simcop.service;
 import com.simcop.model.*;
 import com.simcop.repository.UserRepository;
 import com.simcop.repository.ArtilleryPieceRepository;
+import com.simcop.repository.MilitaryUnitRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,16 +35,18 @@ public class WhatsAppService {
     private final RestTemplate restTemplate;
     private final UserRepository userRepository;
     private final ArtilleryPieceRepository artilleryRepository;
+    private final MilitaryUnitRepository militaryUnitRepository;
     private final ObjectMapper objectMapper;
     private volatile String cachedActiveUrl = null;
 
-    public WhatsAppService(UserRepository userRepository, ArtilleryPieceRepository artilleryRepository) {
+    public WhatsAppService(UserRepository userRepository, ArtilleryPieceRepository artilleryRepository, MilitaryUnitRepository militaryUnitRepository) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(6000);
         factory.setReadTimeout(12000);
         this.restTemplate = new RestTemplate(factory);
         this.userRepository = userRepository;
         this.artilleryRepository = artilleryRepository;
+        this.militaryUnitRepository = militaryUnitRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -656,6 +660,123 @@ public class WhatsAppService {
     // =========================================================================
     // FUNCIONES TÁCTICAS Y OPERACIONALES MILITARES
     // =========================================================================
+
+    /**
+     * Notificación de Alerta Roja por Contacto Armado (Unidad en Combate).
+     * Resuelve la cadena de mando jerárquica para identificar el Batallón orgánico
+     * y despacha la alerta de forma prioritaria e inmediata al WhatsApp del Comandante de Batallón (TC Coronel)
+     * y a los escalones de mando correspondientes.
+     */
+    public void notifyCombatEngagement(MilitaryUnit unit, String alertMessage) {
+        if (unit == null) return;
+        logger.info("🚨 [WHATSAPP-ALERTA] Procesando contacto armado para unidad {} (ID: {})", unit.getName(), unit.getId());
+
+        // 1. Resolver el Batallón orgánico ascendiendo por la jerarquía (parentId)
+        MilitaryUnit battalion = null;
+        if (unit.getType() == UnitType.BATTALION) {
+            battalion = unit;
+        } else {
+            String currentParentId = unit.getParentId();
+            int safetyDepth = 0;
+            while (currentParentId != null && !currentParentId.trim().isEmpty() && safetyDepth < 6) {
+                safetyDepth++;
+                var parentOpt = militaryUnitRepository.findById(currentParentId);
+                if (parentOpt.isPresent()) {
+                    MilitaryUnit parent = parentOpt.get();
+                    if (parent.getType() == UnitType.BATTALION) {
+                        battalion = parent;
+                        break;
+                    }
+                    currentParentId = parent.getParentId();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        String battalionName = (battalion != null) ? battalion.getName() : "Batallón No Asignado";
+        String battalionId = (battalion != null) ? battalion.getId() : null;
+
+        // 2. Extraer ubicación formateada
+        String coords = "No disponible";
+        if (unit.getLocation() != null) {
+            coords = String.format(Locale.US, "%.5f, %.5f", unit.getLocation().getLat(), unit.getLocation().getLon());
+        }
+
+        // 3. Formatear reporte de combate militar colombiano
+        StringBuilder msg = new StringBuilder();
+        msg.append("🚨 *[SIMCOP - ALERTA ROJA: CONTACTO ARMADO]* 🚨\n\n");
+        msg.append("*SEÑOR COMANDANTE DE BATALLÓN:*\n");
+        msg.append("Una unidad bajo su mando orgánico ha entrado en combate.\n\n");
+        msg.append("📍 *UNIDAD:* ").append(unit.getName()).append(" (").append(unit.getType()).append(")\n");
+        msg.append("🏛️ *BATALLÓN:* ").append(battalionName).append("\n");
+        msg.append("⚠️ *ESTADO:* 🔴 *EN COMBATE (ENGAGED)*\n");
+        msg.append("🗺️ *COORDENADAS:* `").append(coords).append("`\n");
+        msg.append("⏱️ *HORA CONTACTO:* ").append(new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date())).append("\n");
+
+        if (unit.getAmmoLevel() != null || unit.getFuelLevel() != null) {
+            msg.append("📊 *ESTADO LOGÍSTICO:* ");
+            if (unit.getAmmoLevel() != null) msg.append("Munición: ").append(Math.round(unit.getAmmoLevel())).append("% ");
+            if (unit.getFuelLevel() != null) msg.append("| Combustible: ").append(Math.round(unit.getFuelLevel())).append("%");
+            msg.append("\n");
+        }
+
+        if (alertMessage != null && !alertMessage.trim().isEmpty()) {
+            msg.append("📝 *REPORTE INICIAL:* ").append(alertMessage.trim()).append("\n");
+        }
+
+        msg.append("\n⚡ *ACCIÓN REQUERIDA:* Establecer enlace radial de mando y monitorear la situación operacional en https://simcop.site\n");
+        msg.append("🔒 _SIMCOP // Mando y Control Táctico Integrado_");
+
+        String text = msg.toString();
+
+        // 4. Identificar destinatarios operacionales:
+        // - Comandante(s) asignados al Batallón orgánico (role COMANDANTE_BATALLON con assignedUnitId == battalionId)
+        // - Comandante orgánico asignado directamente a la unidad en combate
+        // - Supervisores tácticos (ADMINISTRATOR, COMANDANTE_BRIGADA, COMANDANTE_EJERCITO, COMUNICACIONES)
+        Set<String> notifiedPhones = new HashSet<>();
+
+        List<User> allUsers = userRepository.findAll();
+        for (User u : allUsers) {
+            if (u.getPhoneNumber() == null || u.getPhoneNumber().trim().isEmpty()) {
+                continue;
+            }
+
+            boolean isBattalionCommander = false;
+            if (battalionId != null && battalionId.equals(u.getAssignedUnitId())) {
+                isBattalionCommander = true;
+            }
+            if (u.getRole() == UserRole.COMANDANTE_BATALLON) {
+                if (battalionId != null && battalionId.equals(u.getAssignedUnitId())) {
+                    isBattalionCommander = true;
+                } else if (u.getAssignedUnitId() == null || unit.getId().equals(u.getAssignedUnitId())) {
+                    isBattalionCommander = true;
+                }
+            }
+
+            boolean isDirectUnitCommander = unit.getId().equals(u.getAssignedUnitId());
+            boolean isSuperiorCommand = (u.getRole() == UserRole.ADMINISTRATOR || 
+                                        u.getRole() == UserRole.COMANDANTE_BRIGADA || 
+                                        u.getRole() == UserRole.COMANDANTE_DIVISION || 
+                                        u.getRole() == UserRole.COMANDANTE_EJERCITO);
+
+            if (isBattalionCommander || isDirectUnitCommander || isSuperiorCommand) {
+                String formattedPhone = formatPhoneNumber(u.getPhoneNumber());
+                if (formattedPhone != null && !notifiedPhones.contains(formattedPhone)) {
+                    notifiedPhones.add(formattedPhone);
+                    logger.info("📲 Despachando alerta de combate vía WhatsApp a {} (Rol: {}, Tel: {})", 
+                            u.getUsername(), u.getRole(), formattedPhone);
+                    sendTextMessage(formattedPhone, text);
+                }
+            }
+        }
+
+        if (notifiedPhones.isEmpty()) {
+            logger.warn("⚠️ No se encontraron comandantes con número telefónico de WhatsApp registrado para el batallón {} o superiores.", battalionName);
+        } else {
+            logger.info("✅ Alerta de combate enviada exitosamente a {} destinatarios de mando vía WhatsApp.", notifiedPhones.size());
+        }
+    }
 
     /**
      * Notificación de Misión de Fuego a los Directores de Tiro (CDT) y Comandantes de Pieza.

@@ -7,6 +7,8 @@ import { decimalToDMS } from '../../utils/coordinateUtils';
 import { MAX_ROUTE_HISTORY_LENGTH, COMMUNICATION_OVERDUE_THRESHOLD_MS } from '../../constants';
 import { unitService } from '../../services/unitService';
 import { userService } from '../../services/userService';
+import { alertService } from '../../services/alertService';
+import { whatsAppService } from '../../services/whatsAppService';
 
 export const useTacticalOps = (
     addUnitHistoryEvent: (event: Omit<UnitHistoryEvent, 'id' | 'timestamp'>) => Promise<void>,
@@ -98,18 +100,38 @@ export const useTacticalOps = (
 
         const alertMessage = `¡ALERTA DE COMBATE! ${unit.name} en contacto.`;
         
-        setAlertsInternal(prev => [{
-            id: alertId, type: AlertType.UNIT_ENGAGED, unitId,
+        const newAlert: Alert = {
+            id: alertId,
+            type: AlertType.UNIT_ENGAGED,
+            unitId,
             message: alertMessage,
-            timestamp: Date.now(), severity: AlertSeverity.CRITICAL, acknowledged: false,
+            timestamp: Date.now(),
+            severity: AlertSeverity.CRITICAL,
+            acknowledged: false,
             location: unit.location
-        }, ...prev]);
+        };
+
+        setAlertsInternal(prev => [newAlert, ...prev]);
         
         addUnitHistoryEvent({
             unitId, unitName: unit.name, eventType: "Entró en Combate",
             details: `${unit.name} reporta contacto armado.`,
             location: unit.location
         });
+
+        // Persistir alerta en el backend
+        try {
+            await alertService.createAlert(newAlert);
+        } catch (alertErr) {
+            console.error("Error persisting combat alert to backend:", alertErr);
+        }
+
+        // Despachar alerta de combate inmediata al WhatsApp del Comandante de Batallón
+        try {
+            await whatsAppService.notifyCombatEngagement(unitId, alertMessage);
+        } catch (waErr) {
+            console.error("Error broadcasting combat alert to WhatsApp:", waErr);
+        }
 
         // Broadcast to Telegram
         try {

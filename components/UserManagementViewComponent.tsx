@@ -121,6 +121,7 @@ export const UserManagementViewComponent: React.FC<UserManagementViewProps> = ({
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">Usuario</th>
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">Nombre Completo</th>
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">Rol</th>
+                  <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">WhatsApp</th>
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">Unidad Asignada</th>
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300 hidden lg:table-cell">Permisos</th>
                   <th className="px-3 py-2 md:px-4 md:py-3 text-left font-medium text-gray-300">Acciones</th>
@@ -135,6 +136,16 @@ export const UserManagementViewComponent: React.FC<UserManagementViewProps> = ({
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${user.role === UserRole.ADMINISTRATOR ? 'bg-red-500 text-red-100' : 'bg-sky-500 text-sky-100'}`}>
                         {UserRoleLabels[user.role] || user.role}
                       </span>
+                    </td>
+                    <td className="px-3 py-2 md:px-4 md:py-3 whitespace-nowrap text-xs">
+                      {user.phoneNumber ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 font-mono">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          {user.phoneNumber}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 italic text-[11px]">No configurado</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 md:px-4 md:py-3 whitespace-nowrap text-gray-300">
                       {getAssignedUnitName(user.assignedUnitId)}

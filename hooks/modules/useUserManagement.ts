@@ -50,6 +50,8 @@ export const useUserManagement = (
                 role: userData.role,
                 permissions: userData.permissions,
                 assignedUnitId: userData.assignedUnitId || null,
+                phoneNumber: userData.phoneNumber || undefined,
+                telegramChatId: userData.telegramChatId || undefined,
             };
 
             const createdUser = await userService.createUser(newUser);
@@ -92,6 +94,8 @@ export const useUserManagement = (
             role: userData.role ?? oldUser.role,
             permissions: userData.permissions ?? oldUser.permissions,
             assignedUnitId: userData.assignedUnitId !== undefined ? userData.assignedUnitId : oldUser.assignedUnitId,
+            phoneNumber: userData.phoneNumber !== undefined ? userData.phoneNumber : oldUser.phoneNumber,
+            telegramChatId: userData.telegramChatId !== undefined ? userData.telegramChatId : oldUser.telegramChatId,
         };
 
         if (oldUser.role === UserRole.ADMINISTRATOR && updatedUserFull.role !== UserRole.ADMINISTRATOR) {

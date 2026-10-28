@@ -399,6 +399,8 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
       role: userData.role,
       permissions: userData.permissions,
       assignedUnitId: userData.assignedUnitId || null,
+      phoneNumber: userData.phoneNumber || undefined,
+      telegramChatId: userData.telegramChatId || undefined,
     };
     setUsersInternal(prev => [...prev, newUser]);
     const assignedUnit = newUser.assignedUnitId ? units.find(u => u.id === newUser.assignedUnitId) : null;
@@ -434,6 +436,8 @@ export const useSimulatedData = (): UseSimulatedDataReturn => {
       role: updatedUserPartial.role ?? oldUser.role,
       permissions: updatedUserPartial.permissions ?? oldUser.permissions,
       assignedUnitId: updatedUserPartial.assignedUnitId !== undefined ? updatedUserPartial.assignedUnitId : oldUser.assignedUnitId,
+      phoneNumber: updatedUserPartial.phoneNumber !== undefined ? updatedUserPartial.phoneNumber : oldUser.phoneNumber,
+      telegramChatId: updatedUserPartial.telegramChatId !== undefined ? updatedUserPartial.telegramChatId : oldUser.telegramChatId,
     };
 
     if (oldUser.role === UserRole.ADMINISTRATOR && updatedUserFull.role !== UserRole.ADMINISTRATOR) {

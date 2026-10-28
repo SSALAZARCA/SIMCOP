@@ -795,6 +795,8 @@ export interface NewUserData {
   role: UserRole;
   permissions: ViewType[];
   assignedUnitId?: string | null;
+  phoneNumber?: string;
+  telegramChatId?: string;
 }
 
 export interface UpdateUserData {
@@ -802,6 +804,8 @@ export interface UpdateUserData {
   role?: UserRole;
   permissions?: ViewType[];
   assignedUnitId?: string | null;
+  phoneNumber?: string;
+  telegramChatId?: string;
 }
 
 export interface UserTelegramConfig {

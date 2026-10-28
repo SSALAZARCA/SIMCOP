@@ -105,6 +105,12 @@ public class UserController {
         logger.info("👤 Iniciando creación de usuario: {}", cleanUsername);
         try {
             user.setUsername(cleanUsername);
+            if (user.getPhoneNumber() != null) {
+                user.setPhoneNumber(user.getPhoneNumber().trim());
+            }
+            if (user.getTelegramChatId() != null) {
+                user.setTelegramChatId(user.getTelegramChatId().trim());
+            }
             // Null safety for password encoding and banned password check
             if (user.getHashedPassword() != null && !user.getHashedPassword().isEmpty()) {
                 String rawPass = user.getHashedPassword().trim();
@@ -323,6 +329,13 @@ public class UserController {
             }
             user.setPermissions(userDetails.getPermissions());
             user.setAssignedUnitId(userDetails.getAssignedUnitId());
+
+            if (userDetails.getPhoneNumber() != null) {
+                user.setPhoneNumber(userDetails.getPhoneNumber().trim());
+            }
+            if (userDetails.getTelegramChatId() != null) {
+                user.setTelegramChatId(userDetails.getTelegramChatId().trim());
+            }
 
             if (userDetails.getHashedPassword() != null && !userDetails.getHashedPassword().trim().isEmpty()) {
                 String rawNewPass = userDetails.getHashedPassword().trim();

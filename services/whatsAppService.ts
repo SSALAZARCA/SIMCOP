@@ -164,5 +164,22 @@ export const whatsAppService = {
       console.error('Error al transmitir alerta táctica:', error);
       return false;
     }
+  },
+
+  /**
+   * Despacha una alerta de combate para una unidad directamente al Comandante de Batallón
+   */
+  async notifyCombatEngagement(unitId: string, message?: string): Promise<boolean> {
+    try {
+      const response = await apiClient.fetch(`${WHATSAPP_API_URL}/combat-alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId, message })
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error al notificar alerta de combate vía WhatsApp:', error);
+      return false;
+    }
   }
 };

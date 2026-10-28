@@ -22,6 +22,9 @@ public class AlertController {
     private AlertRepository repository;
 
     @Autowired
+    private com.simcop.repository.MilitaryUnitRepository militaryUnitRepository;
+
+    @Autowired
     private com.simcop.service.WhatsAppService whatsAppService;
 
     @GetMapping
@@ -59,6 +62,14 @@ public class AlertController {
             try {
                 if (saved.getType() == com.simcop.model.AlertType.CYBER_INTRUSION_DETECTED) {
                     whatsAppService.notifyCyberAlert(saved);
+                } else if (saved.getType() == com.simcop.model.AlertType.UNIT_ENGAGED) {
+                    if (saved.getUnitId() != null && !saved.getUnitId().trim().isEmpty()) {
+                        militaryUnitRepository.findById(saved.getUnitId()).ifPresent(unit -> {
+                            whatsAppService.notifyCombatEngagement(unit, saved.getMessage());
+                        });
+                    } else {
+                        whatsAppService.broadcastTacticalAlert("UNIDAD EN COMBATE", saved.getMessage(), "CRÍTICA");
+                    }
                 } else if (saved.getSeverity() == com.simcop.model.AlertSeverity.CRITICAL || saved.getSeverity() == com.simcop.model.AlertSeverity.HIGH) {
                     whatsAppService.broadcastTacticalAlert(saved.getType() != null ? saved.getType().name() : "ALERTA TÁCTICA", saved.getMessage(), saved.getSeverity().name());
                 }

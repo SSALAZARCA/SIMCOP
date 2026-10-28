@@ -1,6 +1,7 @@
 package com.simcop.controller;
 
 import com.simcop.repository.UserRepository;
+import com.simcop.repository.MilitaryUnitRepository;
 import com.simcop.service.WhatsAppService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,9 @@ public class WhatsAppController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private MilitaryUnitRepository militaryUnitRepository;
 
     /**
      * Consulta el estado de la conexión de WhatsApp (open, close, connecting).
@@ -144,5 +148,32 @@ public class WhatsAppController {
 
         whatsAppService.broadcastTacticalAlert(title, message, urgency);
         return ResponseEntity.ok(Map.of("message", "Alerta táctica despachada a comandantes vía WhatsApp"));
+    }
+
+    /**
+     * Endpoint para despachar una alerta de combate por WhatsApp directamente al Comandante de Batallón
+     * de la unidad involucrada.
+     */
+    @PostMapping("/combat-alert")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> sendCombatAlert(@RequestBody Map<String, String> payload) {
+        String unitId = payload.get("unitId");
+        String message = payload.getOrDefault("message", "Unidad reporta contacto armado.");
+
+        if (unitId == null || unitId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "unitId es obligatorio"));
+        }
+
+        return militaryUnitRepository.findById(unitId)
+                .map(unit -> {
+                    logger.info("🚨 [WHATSAPP-CONTROLLER] Despachando alerta de combate para unidad {}", unit.getName());
+                    whatsAppService.notifyCombatEngagement(unit, message);
+                    return ResponseEntity.ok(Map.of(
+                            "message", "Alerta de combate procesada y notificada a la cadena de mando",
+                            "unitId", unit.getId(),
+                            "unitName", unit.getName()
+                    ));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }
