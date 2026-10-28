@@ -58,12 +58,15 @@ export const ResizableDivider: React.FC<ResizableDividerProps> = ({ onDrag, clas
 
   return (
     <div
-      className={`bg-gray-700 hover:bg-blue-600 w-2 cursor-col-resize select-none shrink-0 relative after:absolute after:-left-3 after:-right-3 after:top-0 after:bottom-0 after:z-10 ${className || ''}`}
+      className={`bg-gray-800 hover:bg-blue-600 w-2 cursor-col-resize select-none shrink-0 relative flex items-center justify-center transition-colors group z-0 hover:z-20 ${className || ''}`}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      title="Arrastrar para redimensionar"
+      title="Arrastrar para redimensionar paneles (SIMCOP Split View)"
       aria-label="Redimensionar panel"
       style={{ touchAction: 'none' }} // Prevent scrolling on touch devices when dragging
-    />
+    >
+      {/* Visual grab dots for tactical tactile feedback without overflowing buttons */}
+      <div className="w-0.5 h-8 bg-gray-600 group-hover:bg-blue-300 rounded-full transition-colors pointer-events-none" />
+    </div>
   );
 };

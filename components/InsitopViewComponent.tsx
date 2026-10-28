@@ -176,12 +176,22 @@ export const InsitopViewComponent: React.FC<InsitopViewProps> = ({
             <p className="text-gray-400 text-lg text-center">No hay unidades operacionales para mostrar en el INSITOP.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
+            <div className="sm:hidden flex items-center justify-between px-3 py-1.5 mb-2 bg-gray-900/60 rounded border border-gray-700/50 text-[10px] text-gray-400">
+              <span>👉 Deslice horizontalmente para ver todos los campos</span>
+              <span className="font-mono text-cyan-400">{insitopDataForTable.length} unidades</span>
+            </div>
             <table className="min-w-full divide-y divide-gray-700 text-xs">
-              <thead className="bg-gray-750 sticky top-0 z-10">
+              <thead className="bg-gray-750 sticky top-0 z-20">
                 <tr>
-                  {insitopTableHeaders.map(header => (
-                    <th key={header} scope="col" className="px-2 py-1.5 md:px-3 md:py-2 text-left font-medium text-gray-300 tracking-wider whitespace-nowrap">
+                  {insitopTableHeaders.map((header, idx) => (
+                    <th 
+                      key={header} 
+                      scope="col" 
+                      className={`px-2 py-1.5 md:px-3 md:py-2 text-left font-semibold text-gray-300 tracking-wider whitespace-nowrap ${
+                        idx === 0 ? 'sticky left-0 bg-gray-800 z-30 shadow-md border-r border-gray-700' : ''
+                      }`}
+                    >
                       {header}
                     </th>
                   ))}
@@ -189,8 +199,8 @@ export const InsitopViewComponent: React.FC<InsitopViewProps> = ({
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {insitopDataForTable.map((unitDetail) => (
-                  <tr key={unitDetail.unitIdentification.originalUnitId} className="hover:bg-gray-750 transition-colors">
-                    <td className="px-2 py-1.5 md:px-3 md:py-2 whitespace-nowrap text-gray-200">{unitDetail.unitIdentification.originalUnitName}</td>
+                  <tr key={unitDetail.unitIdentification.originalUnitId} className="hover:bg-gray-750/70 transition-colors">
+                    <td className="sticky left-0 bg-gray-900/95 z-10 shadow-md border-r border-gray-700 px-2 py-1.5 md:px-3 md:py-2 whitespace-nowrap text-white font-bold">{unitDetail.unitIdentification.originalUnitName}</td>
                     <td className="px-2 py-1.5 md:px-3 md:py-2 whitespace-nowrap text-gray-300">{unitDetail.unitIdentification.originalUnitType}</td>
                     <td className="px-2 py-1.5 md:px-3 md:py-2 whitespace-nowrap text-gray-300">{unitDetail.unitIdentification.companyCode || 'N/A'}</td>
                     <td className="px-2 py-1.5 md:px-3 md:py-2 whitespace-nowrap text-gray-300">{unitDetail.unitIdentification.platoonCode || 'N/A'}</td>

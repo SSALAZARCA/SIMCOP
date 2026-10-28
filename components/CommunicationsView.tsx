@@ -51,6 +51,14 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
   const [showTelegramConfigModal, setShowTelegramConfigModal] = useState<boolean>(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState<boolean>(false);
   const [telegramChatIdInput, setTelegramChatIdInput] = useState<string>('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => (prev?.message === message ? null : prev));
+    }, 4500);
+  };
 
   const currentUserTelegramChatId = currentUser?.telegramChatId;
 
@@ -63,9 +71,10 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
     if (currentUser) {
       await updateUserTelegramConfig(currentUser.id, telegramChatIdInput);
       setShowTelegramConfigModal(false);
+      showToast("Configuración de Telegram guardada correctamente.", 'success');
     } else {
       console.error("No current user to save Telegram config for.");
-      alert("Error: No hay usuario actual para guardar la configuración de Telegram.");
+      showToast("Error: No hay usuario autenticado para guardar configuración.", 'error');
     }
   };
   const getReportStatus = (unit: MilitaryUnit): { text: string; colorClass: string; isOverdue: boolean } => {
@@ -118,7 +127,7 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
 
   const handleTestNotification = async () => {
     if (!currentUserTelegramChatId) {
-      alert("Primero debe configurar y guardar un Chat ID de Telegram.");
+      showToast("Primero debe configurar y guardar un Chat ID de Telegram en el panel de Comms.", 'error');
       return;
     }
     setIsTestingNotification(true);
@@ -126,23 +135,30 @@ export const CommunicationsView: React.FC<CommunicationsViewProps> = ({
     try {
       const success = await sendTestTelegramAlert(currentUserTelegramChatId, 'COMMS'); // Call with ID and botType
       if (success) {
-        alert("Solicitud de prueba Telegram enviada. Revise su cliente Telegram.");
+        showToast("Solicitud de prueba Telegram enviada con éxito. Revise su app Telegram.", 'success');
       } else {
-        alert("Falló el envío de la prueba Telegram. Revise que el Chat ID sea correcto y que haya iniciado el Bot.");
+        showToast("Falló el envío de prueba Telegram. Verifique que el Chat ID sea correcto y haya iniciado el Bot.", 'error');
       }
     } catch (e) {
-      console.error("Error catastrófico durante la prueba de notificación Telegram:", e);
-      alert("Ocurrió un error inesperado al intentar enviar la prueba.");
+      console.error("Error durante la prueba de notificación Telegram:", e);
+      showToast("Ocurrió un error inesperado al intentar enviar la prueba.", 'error');
     }
     setIsTestingNotification(false);
   };
 
-
-
-
   return (
     <>
       <div className="flex flex-col space-y-4 p-1">
+        {toast && (
+          <div className={`p-3 rounded-xl text-xs font-bold border transition-all animate-in fade-in flex items-center justify-between shadow-xl ${
+            toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200' :
+            toast.type === 'error' ? 'bg-rose-950/90 border-rose-500/50 text-rose-200' :
+            'bg-cyan-950/90 border-cyan-500/50 text-cyan-200'
+          }`}>
+            <span>{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-3 text-sm opacity-70 hover:opacity-100 p-1">×</button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 pb-3 gap-2">
           <h2 className="text-2xl font-semibold text-gray-200">
             Monitor de Comunicaciones y Reportes de Combate

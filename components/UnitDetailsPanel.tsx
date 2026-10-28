@@ -659,18 +659,25 @@ export const UnitDetailsPanel: React.FC<UnitDetailsPanelProps> = ({
             {isEditingEquipment ? (
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <input value={newEquipmentItem} onChange={e => setNewEquipmentItem(e.target.value)} placeholder="NUEVO ITEM..." className="flex-1 bg-gray-900 border border-white/10 rounded-lg p-2 text-[10px] font-bold text-white uppercase outline-none" />
-                  <button onClick={handleAddEquipmentItem} className="bg-blue-600 px-3 rounded-lg text-white font-black">+</button>
+                  <input value={newEquipmentItem} onChange={e => setNewEquipmentItem(e.target.value)} placeholder="NUEVO ITEM..." className="flex-1 bg-gray-900 border border-white/10 rounded-lg p-2 text-[10px] font-bold text-white uppercase outline-none focus:border-blue-500 transition-colors" />
+                  <button onClick={handleAddEquipmentItem} className="bg-blue-600 hover:bg-blue-500 px-4 min-h-[36px] min-w-[36px] rounded-lg text-white font-black text-sm flex items-center justify-center shadow transition-all active:scale-95" title="Añadir ítem">+</button>
                 </div>
                 <div className="max-h-32 overflow-y-auto custom-scrollbar flex flex-wrap gap-2 pt-2">
                   {editableEquipment.map(item => (
-                    <span key={item} className="bg-white/5 border border-white/10 px-2 py-1 rounded text-[9px] font-bold flex items-center gap-2">
+                    <span key={item} className="bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-2">
                       {item}
-                      <button onClick={() => handleRemoveEquipmentItem(item)} className="text-red-500">×</button>
+                      <button 
+                        onClick={() => handleRemoveEquipmentItem(item)} 
+                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-500/20 text-red-400 hover:text-red-200 text-sm font-bold transition-colors ml-1 active:scale-90"
+                        title={`Eliminar ${item}`}
+                        aria-label={`Eliminar ${item}`}
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
                 </div>
-                <button onClick={handleSaveEquipment} className="w-full mt-2 bg-green-600/20 text-green-400 border border-green-500/20 py-2 rounded-lg text-[9px] font-black uppercase">Guardar Inventario</button>
+                <button onClick={handleSaveEquipment} className="w-full mt-2 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white border border-green-500/30 py-2.5 rounded-lg text-[9px] font-black uppercase transition-all shadow active:scale-95">Guardar Inventario</button>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2 font-mono">

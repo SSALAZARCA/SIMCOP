@@ -345,6 +345,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   const [lineOfSightActive, setLineOfSightActive] = useState<boolean>(false);
   // New state for Slope Analysis Tool
   const [slopeAnalysisActive, setSlopeAnalysisActive] = useState<boolean>(false);
+  // Tactical Tab Navigation State
+  const [activeTacticalTab, setActiveTacticalTab] = useState<'all' | 'doctrine_coa' | 'picc' | 'terrain' | 'gemini'>('all');
 
   const currentPICCtools: PICCToolDefinition[] = activeTemplateContext ? PlantillaPICCConfig[activeTemplateContext]?.elements || [] : [];
 
@@ -1171,17 +1173,41 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
 
   return (
     <div className="flex flex-col space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 pb-3 gap-3">
-        <h2 className="text-2xl font-semibold text-gray-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-700 pb-3 gap-3">
+        <h2 className="text-xl md:text-2xl font-semibold text-gray-200">
           Análisis Operacional y Geoespacial
         </h2>
+        <div className="flex flex-wrap gap-1.5 p-1 bg-gray-900/80 rounded-xl border border-gray-750 text-xs">
+          {[
+            { id: 'all', label: 'Todo', icon: '👁️' },
+            { id: 'doctrine_coa', label: 'Doctrina & COA', icon: '🧠' },
+            { id: 'picc', label: 'Plantillas PICC', icon: '📐' },
+            { id: 'terrain', label: 'Terreno & Geometría', icon: '🗺️' },
+            { id: 'gemini', label: 'Análisis IA', icon: '🤖' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTacticalTab(tab.id as any)}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 ${
+                activeTacticalTab === tab.id
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="bg-gray-800 p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold text-purple-300 mb-2 flex items-center">
-          <AcademicCapIcon className="w-5 h-5 mr-2" />
-          Asistente Doctrinal (Copiloto Cognitivo)
-        </h3>
+      {(activeTacticalTab === 'all' || activeTacticalTab === 'doctrine_coa') && (
+        <>
+          <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold text-purple-300 mb-2 flex items-center">
+              <AcademicCapIcon className="w-5 h-5 mr-2" />
+              Asistente Doctrinal (Copiloto Cognitivo)
+            </h3>
         <form onSubmit={handleDoctrinalSubmit} className="space-y-3">
           <div>
             <label htmlFor="doctrinalQuery" className="block text-xs font-medium text-gray-300 mb-1">
@@ -1653,7 +1679,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
 
+      {(activeTacticalTab === 'all' || activeTacticalTab === 'terrain') && (
       <div className="bg-gray-800 p-3 rounded-lg shadow-md">
         <h3 className="text-md font-semibold text-gray-300 mb-2">Herramientas de Mapa Interactivas</h3>
         <div className="flex flex-wrap gap-2">
@@ -1748,7 +1777,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           </button>
         </div>
       </div>
+      )}
 
+      {(activeTacticalTab === 'all' || activeTacticalTab === 'picc') && (
+      <>
       <PICCWorkflowAssistant
         units={units}
         intelligenceReports={intelligenceReports}
@@ -1847,7 +1879,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
 
+      {(activeTacticalTab === 'all' || activeTacticalTab === 'terrain') && (
+      <>
       <div className="bg-gray-800 p-4 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold text-cyan-300 mb-2 flex items-center">
           <MagnifyingGlassIcon className="w-5 h-5 mr-2" /> Buscador Geoespacial (Colombia)
@@ -2017,8 +2053,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         </div>
       )}
       {elevationData && <ElevationProfileChart data={elevationData} />}
+      </>
+      )}
 
-
+      {(activeTacticalTab === 'all' || activeTacticalTab === 'gemini') && (
       <div className="bg-gray-800 p-4 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold text-gray-200 mb-2 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 mr-2 text-purple-400">
@@ -2141,6 +2179,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

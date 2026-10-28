@@ -4,10 +4,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* leaf styling and root variables */
 :root {
   --glass-bg: rgba(31, 41, 55, 0.7);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: blur(12px);
+}
+
+/* Global button touch & click target enforcement */
+button, [role="button"] {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 
+  CRITICAL UX BUGFIX: Guarantee child elements (svg, path, span, div, text)
+  never intercept mouse or touch events away from the parent button.
+  This ensures 100% of the button's visual bounding box responds to clicks,
+  eliminating the bug where buttons only respond on their corners.
+*/
+button > *,
+button *,
+[role="button"] > *,
+[role="button"] * {
+  pointer-events: none;
+}
+
+/* Exception for nested elements that legitimately require standalone interaction */
+button .pointer-events-auto,
+[role="button"] .pointer-events-auto {
+  pointer-events: auto;
+}
+
+/* Tactical button feedback */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
 }
 
 html,

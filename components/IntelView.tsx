@@ -32,6 +32,14 @@ export const IntelView: React.FC<IntelViewProps> = ({
     const [selectedOsintForPanel, setSelectedOsintForPanel] = useState<OsintEvent | null>(null);
     const [showAddIntelForm, setShowAddIntelForm] = useState(false);
     const [activeTab, setActiveTab] = useState<'oficial' | 'osint'>('oficial');
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+        setToast({ message, type });
+        setTimeout(() => {
+            setToast(prev => (prev?.message === message ? null : prev));
+        }, 4000);
+    };
 
     const handleLocalSelect = useCallback((report: IntelligenceReport) => {
         setSelectedIntelForPanel(report);
@@ -49,9 +57,10 @@ export const IntelView: React.FC<IntelViewProps> = ({
         if (!selectedIntelForPanel) return;
         try {
             await apiClient.put(`${API_BASE_URL}/api/intel/${selectedIntelForPanel.id}/link/${targetId}`, {});
-            alert("Vínculo creado correctamente.");
+            showToast("Vínculo táctico creado con éxito.", 'success');
         } catch (error) {
             console.error("Link failed", error);
+            showToast("Error al crear vínculo entre informes.", 'error');
         }
     };
 
@@ -78,9 +87,10 @@ export const IntelView: React.FC<IntelViewProps> = ({
         if (!selectedIntelForPanel) return;
         try {
             await apiClient.delete(`${API_BASE_URL}/api/intel/${selectedIntelForPanel.id}/link/${targetId}`);
-            alert("Vínculo eliminado.");
+            showToast("Vínculo eliminado correctamente.", 'info');
         } catch (error) {
             console.error("Unlink failed", error);
+            showToast("Error al desvincular informe.", 'error');
         }
     };
 
@@ -120,9 +130,10 @@ export const IntelView: React.FC<IntelViewProps> = ({
                 setNewAttachmentName(response.fileName);
                 setNewAttachmentType(response.fileType);
                 setNewAttachmentUrl(response.fileDownloadUri);
+                showToast("Archivo adjunto subido correctamente.", 'success');
             } catch (error) {
                 console.error("Upload failed", error);
-                alert("Error al subir archivo. Verifique conexión.");
+                showToast("Error al subir archivo. Verifique conexión.", 'error');
                 // Reset input?
             }
         }
@@ -165,15 +176,15 @@ export const IntelView: React.FC<IntelViewProps> = ({
             isNaN(latD) || isNaN(latM) || isNaN(latS) ||
             isNaN(lonD) || isNaN(lonM) || isNaN(lonS)
         ) {
-            alert("Todos los campos de GMS para Coordenadas son requeridos.");
+            showToast("Todos los campos de GMS para Coordenadas son requeridos.", 'error');
             return;
         }
         if (latD < 0 || latD > 90 || latM < 0 || latM >= 60 || latS < 0 || latS >= 60) {
-            alert("Valores de latitud inválidos (Grados: 0-90, Minutos/Segundos: 0-59).");
+            showToast("Valores de latitud inválidos (Grados: 0-90, Minutos/Segundos: 0-59).", 'error');
             return;
         }
         if (lonD < 0 || lonD > 180 || lonM < 0 || lonM >= 60 || lonS < 0 || lonS >= 60) {
-            alert("Valores de longitud inválidos (Grados: 0-180, Minutos/Segundos: 0-59).");
+            showToast("Valores de longitud inválidos (Grados: 0-180, Minutos/Segundos: 0-59).", 'error');
             return;
         }
 
@@ -184,22 +195,22 @@ export const IntelView: React.FC<IntelViewProps> = ({
         const lon = dmsToDecimal(constructedLonDMS, true);
 
         if (!newIntelTitle || !newIntelDetails || !newIntelSourceDetails || !newEventTimestamp) {
-            alert("Por favor complete todos los campos requeridos (Título, Detalles, Detalles de Fuente, Fecha/Hora del Evento).");
+            showToast("Por favor complete todos los campos requeridos (Título, Detalles, Detalles de Fuente, Fecha/Hora del Evento).", 'error');
             return;
         }
         if (lat === null) {
-            alert("Formato de latitud inválido.");
+            showToast("Formato de latitud inválido.", 'error');
             return;
         }
         if (lon === null) {
-            alert("Formato de longitud inválido.");
+            showToast("Formato de longitud inválido.", 'error');
             return;
         }
 
         const keywordsArray = newIntelKeywords.split(',').map(kw => kw.trim()).filter(kw => kw.length > 0);
         const eventTs = new Date(newEventTimestamp).getTime();
         if (isNaN(eventTs)) {
-            alert("Fecha/Hora del evento inválida.");
+            showToast("Fecha/Hora del evento inválida.", 'error');
             return;
         }
 
@@ -225,6 +236,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
             attachments: attachmentsArray.length > 0 ? attachmentsArray : undefined,
         };
         addIntelReport(newReportData);
+        showToast("Informe de inteligencia registrado exitosamente.", 'success');
         resetForm();
     };
 
@@ -257,20 +269,31 @@ export const IntelView: React.FC<IntelViewProps> = ({
 
     return (
         <div className="flex flex-col space-y-4">
+            {toast && (
+                <div className={`p-3 rounded-xl text-xs font-bold border transition-all animate-in fade-in flex items-center justify-between shadow-xl ${
+                    toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200' :
+                    toast.type === 'error' ? 'bg-rose-950/90 border-rose-500/50 text-rose-200' :
+                    'bg-cyan-950/90 border-cyan-500/50 text-cyan-200'
+                }`}>
+                    <span>{toast.message}</span>
+                    <button onClick={() => setToast(null)} className="ml-3 text-sm opacity-70 hover:opacity-100 p-1">×</button>
+                </div>
+            )}
+
             <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 pb-2 gap-2">
                 <h2 className="text-xl md:text-2xl font-semibold text-gray-200">Fuente de Inteligencia</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {onRefreshOsint && (
                         <button
                             onClick={() => {
                                 onRefreshOsint()
                                     .then(() => {
-                                        alert("Noticias OSINT actualizadas.");
+                                        showToast("Noticias e inteligencia OSINT actualizadas.", 'success');
                                         if (setOsintLayerActive) setOsintLayerActive(true);
                                     })
-                                    .catch(e => alert("Error al actualizar OSINT."));
+                                    .catch(() => showToast("Error al actualizar OSINT.", 'error'));
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 bg-cyan-700/80 hover:bg-cyan-600 border border-cyan-500/50 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm hover:shadow-cyan-700/30 text-cyan-100"
+                            className="flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 bg-cyan-700/80 hover:bg-cyan-600 border border-cyan-500/50 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm hover:shadow-cyan-700/30 text-cyan-100 active:scale-95"
                         >
                             🧠 Procesar OSINT (IA)
                         </button>
@@ -278,7 +301,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
                     {setOsintLayerActive && (
                         <button
                             onClick={() => setOsintLayerActive(!osintLayerActive)}
-                            className={`px-3 py-1.5 md:px-4 md:py-2 border rounded-md text-xs sm:text-sm font-medium transition-colors ${osintLayerActive
+                            className={`px-3 py-1.5 md:px-4 md:py-2 border rounded-md text-xs sm:text-sm font-medium transition-colors active:scale-95 ${osintLayerActive
                                 ? 'bg-cyan-900 border-cyan-500 text-cyan-200 hover:bg-cyan-800'
                                 : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'
                                 }`}
@@ -288,7 +311,7 @@ export const IntelView: React.FC<IntelViewProps> = ({
                     )}
                     <button
                         onClick={() => setShowAddIntelForm(!showAddIntelForm)}
-                        className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-xs sm:text-sm font-medium transition-colors active:scale-95"
                     >
                         {showAddIntelForm ? 'Cancelar Entrada' : 'Añadir Informe Intel.'}
                     </button>

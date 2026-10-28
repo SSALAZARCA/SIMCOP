@@ -147,23 +147,25 @@ export const UserManagementViewComponent: React.FC<UserManagementViewProps> = ({
                             user.permissions.map(p => ViewType[p as keyof typeof ViewType] || p).join(', ') || 'Ninguno'}
                     </td>
                     <td className="px-3 py-2 md:px-4 md:py-3 whitespace-nowrap">
-                      <button
-                        onClick={() => handleOpenEditModal(user)}
-                        className="p-1.5 text-yellow-400 hover:text-yellow-300 transition-colors mr-1 md:mr-2"
-                        title="Editar Usuario"
-                        aria-label={`Editar usuario ${user.displayName}`}
-                      >
-                        <PencilIcon className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="p-1.5 text-red-500 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Eliminar Usuario"
-                        aria-label={`Eliminar usuario ${user.displayName}`}
-                        disabled={user.id === currentUser?.id || (user.role === UserRole.ADMINISTRATOR && users.filter(u => u.role === UserRole.ADMINISTRATOR).length <= 1)}
-                      >
-                        <TrashIcon className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(user)}
+                          className="inline-flex items-center justify-center p-2 rounded-lg bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-400 border border-yellow-400/20 transition-all active:scale-95 min-w-[36px] min-h-[36px]"
+                          title="Editar Usuario"
+                          aria-label={`Editar usuario ${user.displayName}`}
+                        >
+                          <PencilIcon className="w-4 h-4 md:w-5 md:h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="inline-flex items-center justify-center p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 min-w-[36px] min-h-[36px]"
+                          title="Eliminar Usuario"
+                          aria-label={`Eliminar usuario ${user.displayName}`}
+                          disabled={user.id === currentUser?.id || (user.role === UserRole.ADMINISTRATOR && users.filter(u => u.role === UserRole.ADMINISTRATOR).length <= 1)}
+                        >
+                          <TrashIcon className="w-4 h-4 md:w-5 md:h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

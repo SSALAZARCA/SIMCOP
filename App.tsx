@@ -1282,7 +1282,7 @@ const App: React.FC = () => {
         {isMobile ? (
           <>
             {currentView === ViewType.MAP ? (
-              <main className="flex-1 flex h-full w-full relative z-10 pb-16">
+              <main className="flex-1 flex h-full w-full relative z-10 pb-20">
                 <div className="w-full h-full relative">
                   <SimpleErrorBoundary viewName="MapDisplay">
                     <React.Suspense fallback={<TacticalMapFallback />}>
@@ -1292,8 +1292,8 @@ const App: React.FC = () => {
                 </div>
               </main>
             ) : (
-              <main className="flex-1 flex p-2 md:p-4 overflow-y-auto h-full w-full relative z-10 pb-20">
-                <div className="w-full h-full glass-effect rounded-2xl p-4 shadow-2xl">
+              <main className="flex-1 flex p-2 md:p-4 overflow-y-auto h-full w-full relative z-10 pb-28 sm:pb-32">
+                <div className="w-full h-full glass-effect rounded-2xl p-3 sm:p-4 shadow-2xl">
                   <SimpleErrorBoundary viewName={currentView || 'Unknown'}>
                     <React.Suspense fallback={<TacticalModuleFallback label={`CARGANDO ${currentView}...`} />}>
                       {renderView()}
