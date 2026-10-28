@@ -54,6 +54,7 @@ public class GeminiService {
             options.put("num_gpu", 99);        // fuerza max capas en GPU
             options.put("num_thread", 8);       // threads CPU para capas residuales
             options.put("num_ctx", 4096);       // 4096 es suficiente para análisis y evita OOM en 12GB VRAM
+            options.put("num_predict", 2048);   // Presupuesto de generación completo para no cortar análisis
             options.put("num_batch", 256);      // batch reducido para aliviar picos de memoria
             options.put("f16_kv", true);        // KV cache fp16 → mitad de VRAM que fp32
             options.put("num_keep", 48);        // mantener primeros tokens del sistema en cache
@@ -95,6 +96,7 @@ public class GeminiService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model);
             requestBody.put("temperature", 0.4);
+            requestBody.put("max_tokens", 2048);
 
             // LM Studio JSON mode if requested by the tactical prompt
             if (prompt != null && (prompt.contains("estructura exacta. REGLAS") || prompt.contains("Responde en formato JSON"))) {
@@ -166,6 +168,7 @@ public class GeminiService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model);
             requestBody.put("temperature", 0.4);
+            requestBody.put("max_tokens", 2048);
             
             if (prompt != null && (prompt.contains("estructura exacta.") || prompt.contains("Responde en formato JSON"))) {
                 Map<String, Object> responseFormat = new HashMap<>();
@@ -235,6 +238,7 @@ public class GeminiService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model);
             requestBody.put("temperature", 0.4);
+            requestBody.put("max_tokens", 2048);
 
             if (prompt != null && (prompt.contains("estructura exacta. REGLAS") || prompt.contains("Responde en formato JSON"))) {
                 Map<String, Object> responseFormat = new HashMap<>();
@@ -295,6 +299,11 @@ public class GeminiService {
         part.put("text", prompt);
         content.put("parts", Collections.singletonList(part));
         requestBody.put("contents", Collections.singletonList(content));
+
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("maxOutputTokens", 2500);
+        generationConfig.put("temperature", 0.4);
+        requestBody.put("generationConfig", generationConfig);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

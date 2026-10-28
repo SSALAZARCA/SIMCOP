@@ -509,7 +509,7 @@ class SimcopLLMAdapter:
         except Exception:
             ctx_limit = MODEL_CTX
 
-        desired_budget = 768 if expect_json else 320
+        desired_budget = 1536 if expect_json else 1536
         # Tokenización defensiva para ajustar el prompt y tokens_budget a la ventana de contexto
         try:
             p_tokens = self._llama.tokenize(full_prompt.encode("utf-8"))
@@ -525,10 +525,10 @@ class SimcopLLMAdapter:
                     full_prompt = self._llama.detokenize(trimmed_tokens).decode("utf-8", errors="ignore")
                     num_tokens = len(trimmed_tokens)
             
-            tokens_budget = max(64, min(desired_budget, ctx_limit - num_tokens - 16))
+            tokens_budget = max(128, min(desired_budget, ctx_limit - num_tokens - 16))
         except Exception as tok_err:
             logger.warning(f"[TOKENIZER] Fallo en ajuste predictivo de tokens ({tok_err}), aplicando margen por defecto.")
-            tokens_budget = min(desired_budget, 256)
+            tokens_budget = min(desired_budget, 1024)
 
         output = self._llama(
             full_prompt,
@@ -551,7 +551,7 @@ class SimcopLLMAdapter:
         full_prompt = f"<|system|>{system_msg}<|end|><|user|>{prompt}<|end|><|assistant|>"
         tokens_in = tokenizer.encode(full_prompt)
         params = og.GeneratorParams(onnx_model)
-        params.set_search_options(max_length=1024, temperature=0.3)
+        params.set_search_options(max_length=2048, temperature=0.3)
         params.input_ids = tokens_in
         generator = og.Generator(onnx_model, params)
         output_tokens = []
@@ -1575,7 +1575,8 @@ Doctrina Recuperada (EmbeddingGemma 2): {rag_context}
 Capa Enemiga Activa: {req.enemyLayerActive}
 
 Un texto narrativo estructurado y profesional que responda a la consulta del operador.
-Obligatorio: Explicar explícitamente cómo la topografía/clima enviados afectan la movilidad o el vuelo. Citar fuentes al final si usas OSINT."""
+Obligatorio: Explicar explícitamente cómo la topografía/clima enviados afectan la movilidad o el vuelo. Citar fuentes al final si usas OSINT.
+REGLA DE INTEGRIDAD: Desarrolla el análisis en su totalidad (Observación, Cubierta, Obstáculos, Puntos Críticos y Conclusión de Mando), asegurando que todas las oraciones y párrafos queden completamente cerrados sin truncamiento."""
     return {"analysis": run_inference(prompt, expect_json=False).strip()}
 
 # 7. Simulación BMA
