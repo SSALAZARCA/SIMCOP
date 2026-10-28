@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
-import { COAGraphicType } from '../types';
+import { COAGraphicType, UnitType } from '../types';
 import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, COAPhase, COAGraphicElement, GeoLocation, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult } from '../types';
 import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
@@ -680,6 +680,14 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
     const translatedType = translateUnitType(u.type);
     const translatedStatus = translateUnitStatus(u.status);
 
+    const isPuestoDeMando = u.type === UnitType.DIVISION || u.type === UnitType.BRIGADE || u.type === UnitType.BATTALION;
+    const doctrinalRole = isPuestoDeMando
+      ? `🏛️ PUESTO DE MANDO Y CONTROL ESTRATÉGICO / OPERACIONAL (HQ / CP - Base Fija / Cantón Militar)`
+      : `⚔️ UNIDAD TÁCTICA DE MANIOBRA EN EL TERRENO (Patrulla / Combate / Control Territorial)`;
+    const doctrinalGuideline = isPuestoDeMando
+      ? `Cuartel General de Mando y Control. NO realiza infiltraciones en vaguadas ni patrullaje a pie; ejerce C2, dirección de fuegos y soporte operacional para sus batallones y compañías orgánicas.`
+      : `Unidad de maniobra y combate sobre el terreno. Aplica técnicas de movimiento, seguridad, observación, campos de tiro y desenfilada.`;
+
     // Conciencia Situacional: Apoyo Mutuo (Unidades amigas a menos de 3.5 km)
     const friendlySupport: string[] = [];
     if (u.location && u.location.lat && u.location.lon) {
@@ -692,7 +700,18 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
         }
       });
     }
-    const supportStr = friendlySupport.length > 0 ? `Apoyo Amigo Cercano: [${friendlySupport.join(', ')}]` : 'Apoyo Amigo: Aislada (> 3.5 km de otras fuerzas)';
+
+    let supportStr = '';
+    if (friendlySupport.length > 0) {
+      if (isPuestoDeMando) {
+        supportStr = `🛡️ Unidades Orgánicas de Guarnición / Seguridad Perimétrica / ASPC del Cantón: [${friendlySupport.join(', ')}]\n` +
+                     `     ⚠️ [REGLA DOCTRINAL INVIOLABLE]: Estas unidades son TROPAS PROPIAS ALIADAS (guarnición, reserva y apoyo logístico del cantón militar). ESTÁ ESTRICTAMENTE PROHIBIDO interpretarlas o reportarlas como amenazas o riesgos indirectos.`;
+      } else {
+        supportStr = `Apoyo Amigo Cercano: [${friendlySupport.join(', ')}] (Capacidad de apoyo mutuo y fuego coordinado)`;
+      }
+    } else {
+      supportStr = `Dispositivo Amigo: Aislada (> 3.5 km de otras fuerzas propias)`;
+    }
 
     // Conciencia Situacional: Amenaza de Inteligencia más cercana
     let closestIntelStr = 'Amenaza Cercana: Sin focos enemigos directos reportados en radio de 5 km';
@@ -724,14 +743,17 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
     const fuelStr = u.fuelLevel !== undefined ? `${u.fuelLevel}%` : '100%';
     const supplyStr = u.daysOfSupply !== undefined ? `${u.daysOfSupply} días` : 'Adecuado';
 
-    return `- Unidad: "${escapeTemplateLiteralContent(u.name)}" (${translatedType}) | Cmdte: ${formatCommander(u.commander)} | Estado: ${translatedStatus} | Misión: ${u.currentMission || 'En dispositivo asignado'}\n` +
+    return `- Unidad: "${escapeTemplateLiteralContent(u.name)}" (${translatedType}) | Rol Doctrinal: ${doctrinalRole}\n` +
+           `  • Directiva Doctrinal: ${doctrinalGuideline}\n` +
            `  • Ubicación Real en Mapa: ${coordsDecimal} (DMS: ${decimalToDMS(u.location)})\n` +
+           `  • Cmdte: ${formatCommander(u.commander)} | Estado: ${translatedStatus} | Misión: ${u.currentMission || 'En dispositivo asignado'}\n` +
            `  • Efectivos: ${totalPersonnel} orgánicos (${u.personnelBreakdown?.officers || 0} Of, ${u.personnelBreakdown?.ncos || 0} SubOf, ${(u.personnelBreakdown?.professionalSoldiers || 0) + (u.personnelBreakdown?.slRegulars || 0)} Soldados)\n` +
            `  • Armamento y Equipo: ${equipmentStr}\n` +
            `  • Capacidades y Entrenamiento: ${capabilitiesStr}\n` +
            `  • Medios UAS/Drones: ${uasStr}\n` +
            `  • Nivel Logístico: Munición ${ammoStr} | Combustible ${fuelStr} | Suministros: ${supplyStr}\n` +
-           `  • Conciencia Situacional en Mapa: ${supportStr} | ${closestIntelStr}\n` +
+           `  • Conciencia Situacional en Mapa: ${supportStr}\n` +
+           `  • ${closestIntelStr}\n` +
            `  • Última Telemetría: hace ${Math.floor((Date.now() - u.lastMovementTimestamp) / 60000)} mins.`;
   }).join('\n\n');
 };
@@ -988,7 +1010,21 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
        - Justificación operacional: [Por qué y qué ventaja confiere]
        - Unidad y Asignación: [Nombre de la unidad, posición actual y nuevo sector asignado]
 
-   - Utiliza títulos con '###', viñetas con '•', sub-puntos con '-' y negrita '**' para resaltar unidades, sectores críticos y decisiones de mando.`;
+   - Utiliza títulos con '###', viñetas con '•', sub-puntos con '-' y negrita '**' para resaltar unidades, sectores críticos y decisiones de mando.
+
+5. DISTINCIÓN INVIOLABLE ENTRE PUESTOS DE MANDO (HQ / C2) Y UNIDADES DE MANIOBRA:
+   - Los Comandos de Brigada y División (ej. Vigésima Novena Brigada - BR29) son PUESTOS DE MANDO Y CONTROL ESTRATÉGICO / OPERACIONAL (C2 / Estado Mayor), alojados en bases fijas o Cantones Militares (ej. Cantón Militar Popayán).
+   - ESTÁ TERMINANTEMENTE PROHIBIDO proponer que un Puesto de Mando de Brigada "infiltre por desenfilada", "se desplace por vaguadas" o realice maniobras de patrulla ligera de escuadra. Su función es la dirección C2 de sus batallones tácticos, coordinación de fuegos (artillería, CAS), enlace de comunicaciones y sostenimiento.
+   - Las unidades ubicadas en el mismo cantón o en un radio menor a 2 km (ej. Batallón de Infantería No. 7 "José Hilario López", unidades de apoyo ASPC/ASTRO) son FUERZAS ORGÁNICAS DE GUARNICIÓN, SEGURIDAD DEL CANTÓN Y RESERVA. ESTÁ ESTRICTAMENTE PROHIBIDO interpretarlas o reportarlas como "amenazas indirectas". Son fuerzas propias aliadas.
+
+6. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, COTAS Y LÍNEA DE VISTA):
+   - ESTÁ PROHIBIDO mencionar únicamente una cota aislada o emitir frases vacías ("pendientes pronunciadas", "cresta militar") sin análisis tridimensional concreto.
+   - Debes desglosar el relieve con base en los datos tridimensionales provistos en la matriz topográfica:
+     • Cota de Posición y Cotas Dominantes: Cita la altitud de la posición (msnm) y las cotas de las alturas dominantes identificadas con su azimut cardinal y desnivel en metros.
+     • Intervisibilidad y Línea de Vista (LOS): Evalúa si el puesto o unidad está dominado visualmente desde alturas circundantes o si posee ventaja de observación y fuego directo sobre las avenidas de aproximación.
+     • Vulnerabilidad del Puesto de Mando: En puestos fijos de Brigada, evalúa la seguridad contra fuegos indirectos hostiles (morteros, cohetes) y ataques asimétricos con drones (UAVs) desde las alturas dominantes.
+     • Corredores de Movilidad y Ejes Viales: Cita los ejes viales y corredores naturales reales del municipio donde opera la unidad (ej. Vía Panamericana Ruta 25, ejes de penetración cordillerana).
+     • Hidrografía Exacta: Cita ÚNICAMENTE los ríos y cursos de agua del municipio real de la unidad (ej. Cuenca del Río Cauca y Río Molino en Popayán; NUNCA ríos de regiones costeras distantes como el Río Saija que distan más de 120 km).`;
 
   if (enemyLayerActive && useGoogleSearch) {
     systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Complementa tu análisis con información histórica y de inteligencia sobre incidentes de seguridad y tácticas enemigas reportadas en el sector geográfico donde operan las unidades. Cita todas las fuentes web utilizadas al final.`;

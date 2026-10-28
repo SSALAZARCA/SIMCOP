@@ -1565,18 +1565,29 @@ class GeminiAnalysisRequest(BaseModel):
 @app.post("/api/v1/intelligence/terrain_weather")
 def terrain_weather_analysis(req: GeminiAnalysisRequest):
     rag_context = embedding_engine.retrieve_doctrinal_context(f"{req.query} {req.inteligencia}", top_k=2)
-    prompt = f"""Eres SIMCOP AI. Analiza estos parámetros:
+    prompt = f"""Eres SIMCOP AI, Asistente Táctico y de Estado Mayor del Ejército Nacional de Colombia.
+Analiza con rigor militar estos parámetros del Sistema SIMCOP:
+
 Consulta: {req.query}
 Unidades Amigas: {req.unidades_amigas}
 Inteligencia: {req.inteligencia}
-Contexto Geoespacial/Topográfico: {req.geoContext}
+Contexto Geoespacial y Gemelo Digital 3D: {req.geoContext}
 Antecedentes Históricos y Factores de Inestabilidad: {req.historico or 'Sin registros previos en el cuadrante'}
-Doctrina Recuperada (EmbeddingGemma 2): {rag_context}
+Doctrina Militar Recuperada: {rag_context}
 Capa Enemiga Activa: {req.enemyLayerActive}
 
-Un texto narrativo estructurado y profesional que responda a la consulta del operador.
-Obligatorio: Explicar explícitamente cómo la topografía/clima enviados afectan la movilidad o el vuelo. Citar fuentes al final si usas OSINT.
-REGLA DE INTEGRIDAD: Desarrolla el análisis en su totalidad (Observación, Cubierta, Obstáculos, Puntos Críticos y Conclusión de Mando), asegurando que todas las oraciones y párrafos queden completamente cerrados sin truncamiento."""
+REGLAS DOCTRINALES OBLIGATORIAS:
+1. DISTINCIÓN INVIOLABLE PUESTO DE MANDO (HQ/C2) VS UNIDAD DE MANIOBRA:
+   - Si la unidad analizada es una Brigada o División (ej. Vigésima Novena Brigada - BR29), es un PUESTO DE MANDO Y CONTROL (C2 / Estado Mayor) radicado en una base fija o Cantón Militar (ej. Cantón Militar Popayán).
+   - ESTÁ TERMINANTEMENTE PROHIBIDO proponer que un Puesto de Mando de Brigada realice 'infiltración por desenfilada', 'patrullaje de escuadra' o 'movimiento por vaguadas'. Su función es la dirección C2 de sus batallones orgánicos, coordinación de fuegos (artillería, CAS), comunicaciones y sostenimiento.
+   - Las unidades amigas adyacentes a < 2 km (ej. Batallón de Infantería No. 7 'José Hilario López', ASTRO / ASPC) son TROPAS PROPIAS ALIADAS DE GUARNICIÓN, SEGURIDAD PERIMÉTRICA Y APOYO LOGÍSTICO. ESTÁ ESTRICTAMENTE PROHIBIDO catalogarlas como 'amenazas indirectas'.
+2. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, COTAS Y LÍNEA DE VISTA):
+   - PROHIBIDO mencionar únicamente una cota aislada o emitir frases genéricas sin precisión militar.
+   - Debes desglosar el relieve con base en la matriz topográfica del Gemelo Digital provista:
+     * Cita la cota de la posición (msnm) y compárala cuantitativamente con las COTAS DOMINANTES identificadas (altitud, desnivel en metros y azimut).
+     * Evalúa la Línea de Vista (LOS) e intervisibilidad: si el puesto o unidad está dominado visualmente desde alturas circundantes y qué sectores ofrecen desenfilada o ángulos muertos contra fuegos indirectos hostiles (morteros/drones).
+     * Ejes viales y corredores de movilidad reales del municipio verídico provisto en la telemetría (para Popayán: Vía Panamericana Ruta 25, ejes de penetración cordillerana; jamás ríos o municipios costeros remotos como el Río Saija o Timbiquí).
+3. REGLA DE INTEGRIDAD: Desarrolla el análisis en su totalidad (Observación y Campos de Tiro, Cubierta y Protección, Obstáculos, Puntos Críticos, Avenidas de Aproximación y Conclusión de Mando), asegurando que todas las oraciones y párrafos queden completamente estructurados y cerrados sin truncamiento. Citar fuentes al final si usas OSINT."""
     return {"analysis": run_inference(prompt, expect_json=False).strip()}
 
 # 7. Simulación BMA

@@ -182,7 +182,7 @@ interface AnalysisViewProps {
   onSelectEntityOnMap?: (entity: SelectedEntity | null) => void;
   activeTemplateContext: PlantillaTypeEnum | null;
   setActiveTemplateContext: (template: PlantillaTypeEnum | null) => void;
-  currentUser?: { id?: string; username?: string };
+  currentUser?: { id?: string; username?: string; assignedUnitId?: string | null };
   eventBus: EventEmitter;
 }
 
@@ -407,15 +407,51 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     let geoContext: AoiGeoContext | undefined = undefined;
     let targetAoiGeoJson = finalizedAoiGeoJson;
 
-    if (!targetAoiGeoJson && units) {
-      const unitWithAoi = units.find(u => u.areaOfOperations);
-      if (unitWithAoi && unitWithAoi.areaOfOperations) {
+    // Detectar si la consulta o el contexto analítico se enfoca en una unidad militar específica
+    const lowerQuery = query.toLowerCase();
+    const referencedUnit = units?.find(u => {
+      const uName = u.name.toLowerCase();
+      if (lowerQuery.includes(uName)) return true;
+      if ((uName.includes('vigesimonovena') || uName.includes('29')) && 
+          (lowerQuery.includes('vigesimonovena') || lowerQuery.includes('vigésima novena') || lowerQuery.includes('br29') || lowerQuery.includes('brigada 29') || lowerQuery.includes('brigada'))) return true;
+      if (uName.includes('hilario') && lowerQuery.includes('hilario')) return true;
+      return false;
+    });
+
+    if (referencedUnit && referencedUnit.location) {
+      let isInside = false;
+      if (targetAoiGeoJson) {
         try {
-          targetAoiGeoJson = JSON.parse(unitWithAoi.areaOfOperations);
-          console.log(`[AnalysisView] Usando AOI persistida de la unidad: ${unitWithAoi.name}`);
+          isInside = turf.booleanPointInPolygon(turfPoint([referencedUnit.location.lon, referencedUnit.location.lat]), targetAoiGeoJson);
         } catch (e) {
-          console.error("Error parsing fallback unit AOI:", e);
+          isInside = false;
         }
+      }
+      // Si la unidad objetivo NO está dentro del AOI actual (ej. un AOI previo de Timbiquí),
+      // forzar que el AOI se centre exactamente sobre la posición verídica de la unidad (ej. Popayán)!
+      if (!isInside) {
+        if (referencedUnit.areaOfOperations) {
+          try {
+            targetAoiGeoJson = JSON.parse(referencedUnit.areaOfOperations);
+          } catch (e) {
+            targetAoiGeoJson = null;
+          }
+        }
+        if (!targetAoiGeoJson) {
+          targetAoiGeoJson = turf.circle([referencedUnit.location.lon, referencedUnit.location.lat], 8, { steps: 16, units: 'kilometers' });
+          console.log(`[AnalysisView] Centrando AOI contextual en la unidad referenciada: ${referencedUnit.name} [${referencedUnit.location.lat}, ${referencedUnit.location.lon}]`);
+        }
+      }
+    } else if (!targetAoiGeoJson && units && units.length > 0) {
+      const myUnit = currentUser?.assignedUnitId ? units.find(u => u.id === currentUser.assignedUnitId) : null;
+      if (myUnit && myUnit.areaOfOperations) {
+        try {
+          targetAoiGeoJson = JSON.parse(myUnit.areaOfOperations);
+        } catch (e) {
+          targetAoiGeoJson = null;
+        }
+      } else if (myUnit && myUnit.location) {
+        targetAoiGeoJson = turf.circle([myUnit.location.lon, myUnit.location.lat], 8, { steps: 16, units: 'kilometers' });
       }
     }
 
@@ -431,51 +467,57 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           weatherService.getCurrentWeather(lat, lon).catch(() => undefined)
         ]);
 
-        setLoadingMessage("Analizando topografía del AOI...");
-        // Sample elevations at multiple points across the AOI for topographic context
-        const allCoords = targetAoiGeoJson.geometry.coordinates[0] as [number, number][];
-        // Build a grid of sample points: vertices + centroid + midpoints between vertices
-        const samplePoints: { lat: number; lon: number }[] = [{ lat, lon }]; // centroid first
-        allCoords.slice(0, -1).forEach((coord, idx) => {
-          samplePoints.push({ lat: coord[1], lon: coord[0] }); // vertex
-          const next = allCoords[(idx + 1) % (allCoords.length - 1)];
-          samplePoints.push({ lat: (coord[1] + next[1]) / 2, lon: (coord[0] + next[0]) / 2 }); // midpoint
-        });
-        // Limit to 12 samples to avoid too many API calls — batch as one request
-        const limitedSamples = samplePoints.slice(0, 12);
+        setLoadingMessage("Construyendo matriz del Gemelo Digital Topográfico 3D...");
+        // Malla de muestreo del Gemelo Digital Topográfico (Radial y Cardinal de alta fidelidad)
+        const deltaLat = 0.022; // ~2.5 km
+        const deltaLon = 0.022; // ~2.5 km
+        const samplePoints: { lat: number; lon: number }[] = [
+          { lat, lon }, // Centro (Posición de la Unidad)
+          { lat: lat + deltaLat, lon: lon }, // Norte (+2.5km)
+          { lat: lat + deltaLat * 0.7, lon: lon + deltaLon * 0.7 }, // Noreste (+2.5km)
+          { lat: lat, lon: lon + deltaLon }, // Este (+2.5km hacia cordillera)
+          { lat: lat - deltaLat * 0.7, lon: lon + deltaLon * 0.7 }, // Sureste (+2.5km)
+          { lat: lat - deltaLat, lon: lon }, // Sur (+2.5km)
+          { lat: lat - deltaLat * 0.7, lon: lon - deltaLon * 0.7 }, // Suroeste (+2.5km)
+          { lat: lat, lon: lon - deltaLon }, // Oeste (+2.5km hacia valle)
+          { lat: lat + deltaLat * 0.7, lon: lon - deltaLon * 0.7 }, // Noroeste (+2.5km)
+          { lat: lat + deltaLat * 2, lon: lon }, // Norte (+5km)
+          { lat: lat, lon: lon + deltaLon * 2 }, // Este (+5km hacia cordillera alta)
+          { lat: lat - deltaLat * 2, lon: lon }, // Sur (+5km)
+          { lat: lat, lon: lon - deltaLon * 2 }  // Oeste (+5km)
+        ];
 
         let elevationMin: number | undefined;
         let elevationMax: number | undefined;
         let elevationAvg: number | undefined;
         let elevationRange: number | undefined;
         let terrainType: string | undefined;
-        let elevationGrid: {lat: number, lon: number, elev: number}[] | undefined;
+        let elevationGrid: { lat: number; lon: number; elev: number }[] | undefined;
 
         try {
-          const locString = limitedSamples.map(p => `${p.lat},${p.lon}`).join('|');
-          const elevResp = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locString}`);
-          if (elevResp.ok) {
-            const elevData = await elevResp.json();
-            const elevValues: number[] = elevData.results.map((r: any) => r.elevation as number).filter((v: number) => v !== null && !isNaN(v));
+          const elevGrid = await weatherService.getElevationGrid(samplePoints);
+          if (elevGrid && elevGrid.length > 0) {
+            elevationGrid = elevGrid;
+            const elevValues = elevGrid.map(p => p.elev).filter(v => v !== null && !isNaN(v));
             if (elevValues.length > 0) {
               elevationMin = Math.min(...elevValues);
               elevationMax = Math.max(...elevValues);
               elevationAvg = Math.round(elevValues.reduce((a, b) => a + b, 0) / elevValues.length);
               elevationRange = elevationMax - elevationMin;
-              elevationGrid = elevData.results.map((r: any) => ({ lat: r.latitude, lon: r.longitude, elev: r.elevation }));
-              // Classify terrain type based on elevation and relief
+
               if (elevationAvg < 200) terrainType = 'Llanura / Planicie (0-200 msnm) — terreno plano, movilidad alta';
               else if (elevationAvg < 800) terrainType = 'Piedemonte / Colinas bajas (200-800 msnm) — terreno ondulado, movilidad media';
-              else if (elevationAvg < 2000) terrainType = 'Montaña media (800-2000 msnm) — terreno escarpado, movilidad reducida';
-              else if (elevationAvg < 3200) terrainType = 'Alta montaña (2000-3200 msnm) — terreno muy escarpado, movilidad muy reducida';
-              else terrainType = 'Páramo / Altiplano (>3200 msnm) — condiciones extremas, movilidad crítica';
-              if (elevationRange > 500) terrainType += `, relieve pronunciado (${elevationRange.toFixed(0)} m desnivel)`;
-              else if (elevationRange > 200) terrainType += `, relieve moderado (${elevationRange.toFixed(0)} m desnivel)`;
-              else terrainType += `, relieve suave (${elevationRange.toFixed(0)} m desnivel)`;
+              else if (elevationAvg < 2000) terrainType = 'Meseta interandina / Montaña media (800-2000 msnm) — relieve quebrado con valles y mesetas';
+              else if (elevationAvg < 3200) terrainType = 'Alta montaña cordillerana (2000-3200 msnm) — terreno muy escarpado, movilidad reducida';
+              else terrainType = 'Páramo (>3200 msnm) — condiciones climáticas y de relieve extremas';
+
+              if (elevationRange > 500) terrainType += `, fuerte desnivel topográfico (${elevationRange}m entre cotas dominantes y depresiones)`;
+              else if (elevationRange > 150) terrainType += `, desnivel moderado (${elevationRange}m entre cotas)`;
+              else terrainType += `, relieve suave (${elevationRange}m desnivel)`;
             }
           }
-        } catch (_e) {
-          console.warn('[AnalysisView] No se pudo obtener topografía detallada del AOI, usando solo centroide.');
+        } catch (e) {
+          console.warn('[AnalysisView] Fallo obteniendo matriz de elevación de Open-Meteo:', e);
         }
 
         setLoadingMessage("Determinando cobertura geográfica del AOI...");
@@ -505,7 +547,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           ).join('\n');
         }
 
-        // Calcular Ríos y Red Hidrográfica que cruzan el AOI
+        // Calcular Ríos y Red Hidrográfica que cruzan el AOI o pasan en las proximidades
         const riversInAoi: string[] = [];
         COLOMBIA_RIVER_NETWORKS.forEach(river => {
           const passesThrough = river.paths.some(path => 
@@ -515,6 +557,26 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
             riversInAoi.push(river.name);
           }
         });
+
+        // Si no se detectan ríos dentro del polígono estricto, buscar el más cercano en radio de 15km
+        if (riversInAoi.length === 0) {
+          let closestRiver: string | null = null;
+          let minRiverDist = 999;
+          COLOMBIA_RIVER_NETWORKS.forEach(river => {
+            river.paths.forEach(path => {
+              path.forEach(([rLon, rLat]) => {
+                const d = turf.distance(turfPoint([lon, lat]), turfPoint([rLon, rLat]), { units: 'kilometers' });
+                if (d < minRiverDist) {
+                  minRiverDist = d;
+                  closestRiver = river.name;
+                }
+              });
+            });
+          });
+          if (closestRiver && minRiverDist <= 15) {
+            riversInAoi.push(`${closestRiver} (a ${minRiverDist.toFixed(1)} km del centroide)`);
+          }
+        }
 
         let hydrographySummary = undefined;
         if (riversInAoi.length > 0) {
@@ -767,7 +829,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     if (!hasCheckedAoiOnMount) {
       setHasCheckedAoiOnMount(true);
       if (!finalizedAoiGeoJson && units && units.length > 0) {
-        const unitWithAoi = units.find(u => u.areaOfOperations);
+        const myUnit = currentUser?.assignedUnitId ? units.find(u => u.id === currentUser.assignedUnitId) : null;
+        const unitWithAoi = (myUnit && myUnit.areaOfOperations) ? myUnit : null;
         if (unitWithAoi && unitWithAoi.areaOfOperations) {
           try {
             const geoJson = JSON.parse(unitWithAoi.areaOfOperations);
