@@ -243,7 +243,7 @@ services:
   # 10. EVOLUTION API (Servicio Central de Mensajería WhatsApp)
   # ============================================================
   evolution_api:
-    image: evoapicloud/evolution-api:v2.2.2
+    image: evoapicloud/evolution-api:v2.3.7
     restart: unless-stopped
     depends_on:
       evolution_postgres:
@@ -280,6 +280,8 @@ services:
       - DEL_INSTANCE=false
       - CONFIG_SESSION_PHONE_CLIENT=SIMCOP Central
       - CONFIG_SESSION_PHONE_NAME=Chrome
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1028355510
+      - WEB_VERSION=2.3000.1028355510
       - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG
       - LOG_COLOR=true
       - WEBSOCKET_ENABLED=false

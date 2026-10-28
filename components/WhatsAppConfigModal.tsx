@@ -50,6 +50,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
   const [qrCodeString, setQrCodeString] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState<boolean>(false);
+  const [pairingPhone, setPairingPhone] = useState<string>('');
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrRawResponse, setQrRawResponse] = useState<string | null>(null);
   const [diagInfo, setDiagInfo] = useState<any>(null);
@@ -102,7 +103,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
     setQrCodeString(null);
     setPairingCode(null);
     try {
-      const res = await whatsAppService.getQrCode();
+      const res = await whatsAppService.getQrCode(pairingPhone);
       setQrRawResponse(res.rawResponse || null);
       if (res.connected) {
         setStatus(prev => ({ ...prev, status: 'open', connected: true }));
@@ -134,7 +135,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
     setQrCodeString(null);
     setPairingCode(null);
     try {
-      const res = await whatsAppService.resetInstance();
+      const res = await whatsAppService.resetInstance(pairingPhone);
       setQrRawResponse(res.rawResponse || null);
       if (res.connected) {
         setStatus(prev => ({ ...prev, status: 'open', connected: true }));
@@ -333,13 +334,26 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
                   </button>
                 ) : (
                   <div className="space-y-2">
+                    <div className="bg-[#070b13] p-2.5 rounded border border-slate-800">
+                      <label className="block text-[10px] text-slate-400 font-mono mb-1">
+                        Vincular por Código Numérico (Opcional - sin cámara)
+                      </label>
+                      <input
+                        type="text"
+                        value={pairingPhone}
+                        onChange={(e) => setPairingPhone(e.target.value)}
+                        placeholder="Número ej: 3101234567 o dejar vacío para solo QR"
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500 font-mono"
+                      />
+                    </div>
+
                     <button
                       onClick={handleGenerateQr}
                       disabled={loadingQr}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-900/30 transition-all disabled:opacity-50"
                     >
                       <QrCode className="w-4 h-4" />
-                      {loadingQr ? 'Generando Código QR...' : 'Vincular Teléfono (Generar Código QR)'}
+                      {loadingQr ? 'Generando Código...' : (pairingPhone ? 'Vincular por Código Numérico' : 'Vincular Teléfono (Generar Código QR)')}
                     </button>
                     <button
                       onClick={handleResetInstance}

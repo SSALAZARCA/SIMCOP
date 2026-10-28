@@ -36,22 +36,23 @@ public class WhatsAppController {
     }
 
     /**
-     * Genera o retorna el Código QR en Base64 para vincular la sesión.
+     * Genera o retorna el Código QR en Base64 o Pairing Code para vincular la sesión.
      */
     @GetMapping("/qr")
     @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> getQrCode() {
-        Map<String, Object> qrData = whatsAppService.getQrCode();
+    public ResponseEntity<Map<String, Object>> getQrCode(@RequestParam(required = false) String phoneNumber) {
+        Map<String, Object> qrData = whatsAppService.getQrCode(phoneNumber);
         return ResponseEntity.ok(qrData);
     }
 
     /**
-     * Reinicia y purga la instancia en Evolution API, regenerando un QR limpio.
+     * Reinicia y purga la instancia en Evolution API, regenerando un QR limpio o Pairing Code.
      */
     @PostMapping("/reset")
     @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'COMUNICACIONES', 'COMANDANTE_BATALLON', 'OFICIAL_S3', 'OFICIAL_S4') or hasAuthority('ROLE_ADMINISTRATOR') or isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> resetInstance() {
-        Map<String, Object> qrData = whatsAppService.resetAndGetQr();
+    public ResponseEntity<Map<String, Object>> resetInstance(@RequestBody(required = false) Map<String, String> payload) {
+        String phoneNumber = (payload != null) ? payload.get("phoneNumber") : null;
+        Map<String, Object> qrData = whatsAppService.resetAndGetQr(phoneNumber);
         return ResponseEntity.ok(qrData);
     }
 

@@ -174,23 +174,32 @@ public class WhatsAppService {
     }
 
     /**
-     * Fuerza la recreación limpia de la instancia y retorna inmediatamente el QR nuevo.
+     * Fuerza la recreación limpia de la instancia y retorna inmediatamente el QR nuevo o pairing code.
      */
+    public Map<String, Object> resetAndGetQr(String phoneNumber) {
+        return fetchQrInternal(true, phoneNumber);
+    }
+
     public Map<String, Object> resetAndGetQr() {
-        return fetchQrInternal(true);
+        return fetchQrInternal(true, null);
     }
 
     /**
      * Garantiza la existencia de la instancia y retorna el QR o datos de conexión.
      */
-    public Map<String, Object> getQrCode() {
-        return fetchQrInternal(false);
+    public Map<String, Object> getQrCode(String phoneNumber) {
+        return fetchQrInternal(false, phoneNumber);
     }
 
-    private Map<String, Object> fetchQrInternal(boolean forceReset) {
+    public Map<String, Object> getQrCode() {
+        return fetchQrInternal(false, null);
+    }
+
+    private Map<String, Object> fetchQrInternal(boolean forceReset, String phoneNumber) {
         Map<String, Object> responseMap = new HashMap<>();
         responseMap.put("instanceName", DEFAULT_INSTANCE);
 
+        String targetNumber = formatPhoneNumber(phoneNumber);
         List<String> triedUrls = new ArrayList<>();
         String lastErrorDetail = null;
         String lastRawResponse = null;
@@ -198,7 +207,9 @@ public class WhatsAppService {
         for (String baseUrl : getCandidateBaseUrls()) {
             triedUrls.add(baseUrl);
             String createUrl = baseUrl + "/instance/create";
-            String connectUrl = baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
+            String connectUrl = (targetNumber != null && !targetNumber.isEmpty())
+                    ? baseUrl + "/instance/connect/" + DEFAULT_INSTANCE + "?number=" + targetNumber
+                    : baseUrl + "/instance/connect/" + DEFAULT_INSTANCE;
             String stateUrl = baseUrl + "/instance/connectionState/" + DEFAULT_INSTANCE;
             boolean baseUrlResponded = false;
 
@@ -232,7 +243,7 @@ public class WhatsAppService {
                     } catch (Exception ignored) {}
                 }
 
-                // 1. Intentar crear la instancia (Evolution API v2)
+                // 1. Intentar crear la instancia (Evolution API v2.3)
                 Map<String, Object> createBody = new HashMap<>();
                 createBody.put("instanceName", DEFAULT_INSTANCE);
                 createBody.put("token", "simcop-comms-tactical-2026");
@@ -240,6 +251,10 @@ public class WhatsAppService {
                 createBody.put("integration", "WHATSAPP-BAILEYS");
                 createBody.put("rejectCall", false);
                 createBody.put("alwaysOnline", true);
+                createBody.put("syncFullHistory", false);
+                if (targetNumber != null && !targetNumber.isEmpty()) {
+                    createBody.put("number", targetNumber);
+                }
 
                 HttpEntity<Map<String, Object>> createEntity = new HttpEntity<>(createBody, createHeaders());
                 try {

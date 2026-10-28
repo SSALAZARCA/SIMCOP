@@ -43,11 +43,14 @@ export const whatsAppService = {
   },
 
   /**
-   * Solicita o refresca el código QR para escanear con la app de WhatsApp
+   * Solicita o refresca el código QR o Pairing Code para vincular con WhatsApp
    */
-  async getQrCode(): Promise<WhatsAppQrResponse> {
+  async getQrCode(phoneNumber?: string): Promise<WhatsAppQrResponse> {
     try {
-      const response = await apiClient.fetch(`${WHATSAPP_API_URL}/qr`);
+      const url = phoneNumber && phoneNumber.trim()
+        ? `${WHATSAPP_API_URL}/qr?phoneNumber=${encodeURIComponent(phoneNumber.trim())}`
+        : `${WHATSAPP_API_URL}/qr`;
+      const response = await apiClient.fetch(url);
       if (!response.ok) {
         throw new Error('No se pudo generar el código QR');
       }
@@ -59,12 +62,14 @@ export const whatsAppService = {
   },
 
   /**
-   * Fuerza el reinicio y purga de la sesión en Evolution API, generando un nuevo QR
+   * Fuerza el reinicio y purga de la sesión en Evolution API, generando un nuevo QR o Pairing Code
    */
-  async resetInstance(): Promise<WhatsAppQrResponse> {
+  async resetInstance(phoneNumber?: string): Promise<WhatsAppQrResponse> {
     try {
       const response = await apiClient.fetch(`${WHATSAPP_API_URL}/reset`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: phoneNumber ? phoneNumber.trim() : undefined })
       });
       if (!response.ok) {
         throw new Error('No se pudo reiniciar la sesión de WhatsApp');
