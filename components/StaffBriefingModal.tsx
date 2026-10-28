@@ -40,7 +40,14 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
   osintEvents = [],
   onApproveCoa
 }) => {
-  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>('BATALLON');
+  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
+    if (activeUnit?.type === 'DIVISION') return 'DIVISION';
+    if (activeUnit?.type === 'BRIGADE') return 'BRIGADA';
+    if (activeUnit?.type === 'BATTALION') return 'BATALLON';
+    if (activeUnit?.type === 'COMPANY') return 'COMPANIA';
+    if (activeUnit?.type === 'PLATOON') return 'PELOTON';
+    return 'BATALLON';
+  });
   const [activeTab, setActiveTab] = useState<'C2' | 'S2' | 'S3' | 'S4' | 'S1_S5' | 'OSINT'>('C2');
   const [briefing, setBriefing] = useState<StaffBriefing | null>(null);
   const [sigepData, setSigepData] = useState<SigepUnitPersonnelSummary | null>(null);
@@ -156,10 +163,11 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
               className="bg-slate-950 border border-cyan-500/50 text-cyan-300 text-xs rounded-lg px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
             >
               <option value="COEJC">COEJC (Estratégico Nacional)</option>
-              <option value="DIVISION">División (Operacional Regional)</option>
-              <option value="BRIGADA">Brigada (Táctico-Operacional)</option>
-              <option value="BATALLON">Batallón (Táctico Directo)</option>
-              <option value="COMPANIA">Compañía / Pelotón (Maniobra)</option>
+              <option value="DIVISION">División (Operacional de Teatro)</option>
+              <option value="BRIGADA">Brigada (Táctico-Operacional / C2)</option>
+              <option value="BATALLON">Batallón (Táctico Superior / Maniobra)</option>
+              <option value="COMPANIA">Compañía (Maniobra Táctica)</option>
+              <option value="PELOTON">Pelotón (Combate Cercano / Táctico Inmediato)</option>
             </select>
 
             <button

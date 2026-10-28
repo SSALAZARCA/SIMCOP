@@ -1,9 +1,11 @@
 import { GoogleGenAI, GenerateContentResponse, FunctionDeclaration, Type, Blob as GenaiBlob } from "@google/genai";
 import { COAGraphicType, UnitType } from '../types';
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, COAPhase, COAGraphicElement, GeoLocation, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, GroundingSource, AfterActionReport, Q5ContentPayload, CommanderInfo, Alert, COAPlan, COAPhase, COAGraphicElement, GeoLocation, PredictedLogisticsNeed, WeatherInfo, WargameSimulationResult, BMAInterceptionSimulationResult, ArtilleryPiece, OsintEvent } from '../types';
 import { decimalToDMS } from './coordinateUtils';
 import { API_BASE_URL } from './apiConfig';
 import { useState, useEffect } from 'react';
+import { COLOMBIA_RIVER_NETWORKS } from '../constants/colombiaHydrography';
+import type { StaffBriefing, StaffCOA, StaffEchelon } from '../services/staffAgentService';
 
 import { apiClient } from './apiClient';
 
@@ -99,7 +101,8 @@ const taskRegistry: Record<string, AITaskState> = {
     : { ...initialTaskState },
   bmaInterception: { ...initialTaskState },
   bmaBrief: { ...initialTaskState },
-  q5Generation: { ...initialTaskState }
+  q5Generation: { ...initialTaskState },
+  staffBriefing: { ...initialTaskState }
 };
 
 const taskListeners: Record<string, Set<(state: AITaskState) => void>> = {
@@ -111,7 +114,8 @@ const taskListeners: Record<string, Set<(state: AITaskState) => void>> = {
   predictiveLogistics: new Set(),
   bmaInterception: new Set(),
   bmaBrief: new Set(),
-  q5Generation: new Set()
+  q5Generation: new Set(),
+  staffBriefing: new Set()
 };
 
 export const getTaskState = (key: string): AITaskState => {
@@ -381,7 +385,7 @@ const callNativeAI = async (endpointPath: string, body: any, maxRetries = 3): Pr
 /**
  * Proxy function to call Gemini through our backend (supports enqueuing and polling)
  */
-const generateContentViaBackend = async (prompt: string, key?: string, systemInstruction?: string): Promise<string> => {
+export const generateContentViaBackend = async (prompt: string, key?: string, systemInstruction?: string): Promise<string> => {
   if (key) {
     updateTaskState(key, { status: 'RUNNING', error: null, result: null });
   }
@@ -950,6 +954,45 @@ export interface AoiGeoContext {
   hydrographySummary?: string;
 }
 
+/**
+ * Evalúa los ríos, caños, quebradas y afluentes circundantes desde el Gemelo Digital Oficial de Colombia
+ */
+export const evaluateTacticalHydrography = (lat: number, lon: number, radiusKm: number = 18): string => {
+  const nearby: { name: string; type: string; depth?: number; navigable: boolean; distanceKm: number }[] = [];
+  
+  COLOMBIA_RIVER_NETWORKS.forEach(river => {
+    let minD = 999;
+    river.paths.forEach(segment => {
+      segment.forEach(([rLon, rLat]) => {
+        const d = calculateDistanceKm(lat, lon, rLat, rLon);
+        if (d < minD) minD = d;
+      });
+    });
+    if (minD <= radiusKm) {
+      nearby.push({
+        name: river.name,
+        type: river.type,
+        depth: river.depthMeters,
+        navigable: river.navigable,
+        distanceKm: minD
+      });
+    }
+  });
+
+  if (nearby.length === 0) {
+    return "Sin cuencas fluviales mayores en radio de 18 km; drenaje local por caños y quebradas estacionales de ladera.";
+  }
+
+  nearby.sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return nearby.slice(0, 5).map(r => {
+    const obstacleNature = r.navigable 
+      ? `Río de caudal permanente (profundidad ~${r.depth || 3.5}m, navegable) -> Constituye obstáculo táctico natural mayor para infantería y vehículos pesados; canaliza el paso hacia puentes clave y sirve como eje de infiltración ribereña fluvial.`
+      : `Río secundario / Caño de montaña (profundidad ~${r.depth || 1.8}m) -> Vados transitables en época de estiaje; riesgo de crecidas súbitas con precipitaciones en cabecera; demarca líneas de fase naturales de maniobra.`;
+    return `- **${r.name}** (${r.type}, a ${r.distanceKm.toFixed(1)} km del centroide): ${obstacleNature}`;
+  }).join('\n');
+};
+
 export const getGeminiAnalysis = async (
   query: string,
   units: MilitaryUnit[],
@@ -957,74 +1000,58 @@ export const getGeminiAnalysis = async (
   useGoogleSearch: boolean,
   enemyLayerActive: boolean,
   geoContext?: AoiGeoContext,
-  historicalContext?: string
+  historicalContext?: string,
+  echelon?: string,
+  sigepSummary?: any,
+  silogSummary?: any,
+  artilleryPieces?: ArtilleryPiece[]
 ): Promise<GeminiAnalysisResult> => {
   await ensureInitialized();
 
   const validUnitsContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
+  const echelonUpper = (echelon || 'BATALLON').toUpperCase();
   
-  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor del sistema SIMCOP. Tu función es asesorear directamente al Comandante resolviendo consultas operacionales mediante el análisis de la telemetría del sistema, el cuadro de unidades propias en el mapa, la capa de inteligencia y las condiciones del entorno geoespacial.
+  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor del sistema SIMCOP (Ejército Nacional de Colombia). Tu función es asesorar directamente al Comandante emitiendo análisis operacionales multidominio basados en la telemetría viva del sistema, el cuadro de unidades amigas en el mapa, la capa de inteligencia, personal (SIGEP), logística/fuegos (SILOG/Artillería) y el Gemelo Digital tridimensional.
+
+PERSPECTIVA Y ESCALÓN DE MANDO EXIGIDO: ${echelonUpper}
 
 REGLAS DE ACTUACIÓN OBLIGATORIAS:
-1. ANCLAJE ESTRICTO AL CONTEXTO DEL MAPA (PROHIBIDO ALUCINAR O INVENTAR):
+1. ENFOQUE ESTRICTO POR ESCALÓN DE MANDO (${echelonUpper}):
+   - Si el análisis es para PELOTÓN / COMPAÑÍA: Análisis táctico de combate cercano. Foco en escuadras, binomios, técnica de avance por saltos vigilados, campos de tiro rasante, consumo de cargadores en minutos, amenaza inmediata de minas antipersonal (AEI/IED) en caminos veredales, drones comerciales BMA y procedimientos TCCC / MEDEVAC.
+   - Si el análisis es para BATALLÓN: Maniobra táctica de armas combinadas y despliegue coordinado de Compañías (esfuerzo principal y de apoyo), base de fuegos de morteros pesados (81/120mm), líneas de fase tácticas, sostenimiento logístico Clase I y V para 48-72h y control de bajas/reemplazos.
+   - Si el análisis es para BRIGADA: Puesto de Mando (HQ / C2) en base fija/Cantón Militar. Sincronización inter-armas de Batallones (Infantería BIP, Caballería BIM, Artillería 105/155mm, Ingenieros, BASPC), apoyo aéreo (Aviación del Ejército / CAS FAC), seguridad de ejes viales estratégicos nacionales (ej. Vía Panamericana Ruta 25) y asuntos civiles S-5 (Gobernación / Alertas SAT).
+   - Si el análisis es para DIVISIÓN / COEJC: Teatro de operaciones conjunto, maniobra de Grandes Unidades, asignación de reservas de teatro y operaciones conjuntas (Ejército, FAC, Armada).
+
+2. PROHIBICIÓN RADICAL DE ANÁLISIS REDUCCIONISTA DEL TERRENO:
+   - ESTÁ TERMINANTEMENTE PROHIBIDO limitar el análisis a comentar únicamente la cota más alta o hacer un simple resumen topográfico sin contexto militar.
+   - El análisis militar en SIMCOP es OBLIGATORIAMENTE MULTIDOMINIO: debes sintetizar obligatoriamente:
+     • Factor Personal y Fuerza (SIGEP / ORBAT): Efectivos disponibles, bajas, moral y cobertura TOE.
+     • Factor Logístico y Fuego Sostenido (SILOG): Minutos de combate continuo, munición Clase V, raciones Clase I, radios encriptados y optrónica nocturna.
+     • Factor Apoyo de Fuegos: Artillería de campaña y morteros disponibles, alcances, tiempos de reacción y zonas de protección civil.
+     • Factor Gemelo Digital Completo: Relieve 3D, caños, quebradas y ríos (vados transitables vs barreras naturales), pendientes de avance y líneas de vista (LOS) vs zonas ciegas/desenfiladas.
+     • Factor Amenaza e Inteligencia: Modus operandi del GAO local, artefactos explosivos improvisados (AEI), drones hostiles (BMA) y alertas SAT de la Defensoría del Pueblo.
+     • Conclusión de Mando adaptada exactamente a la perspectiva de ${echelonUpper}.
+
+3. ANCLAJE ESTRICTO AL CONTEXTO DEL MAPA (PROHIBIDO ALUCINAR O INVENTAR):
    - Actúa como si estuvieras observando directamente la pantalla y el mapa táctico de SIMCOP en tiempo real: utiliza ÚNICAMENTE las unidades, ubicaciones geográficas exactas, coordenadas GPS/DMS, reportes de inteligencia/OSINT y variables de clima/terreno provistas en este contexto.
-   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares, municipalities o sectores distintos a los registrados en su telemetría real del mapa. Si una unidad está en una coordenada específica, esa es su única ubicación verídica.
-   - Si se requiere evaluar una unidad, cruza rigurosamente sus datos reales provistos: efectiva orgánicos, armamento/equipo (visión nocturna, tiradores de alta precisión, medios UAS), capacidades de entrenamiento, estado logístico (munición/combustible) y su distancia y tiempo real de aproximación al objetivo o sector.
-
-2. ADAPTABILIDAD AL TIPO DE REQUERIMIENTO:
-   Detecta la intención de la orden o pregunta del Comandante y responde con la estructura correspondiente:
-
-   A. SI LA CONSULTA ES DE SELECCIÓN O IDONEIDAD DE UNIDAD (ej. "¿Qué pelotón está más preparado para X objetivo?"):
-      - Determina la UNIDAD RECOMENDADA de forma explícita y contundente en el primer párrafo.
-      - Justificación por Matriz de Capacidades: compara alcance, movilidad, armamento/equipo y entrenamiento frente al perfil de la amenaza o blanco.
-      - Factor Terreno/Clima/Tiempo: calcula la viabilidad de aproximación, fricción del relieve, fatiga y tiempo estimado de reacción (ETA) desde su posición actual en el mapa hasta el objetivo.
-      - Evaluación de Riesgo de la Misión: impacto y vulnerabilidad en el sector que esa unidad desatiende si se mueve de su dispositivo actual.
-      - Curso de Acción Inmediato: propuesta concreta de orden preparatoria o de movimiento (ejes de avance y medidas de coordinación).
-
-   B. SI LA CONSULTA ES DE APRECIACIÓN GENERAL, ANÁLISIS DE SECTOR O RECONFIGURACIÓN DE AOI:
-      - Diagnóstico de la Amenaza (según reportes de inteligencia y OSINT inyectados en el área).
-      - Análisis de Capacidades y Brechas del dispositivo propio en el terreno.
-      - Prioridades de optimización del AOI (alturas dominantes, ejes de movilidad, avenidas de aproximación).
-      - Maniobra y movimientos sugeridos por unidad (especificando unidad y posición actual en el mapa).
-      - Conclusión y COA recomendado para el Comandante.
-
-3. ESTILO Y DOCTRINA MILITAR:
-   - Redacción militar sobria, directa, asertiva y orientada a la toma de decisiones ejecutivas.
-   - Cero teoría académica o definiciones de manual; ve directo a la asignación de recursos, ventajas tácticas en el terreno y mitigación de amenazas.
-   - Las coordenadas geográficas deben mantenerse fieles a los formatos provistos (grados decimales y DMS).
+   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares o municipios distintos a los registrados en su telemetría real del mapa.
 
 4. FORMATO VISUAL Y PRESENTACIÓN OPERACIONAL (REGLA ESTRICTA DE LEGIBILIDAD):
-   - PROHIBIDO EL USO DE TABLAS O CUADROS DE TEXTO EN FORMATO MARKDOWN (no uses barras verticales '|', ni delimitadores '|---|' ni matrices de celdas). Las tablas con columnas se distorsionan, truncan el texto y resultan incomprensibles en la pantalla táctica.
-   - Presenta toda la información comparativa, capacidades, brechas y prioridades mediante FICHAS TÁCTICAS Y VIÑETAS JERÁRQUICAS ESTRUCTURADAS:
-     Ejemplo obligatorio para capacidades y unidades:
-     ### 2. Capacidades Propias y Brechas
-     • **[Nombre de Unidad]** ([Coordenadas DMS]):
-       - Capacidades clave: [Especialidad, efectivos, armamento, suministros]
-       - Distancia/Eje a focos críticos: [Distancias en km y vías de aproximación]
-       - Brechas operacionales: [Limitaciones críticas de comunicaciones, movilidad o apoyo]
-
-     Ejemplo obligatorio para prioridades y movimientos:
-     ### 3. Prioridades de Optimización del AOI
-     • **Prioridad 1: [Acción táctica concreta]**
-       - Justificación operacional: [Por qué y qué ventaja confiere]
-       - Unidad y Asignación: [Nombre de la unidad, posición actual y nuevo sector asignado]
-
-   - Utiliza títulos con '###', viñetas con '•', sub-puntos con '-' y negrita '**' para resaltar unidades, sectores críticos y decisiones de mando.
+   - PROHIBIDO EL USO DE TABLAS O CUADROS DE TEXTO EN FORMATO MARKDOWN (no uses barras verticales '|', ni delimitadores '|---|' ni matrices de celdas).
+   - Presenta toda la información comparativa, capacidades, brechas y prioridades mediante FICHAS TÁCTICAS Y VIÑETAS JERÁRQUICAS ESTRUCTURADAS ('###', '•', '-', negrita '**').
 
 5. DISTINCIÓN INVIOLABLE ENTRE PUESTOS DE MANDO (HQ / C2) Y UNIDADES DE MANIOBRA:
    - Los Comandos de Brigada y División (ej. Vigésima Novena Brigada - BR29) son PUESTOS DE MANDO Y CONTROL ESTRATÉGICO / OPERACIONAL (C2 / Estado Mayor), alojados en bases fijas o Cantones Militares (ej. Cantón Militar Popayán).
    - ESTÁ TERMINANTEMENTE PROHIBIDO proponer que un Puesto de Mando de Brigada "infiltre por desenfilada", "se desplace por vaguadas" o realice maniobras de patrulla ligera de escuadra. Su función es la dirección C2 de sus batallones tácticos, coordinación de fuegos (artillería, CAS), enlace de comunicaciones y sostenimiento.
    - Las unidades ubicadas en el mismo cantón o en un radio menor a 2 km (ej. Batallón de Infantería No. 7 "José Hilario López", unidades de apoyo ASPC/ASTRO) son FUERZAS ORGÁNICAS DE GUARNICIÓN, SEGURIDAD DEL CANTÓN Y RESERVA. ESTÁ ESTRICTAMENTE PROHIBIDO interpretarlas o reportarlas como "amenazas indirectas". Son fuerzas propias aliadas.
 
-6. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, COTAS Y LÍNEA DE VISTA):
-   - ESTÁ PROHIBIDO mencionar únicamente una cota aislada o emitir frases vacías ("pendientes pronunciadas", "cresta militar") sin análisis tridimensional concreto.
-   - Debes desglosar el relieve con base en los datos tridimensionales provistos en la matriz topográfica:
+6. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, CAÑOS Y RÍOS):
+   - Debes desglosar el relieve con base en los datos tridimensionales e hidrográficos provistos:
      • Cota de Posición y Cotas Dominantes: Cita la altitud de la posición (msnm) y las cotas de las alturas dominantes identificadas con su azimut cardinal y desnivel en metros.
      • Intervisibilidad y Línea de Vista (LOS): Evalúa si el puesto o unidad está dominado visualmente desde alturas circundantes o si posee ventaja de observación y fuego directo sobre las avenidas de aproximación.
-     • Vulnerabilidad del Puesto de Mando: En puestos fijos de Brigada, evalúa la seguridad contra fuegos indirectos hostiles (morteros, cohetes) y ataques asimétricos con drones (UAVs) desde las alturas dominantes.
-     • Corredores de Movilidad y Ejes Viales: Cita los ejes viales y corredores naturales reales del municipio donde opera la unidad (ej. Vía Panamericana Ruta 25, ejes de penetración cordillerana).
-     • Hidrografía Exacta: Cita ÚNICAMENTE los ríos y cursos de agua del municipio real de la unidad (ej. Cuenca del Río Cauca y Río Molino en Popayán; NUNCA ríos de regiones costeras distantes como el Río Saija que distan más de 120 km).`;
+     • Red Hidrográfica y Caños: Analiza los ríos y afluentes del municipio real: profundidad, navegabilidad, vados transitables y riesgo de desbordamiento.
+     • Corredores de Movilidad y Ejes Viales: Cita los ejes viales y corredores naturales reales del municipio donde opera la unidad (para Popayán: Vía Panamericana Ruta 25, ejes de penetración cordillerana; jamás ríos o municipios costeros como Río Saija o Timbiquí).`;
 
   if (enemyLayerActive && useGoogleSearch) {
     systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Complementa tu análisis con información histórica y de inteligencia sobre incidentes de seguridad y tácticas enemigas reportadas en el sector geográfico donde operan las unidades. Cita todas las fuentes web utilizadas al final.`;
@@ -1056,7 +1083,6 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
 
       weatherStr = details.join(', ') + `. Impacto Operacional: ${w.operationalImpact ? 'Desfavorable/Restringido' : 'Favorable (Sin alertas críticas)'}.`;
 
-      // Generar alertas meteorológicas explícitas para la IA
       const hazards: string[] = [];
       if (w.windSpeed > 30) {
         hazards.push(`Vientos fuertes (${w.windSpeed.toFixed(1)} km/h) que superan el límite operacional estándar para despegue/vuelo de UAVs tácticos.`);
@@ -1080,7 +1106,6 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
       ? geoContext.municipalities.join(', ')
       : 'No determinado';
 
-    // Cálculo de la Geometría General del AOI (Bounding Box y Gradientes Espaciales)
     let geometryPrompt = '';
     if (geoContext.elevationGrid && geoContext.elevationGrid.length > 0) {
       const lats = geoContext.elevationGrid.map(p => p.lat);
@@ -1093,7 +1118,6 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
       const nsDistKm = calculateDistanceKm(minLat, geoContext.centroid.lon, maxLat, geoContext.centroid.lon);
       const ewDistKm = calculateDistanceKm(geoContext.centroid.lat, minLon, geoContext.centroid.lat, maxLon);
 
-      // Estimación de Gradientes de Pendiente (Slope Geometry)
       let maxSlope = 0;
       let totalSlope = 0;
       let countSlope = 0;
@@ -1111,7 +1135,6 @@ REGLAS DE ACTUACIÓN OBLIGATORIAS:
         }
       }
       const avgSlope = countSlope > 0 ? totalSlope / countSlope : 0;
-      // Análisis de Micro-Relieve Quebrado Colombiano (Cañadas, Cuchillas, Farallones)
       let microReliefHazards: string[] = [];
       for (let i = 0; i < grid.length; i++) {
         const neighbors = grid.filter((p, idx) => idx !== i && calculateDistanceKm(grid[i].lat, grid[i].lon, p.lat, p.lon) < 0.6);
@@ -1140,7 +1163,6 @@ GEOMETRÍA GENERAL DEL TERRENO (MARCO ESPACIAL Y BOUNDING BOX):
 - Perfil Topográfico General: ${maxSlope > 35 ? 'Terreno de alta escarpadura y barreras naturales infranqueables para vehículos' : maxSlope > 15 ? 'Terreno accidentado con laderas de pendiente moderada' : 'Terreno relativamente llano con ondulaciones suaves'}.${microReliefStr}`;
     }
 
-    // Cálculo de la Distribución Altimétrica por Cuadrantes Tácticos
     let quadrantPrompt = '';
     if (geoContext.elevationGrid && geoContext.elevationGrid.length > 0) {
       const grid = geoContext.elevationGrid;
@@ -1185,20 +1207,48 @@ ${quadrantPrompt}
 ${geoContext.elevationGrid && geoContext.elevationGrid.length > 0 ? `MATRIZ TOPOGRÁFICA DE PUNTOS SAMPLING (POINT CLOUD):
 ${geoContext.elevationGrid.map(p => `[Lat:${p.lat.toFixed(5)}, Lon:${p.lon.toFixed(5)} -> ${p.elev} msnm]`).join(' | ')}` : ''}
 ${geoContext.satAlertsSummary ? `\nALERTAS TEMPRANAS DEFENSORÍA DEL PUEBLO (SAT / FACTOR AECOPE POBLACIÓN CIVIL):\n${geoContext.satAlertsSummary}` : ''}
-${geoContext.hydrographySummary ? `\nRED HIDROGRÁFICA Y CURSOS FLUVIALES (OBSTÁCULOS NATURALES DE AGUA):\n${geoContext.hydrographySummary}` : ''}
+${geoContext.hydrographySummary ? `\nRED HIDROGRÁFICA Y CAÑOS (OBSTÁCULOS NATURALES DE AGUA):\n${geoContext.hydrographySummary}` : ''}
 ---`;
   }
 
-  const fullPrompt = `INFORMACIÓN OPERACIONAL DEL SISTEMA SIMCOP:${geoPrompt}
+  let sigepStr = 'Personal: Orgánico regular de combate.';
+  if (sigepSummary) {
+    sigepStr = `Efectivos Reales: ${sigepSummary.totalActual} / Autorizados: ${sigepSummary.totalAuthorized} (${sigepSummary.pillarA?.coveragePct}% TOE). Moral/Salud: ${sigepSummary.pillarA?.status}. Dictamen Retención: ${sigepSummary.pillarB?.verdictMessage}. Modo SIGEP: ${sigepSummary.connectionMode}.`;
+  }
 
-UNIDADES AMIGAS:
+  let silogStr = 'Logística: Suministros convencionales.';
+  if (silogSummary) {
+    silogStr = `Munición Clase V: ${silogSummary.overallFirepowerIndex}%. Autonomía Fuego Continuo: ${silogSummary.sustainedFireMinutes} min. Raciones Clase I: ${silogSummary.rationsAutonomyDays} días. Enlace SILOG: ${silogSummary.isOnlineM2M ? 'M2M En Vivo' : 'Táctico Resiliente'}. Dictamen S-4: ${silogSummary.tacticalAdvisory}.`;
+  }
+
+  let artilleryStr = 'Apoyo de Fuegos: Sin baterías de artillería pesada en enlace directo; apoyo dependiente de morteros orgánicos de compañía.';
+  if (artilleryPieces && artilleryPieces.length > 0) {
+    const ready = artilleryPieces.filter(p => p.status === 'READY' || p.status === 'FIRING');
+    artilleryStr = `Piezas Disponibles (${artilleryPieces.length} total, ${ready.length} listas para fuego inmediato):\n` +
+      artilleryPieces.slice(0, 5).map(p => `- ${p.name || p.id} (${p.type || 'Mortero/Obús'}): Alcance máx: ${p.maxRange || 15000} m, Estado: ${p.status}`).join('\n');
+  }
+
+  const fullPrompt = `INFORMACIÓN OPERACIONAL MULTIDOMINIO DEL SISTEMA SIMCOP:
+PERSPECTIVA Y ESCALÓN DE MANDO EXIGIDO: ${echelonUpper}
+${geoPrompt}
+
+PERSONAL MILITAR Y TOE (S-1 / SIGEP):
+${sigepStr}
+
+LOGÍSTICA, MUNICIÓN Y PODER DE FUEGO (S-4 / SILOG):
+${silogStr}
+
+RED DE ARTILLERÍA Y APOYO DE FUEGOS (S-3):
+${artilleryStr}
+
+UNIDADES AMIGAS EN DISPOSITIVO:
 ${validUnitsContext}
 
-INTELIGENCIA DISPONIBLE:
+INTELIGENCIA Y AMENAZAS EN EL SECTOR:
 ${intelContext}
 ${historicalContext ? `\n${historicalContext}\n` : ''}
 ---
-CONSULTA:
+CONSULTA OPERACIONAL:
 ${escapeTemplateLiteralContent(query)}`;
 
   if (aiProvider === 'NATIVE_SIMCOP') {
@@ -1210,7 +1260,12 @@ ${escapeTemplateLiteralContent(query)}`;
         inteligencia: intelContext,
         geoContext: geoPrompt,
         enemyLayerActive: enemyLayerActive,
-        historico: historicalContext || ""
+        historico: historicalContext || "",
+        echelon: echelonUpper,
+        sigep_data: sigepStr,
+        silog_data: silogStr,
+        artillery_data: artilleryStr,
+        hydrography: geoContext?.hydrographySummary
       });
       const analysisText = typeof data === 'string' ? data : (data.analysis || JSON.stringify(data));
       const result = { text: analysisText };
@@ -1222,7 +1277,6 @@ ${escapeTemplateLiteralContent(query)}`;
       throw error;
     }
   }
-
 
   try {
     const text = await generateContentViaBackend(`${fullPrompt}${useGoogleSearch ? '\n(Usar Google Search para este análisis)' : ''}`, 'generalAnalysis', systemInstruction);
@@ -1238,6 +1292,282 @@ ${escapeTemplateLiteralContent(query)}`;
     updateTaskState('generalAnalysis', { status: 'FAILED', error: errorMessage });
     throw new Error(errorMessage);
   }
+};
+
+export interface GenerateStaffBriefingAIParams {
+  echelon: StaffEchelon;
+  unit: MilitaryUnit;
+  units: MilitaryUnit[];
+  sigepSummary: any;
+  silogData: any;
+  artilleryPieces: ArtilleryPiece[];
+  intelReports: IntelligenceReport[];
+  historicalContext: string;
+  localOsint: OsintEvent[];
+  weatherCondition: string;
+  geoContext?: AoiGeoContext;
+  riversSummary?: string;
+}
+
+export const generateStaffBriefingAI = async (params: GenerateStaffBriefingAIParams): Promise<StaffBriefing | null> => {
+  await ensureInitialized();
+
+  const {
+    echelon,
+    unit,
+    units,
+    sigepSummary,
+    silogData,
+    artilleryPieces,
+    intelReports,
+    historicalContext,
+    localOsint,
+    weatherCondition,
+    geoContext,
+    riversSummary
+  } = params;
+
+  const echelonUpper = echelon.toUpperCase();
+  const unitCoord = unit.location || { lat: 2.45056, lon: -76.59444 };
+
+  const systemInstruction = `Eres la PLANA MAYOR VIRTUAL Y ESTADO MAYOR CONJUNTO del Sistema SIMCOP (Ejército Nacional de Colombia).
+Tu misión es formular una Apreciación de Estado Mayor Doctrinaria Completa (S-1 a S-5 y Decisión del Comandante) bajo el Proceso de Toma de Decisiones Militares (PDM / MFRE 5-0 / CEDOE).
+
+ESCALÓN DE MANDO EXIGIDO: ${echelonUpper}
+UNIDAD ANALIZADA: ${unit.name} (${unit.type})
+UBICACIÓN REAL EN MAPA: [Lat: ${unitCoord.lat.toFixed(5)}°, Lon: ${unitCoord.lon.toFixed(5)}°] (${geoContext?.municipalities?.join(', ') || 'Sector Operacional Asignado'})
+
+REGLAS DOCTRINALES OBLIGATORIAS POR ESCALÓN DE MANDO:
+1. PELOTÓN / COMPAÑÍA (Táctico Inmediato / Combate Cercano):
+   - Visión táctica inmediata (100m a 3 km).
+   - Foco en combate directo: escuadras, binomios, técnica de avance por saltos vigilados, campos de tiro rasante, cobertura y desenfilada contra fuego directo.
+   - Amenaza: Minas antipersonal (AEI/IED) en caminos de herradura, francotiradores y drones hostiles (BMA).
+   - Munición: Consumo en minutos de fuego sostenido (cargadores 5.56mm y cintas de 7.62mm).
+   - Bajas: Procedimiento TCCC, torniquetes CAT y punto de extracción MEDEVAC.
+
+2. BATALLÓN (Táctico Superior / Maniobra de Armas Combinadas):
+   - Visión táctica de área (5 a 25 km).
+   - Foco en maniobra de Compañías (A, B, C, ASPC, Pelotón de Reconocimiento y Morteros 81/120mm).
+   - Esfuerzo Principal (Main Effort) y Esfuerzo Secundario (Supporting Effort).
+   - Apoyo de fuegos: Emplazamiento de morteros 81/120mm orgánicos, zonas de peligro y TRPs.
+   - Sostenimiento: Raciones Clase I para 48-72h, munición Clase V de dotación y reserva, reemplazos de personal con SIGEP.
+   - Líneas de fase y medidas de control táctico entre compañías.
+
+3. BRIGADA (Táctico-Operacional / Puesto de Mando C2):
+   - Visión táctico-operacional (30 a 100 km).
+   - Puesto de Mando (HQ/CP) en base fija/Cantón Militar.
+   - Sincronización inter-armas de Batallones subordinados (Infantería BIP, Caballería BIM, Artillería de campaña 105mm LG1 / 155mm, Ingenieros militares, BASPC).
+   - Coordinación de apoyo aéreo (Aviación del Ejército / CAS de la Fuerza Aérea) y reconocimiento UAV estratégico.
+   - Seguridad de ejes viales estratégicos nacionales (ej. Vía Panamericana Ruta 25) y activos críticos.
+   - Asuntos Civiles S-5: Coordinación con Gobernación, Alcaldías y Defensoría (Alertas SAT).
+
+4. DIVISIÓN / COEJC (Operacional Estratégico / Teatro de Operaciones):
+   - Visión de Teatro de Operaciones (Departamentos completos / 3 a 5 Brigadas).
+   - Maniobra de Grandes Unidades y asignación de reservas de teatro.
+   - Operaciones Conjuntas (Ejército, FAC, Armada) y Coordinadas (Policía).
+   - Interdicción de economías criminales y líneas estratégicas de operaciones.
+
+5. PROHIBIDO REPETIR O COPIAR TEXTOS HARDCODEADOS DE OTROS DEPARTAMENTOS:
+   - Toda mención a ríos, cotas, caseríos o ejes viales debe ser del sector REAL provisto en las coordenadas. NUNCA menciones ríos o municipios a más de 25 km de la posición real.
+
+6. INTEGRACIÓN MULTIDOMINIO:
+   - S-1: Usa los datos reales de SIGEP (${sigepSummary?.totalActual || 32}/${sigepSummary?.totalAuthorized || 36} efectivos, ${sigepSummary?.pillarA?.coveragePct || 88}% TOE).
+   - S-2: Modus operandi del GAO local, alertas SAT reales y puntos críticos del sector real.
+   - S-3: Maniobra de unidades reales y cobertura de las piezas de artillería disponibles (${artilleryPieces.length} piezas).
+   - S-4: Autonomía de fuego real de SILOG (${silogData?.sustainedFireMinutes || 45} min de combate, munición ${silogData?.overallFirepowerIndex || 85}%, raciones ${silogData?.rationsAutonomyDays || 4} días).
+   - S-5: Distancia a caseríos y población civil, ROE y SAT.
+   - Gemelo Digital: Relieve 3D, cota de posición, cotas dominantes, y ríos y caños del sector.
+
+Debes responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta:
+{
+  "executiveSummary": "Apreciación de mando estructurada y adaptada con precisión a ${echelonUpper}...",
+  "overallThreatLevel": "BAJO" | "MEDIO" | "ALTO" | "CRITICO",
+  "s1Personal": {
+    "readinessScore": number,
+    "effectiveTroops": number,
+    "healthStatusOk": boolean,
+    "medevacAlerts": ["..."],
+    "advisory": "..."
+  },
+  "s2Intel": {
+    "threatLevel": "BAJO" | "MEDIO" | "ALTO" | "CRITICO",
+    "predominantModusOperandi": "...",
+    "criticalPoints": ["...", "..."],
+    "probableThreatVectors": ["...", "..."],
+    "historicalSynthesis": "...",
+    "weatherTacticalImpact": "..."
+  },
+  "s3Operaciones": {
+    "maneuverState": "...",
+    "artilleryCoverage": "...",
+    "fireSupportPiecesReady": number,
+    "recommendedCoas": [
+      {
+        "id": "COA-1",
+        "name": "...",
+        "type": "OFENSIVO_MANIOBRA",
+        "description": "...",
+        "maneuverDetails": "...",
+        "estimatedSuccessProbability": number,
+        "estimatedExecutionMinutes": number,
+        "riskLevel": "BAJO" | "MEDIO" | "ALTO",
+        "artillerySupportAvailable": boolean,
+        "logisticsFeasibility": "...",
+        "pdmPhase": "...",
+        "targetSector": { "lat": number, "lon": number },
+        "draftOrdopSummary": "..."
+      },
+      {
+        "id": "COA-2",
+        "name": "...",
+        "type": "CONTENCION_BLOQUEO",
+        "description": "...",
+        "maneuverDetails": "...",
+        "estimatedSuccessProbability": number,
+        "estimatedExecutionMinutes": number,
+        "riskLevel": "BAJO" | "MEDIO" | "ALTO",
+        "artillerySupportAvailable": boolean,
+        "logisticsFeasibility": "...",
+        "pdmPhase": "...",
+        "targetSector": { "lat": number, "lon": number },
+        "draftOrdopSummary": "..."
+      }
+    ]
+  },
+  "s4Logistica": {
+    "classISupplyDays": number,
+    "classIIIFuelHours": number,
+    "classVAmmoPercentage": number,
+    "operationalAutonomyHours": number,
+    "resupplyNeeded": boolean,
+    "advisory": "..."
+  },
+  "s5AccionIntegral": {
+    "civilianProximityStatus": "...",
+    "satAlertsActive": ["..."],
+    "roeAdvisory": "..."
+  },
+  "commanderDecision": {
+    "recommendedCoaId": "COA-1",
+    "rationale": "..."
+  }
+}`;
+
+  const readyArtillery = artilleryPieces.filter(p => p.status === 'READY' || p.status === 'FIRING');
+  const artillerySummary = readyArtillery.length > 0 
+    ? `${readyArtillery.length} piezas listas: ${readyArtillery.map(p => `${p.name} (${p.type || '105mm'}, alcance ${p.maxRange || 15}km)`).join(', ')}`
+    : 'Sin baterías de artillería pesada en radio directo; apoyo inmediato dependiente de morteros orgánicos.';
+
+  const prompt = `DATOS OPERACIONALES MULTIDOMINIO PARA ESTADO MAYOR VIRTUAL:
+- Escalón Solicitado: ${echelonUpper}
+- Unidad: "${unit.name}" (${unit.type}) en [${unitCoord.lat.toFixed(5)}°, ${unitCoord.lon.toFixed(5)}°]
+- Municipios / Jurisdicción: ${geoContext?.municipalities?.join(', ') || 'Sector Asignado'}
+- Meteorología: ${weatherCondition}
+- Gemelo Digital Topográfico: Cota posición: ${geoContext?.elevationMeters || 1750} msnm | Desnivel: ${geoContext?.elevationRange || 250}m | Relieve: ${geoContext?.terrainType || 'Meseta interandina quebrada'}
+- Gemelo Digital Hidrográfico y Caños: ${riversSummary || 'Drenaje por quebradas locales de ladera'}
+- Personal S-1 (SIGEP): ${sigepSummary?.totalActual || 32}/${sigepSummary?.totalAuthorized || 36} efectivos (${sigepSummary?.pillarA?.coveragePct || 88}% TOE). Bajas: ${unit.personnelList?.filter(s => s.status === 'KIA').length || 0}. Dictamen: ${sigepSummary?.pillarB?.verdictMessage || 'Fuerza balanceada'}
+- Logística S-4 (SILOG): Munición: ${silogData?.overallFirepowerIndex || 85}% (${silogData?.sustainedFireMinutes || 45} min de fuego sostenido). Raciones: ${silogData?.rationsAutonomyDays || 4} días. Modo: ${silogData?.isOnlineM2M ? 'M2M Online' : 'Táctico Resiliente'}
+- Artillería S-3: ${artillerySummary}
+- Alertas SAT / OSINT Soberano: ${localOsint.length > 0 ? localOsint.map(o => o.title).slice(0, 4).join('; ') : 'Sin alertas SAT críticas activas en cuadrante'}
+- Antecedentes Históricos AAR: ${historicalContext ? historicalContext.substring(0, 300) : 'Sin incidentes recientes en registro'}
+
+SOLICITUD: Genera la Apreciación de Estado Mayor completa respondiendo ÚNICAMENTE con el objeto JSON requerido.`;
+
+  try {
+    updateTaskState('staffBriefing', { status: 'RUNNING', error: null, result: null });
+    const jsonStr = await generateContentViaBackend(prompt, 'staffBriefing', systemInstruction);
+
+    // Limpiar bloques de código markdown
+    let cleanJson = jsonStr.trim();
+    if (cleanJson.startsWith('```json')) {
+      cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanJson.startsWith('```')) {
+      cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    const parsed = JSON.parse(cleanJson);
+    if (parsed && parsed.executiveSummary && parsed.s1Personal && parsed.s2Intel && parsed.s3Operaciones) {
+      const briefing: StaffBriefing = {
+        id: `STAFF-BRIEF-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        echelon: echelon,
+        unitName: unit.name,
+        jurisdiction: `${geoContext?.municipalities?.join(', ') || 'Sector Táctico'} (${unit.areaOfOperations ? 'ÁREA TÁCTICA DELIMITADA' : 'JURISDICCIÓN ORGÁNICA'})`,
+        executiveSummary: parsed.executiveSummary,
+        overallThreatLevel: parsed.overallThreatLevel || (localOsint.length > 0 ? 'ALTO' : 'MEDIO'),
+        s1Personal: {
+          readinessScore: parsed.s1Personal.readinessScore || sigepSummary?.readinessPercentage || 85,
+          effectiveTroops: parsed.s1Personal.effectiveTroops || sigepSummary?.totalActual || 32,
+          healthStatusOk: parsed.s1Personal.healthStatusOk ?? true,
+          medevacAlerts: parsed.s1Personal.medevacAlerts || [],
+          advisory: parsed.s1Personal.advisory || `Personal al ${sigepSummary?.pillarA?.coveragePct || 88}% de capacidad TOE.`,
+          sigepSync: sigepSummary ? {
+            connectionMode: sigepSummary.connectionMode,
+            toeCoveragePct: sigepSummary.pillarA.coveragePct,
+            actualVsAuthorized: `${sigepSummary.totalActual} / ${sigepSummary.totalAuthorized}`,
+            pillarA_Status: sigepSummary.pillarA.status,
+            pillarB_ScheduledPostCombat: sigepSummary.pillarB.scheduledPostCombat,
+            pillarC_MemoryRisk: sigepSummary.pillarC.memoryRiskLevel,
+            rotationAlertsCount: sigepSummary.rotationAlerts.length,
+            retentionVerdict: sigepSummary.pillarB.verdictMessage
+          } : undefined
+        },
+        s2Intel: {
+          threatLevel: parsed.s2Intel.threatLevel || 'MEDIO',
+          predominantModusOperandi: parsed.s2Intel.predominantModusOperandi || 'Acciones asimétricas y hostigamientos a distancia.',
+          criticalPoints: parsed.s2Intel.criticalPoints || ['Cota dominante', 'Paso obligado'],
+          probableThreatVectors: parsed.s2Intel.probableThreatVectors || ['Aproximación por vaguada'],
+          historicalSynthesis: historicalContext,
+          weatherTacticalImpact: parsed.s2Intel.weatherTacticalImpact || weatherCondition
+        },
+        s3Operaciones: {
+          maneuverState: parsed.s3Operaciones.maneuverState || `${unit.status || 'OPERATIONAL'} | Misión: ${unit.currentMission || 'Control Territorial'}`,
+          artilleryCoverage: parsed.s3Operaciones.artilleryCoverage || artillerySummary,
+          fireSupportPiecesReady: parsed.s3Operaciones.fireSupportPiecesReady ?? readyArtillery.length,
+          recommendedCoas: (parsed.s3Operaciones.recommendedCoas || []).map((coa: any, idx: number) => ({
+            id: coa.id || `COA-${idx + 1}`,
+            name: coa.name || `COA ${idx + 1}`,
+            type: coa.type || 'OFENSIVO_MANIOBRA',
+            description: coa.description || 'Maniobra táctica en el sector',
+            maneuverDetails: coa.maneuverDetails || 'Desplazamiento por el terreno',
+            estimatedSuccessProbability: coa.estimatedSuccessProbability || 80,
+            estimatedExecutionMinutes: coa.estimatedExecutionMinutes || 45,
+            riskLevel: coa.riskLevel || 'MEDIO',
+            artillerySupportAvailable: coa.artillerySupportAvailable ?? (readyArtillery.length > 0),
+            logisticsFeasibility: coa.logisticsFeasibility || 'Factible con dotación orgánica',
+            pdmPhase: coa.pdmPhase || 'Fase 3: Desarrollo y Comparación de COAs (MFRE 5-0)',
+            targetSector: coa.targetSector || { lat: unitCoord.lat + 0.02, lon: unitCoord.lon + 0.02 },
+            draftOrdopSummary: coa.draftOrdopSummary || `ORDOP Operacional Sector ${unit.name}`
+          }))
+        },
+        s4Logistica: {
+          classISupplyDays: parsed.s4Logistica.classISupplyDays || silogData?.rationsAutonomyDays || 4,
+          classIIIFuelHours: parsed.s4Logistica.classIIIFuelHours || 24,
+          classVAmmoPercentage: parsed.s4Logistica.classVAmmoPercentage || silogData?.overallFirepowerIndex || 85,
+          operationalAutonomyHours: parsed.s4Logistica.operationalAutonomyHours || Math.round((silogData?.sustainedFireMinutes || 45) * 0.3),
+          resupplyNeeded: parsed.s4Logistica.resupplyNeeded ?? false,
+          advisory: parsed.s4Logistica.advisory || `${silogData?.tacticalAdvisory || 'Suministros adecuados'}. Autonomía de combate: ${silogData?.sustainedFireMinutes || 45} min.`
+        },
+        s5AccionIntegral: {
+          civilianProximityStatus: parsed.s5AccionIntegral.civilianProximityStatus || 'Población civil en cuadrante; se aplican medidas de protección DIH.',
+          satAlertsActive: parsed.s5AccionIntegral.satAlertsActive || localOsint.map(o => o.title),
+          roeAdvisory: parsed.s5AccionIntegral.roeAdvisory || 'Reglas de Enfrentamiento (ROE): Fuego positivo identificado únicamente.'
+        },
+        commanderDecision: {
+          recommendedCoaId: parsed.commanderDecision?.recommendedCoaId || 'COA-1',
+          rationale: parsed.commanderDecision?.rationale || 'El COA propuesto maximiza la sorpresa táctica y optimiza el consumo de munición.'
+        }
+      };
+
+      updateTaskState('staffBriefing', { status: 'COMPLETED', result: briefing });
+      return briefing;
+    }
+  } catch (err: any) {
+    console.warn('[StaffAgentService] Fallo generando apreciación de Estado Mayor con IA, usando fallback dinámico:', err);
+    updateTaskState('staffBriefing', { status: 'FAILED', error: err.message });
+  }
+
+  return null;
 };
 
 export const normalizeCOAPlan = (raw: any): COAPlan => {
@@ -1378,7 +1708,11 @@ export const generateCOAPlan = async (
   units: MilitaryUnit[],
   intelReports: IntelligenceReport[],
   geoContext?: AoiGeoContext,
-  historicalContext?: string
+  historicalContext?: string,
+  echelon?: string,
+  sigepSummary?: any,
+  silogSummary?: any,
+  artilleryPieces?: ArtilleryPiece[]
 ): Promise<COAPlan> => {
   // Ensure AI client is initialized
   const isInitialized = await ensureInitialized();
@@ -1388,6 +1722,7 @@ export const generateCOAPlan = async (
 
   const validUnitsContext = formatUnitsForPrompt(units, intelReports);
   const intelContext = formatIntelForPrompt(intelReports);
+  const echelonUpper = (echelon || 'BATALLON').toUpperCase();
   
   let geoPrompt = '';
   if (geoContext) {
@@ -1396,13 +1731,36 @@ export const generateCOAPlan = async (
     geoPrompt = `\nCONTEXTO GEOGRÁFICO Y TERRENO DEL AOI:${rivers}${sat}\n- Topografía: ${geoContext.terrainType || 'Terreno mixto'}\n- Elevación promedio: ${geoContext.elevationAvg || geoContext.elevationMeters} msnm\n`;
   }
   
+  let sigepStr = 'Personal: Orgánico regular de combate.';
+  if (sigepSummary) {
+    sigepStr = `Efectivos: ${sigepSummary.totalActual}/${sigepSummary.totalAuthorized} (${sigepSummary.pillarA?.coveragePct}% TOE). Estado: ${sigepSummary.pillarA?.status}. Dictamen: ${sigepSummary.pillarB?.verdictMessage}`;
+  }
+
+  let silogStr = 'Logística: Suministros convencionales.';
+  if (silogSummary) {
+    silogStr = `Munición Clase V: ${silogSummary.overallFirepowerIndex}%. Minutos Fuego Sostenido: ${silogSummary.sustainedFireMinutes} min. Raciones Clase I: ${silogSummary.rationsAutonomyDays} días.`;
+  }
+
+  let artilleryStr = 'Apoyo de Fuegos: Morteros orgánicos de compañía.';
+  if (artilleryPieces && artilleryPieces.length > 0) {
+    const ready = artilleryPieces.filter(p => p.status === 'READY' || p.status === 'FIRING');
+    artilleryStr = `Piezas Artillería (${ready.length} listas): ${artilleryPieces.slice(0, 3).map(p => `${p.name} (${p.type || 'Artillería'}, alcance ${p.maxRange || 15000} m)`).join(', ')}`;
+  }
+
   const systemInstruction = `Eres el Oficial de Planeamiento y Operaciones (G3) del sistema SIMCOP. Tu tarea es diseñar un Curso de Acción (COA) táctico completo y generar simultáneamente su CALCO TÁCTICO DE GRAFICACIÓN sobre el mapa.
 
+PERSPECTIVA Y ESCALÓN DE MANDO EXIGIDO: ${echelonUpper}
+
 REGLAS OBLIGATORIAS:
-1. ANCLAJE ESPACIAL Y DEL TERRENO: Prohibido inventar coordenadas. Emplea exclusivamente las coordenadas y posiciones de las unidades amigas e informes de inteligencia inyectados en la consulta. Si se incluye contexto geográfico (ríos/obstáculos de agua y alertas SAT), adecúa las avenidas de aproximación respetando los vados o puentes fluviales y resguardando las zonas pobladas bajo alerta humanitaria.
-2. INTEGRACIÓN DE GRAFICACIÓN: Cada fase de la maniobra debe incluir obligatoriamente sus capas geométricas de control táctico para ser renderizadas en el mapa (puntos de control, líneas de fase, vectores de avance, zonas de reunión y áreas de objetivo).
-3. FORMATO DE COORDENADAS: Formato estándar [latitud, longitud] en decimales o [longitud, latitud] según GeoJSON. Valida que los vértices sean consistentes con el terreno real del área.
-4. SALIDA: Responde ÚNICAMENTE con un objeto JSON válido, sin bloques de texto introductorio ni explicaciones fuera del JSON.
+1. ENFOQUE DOCTRINAL POR ESCALÓN (${echelonUpper}):
+   - Si es PELOTÓN / COMPAÑÍA: Maniobra inmediata de escuadras, saltos vigilados, campos de tiro directo y puntos de control en senderos.
+   - Si es BATALLÓN: Maniobra de compañías (esfuerzo principal y secundario), base de fuegos de morteros 81/120mm, líneas de fase y objetivos tácticos.
+   - Si es BRIGADA: Puesto de Mando C2, sincronización de batallones (BIP, BIM, BASPC, Artillería), control de ejes viales nacionales y zonas de reunión.
+   - Si es DIVISIÓN: Grandes unidades, reservas de teatro y líneas de operaciones estratégicas.
+2. ANCLAJE ESPACIAL Y DEL TERRENO: Prohibido inventar coordenadas. Emplea exclusivamente las coordenadas de las unidades amigas e informes de inteligencia. Si se incluye contexto geográfico (ríos/caños y alertas SAT), adecúa las avenidas de aproximación respetando los vados o puentes fluviales y resguardando las zonas pobladas bajo alerta humanitaria.
+3. INTEGRACIÓN MULTIDOMINIO: Sincroniza la maniobra con el personal disponible (SIGEP), autonomía de fuego y munición (SILOG) y piezas de artillería en posición.
+4. INTEGRACIÓN DE GRAFICACIÓN: Cada fase de la maniobra debe incluir obligatoriamente sus capas geométricas de control táctico para ser renderizadas en el mapa (puntos de control, líneas de fase, vectores de avance, zonas de reunión y áreas de objetivo).
+5. SALIDA: Responde ÚNICAMENTE con un objeto JSON válido según el esquema.
 
 ESQUEMA JSON OBLIGATORIO:
 {

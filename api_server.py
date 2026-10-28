@@ -1561,33 +1561,56 @@ class GeminiAnalysisRequest(BaseModel):
     geoContext: Any
     enemyLayerActive: Any
     historico: Optional[Any] = None
+    echelon: Optional[Any] = None
+    sigep_data: Optional[Any] = None
+    silog_data: Optional[Any] = None
+    artillery_data: Optional[Any] = None
+    hydrography: Optional[Any] = None
 
 @app.post("/api/v1/intelligence/terrain_weather")
 def terrain_weather_analysis(req: GeminiAnalysisRequest):
     rag_context = embedding_engine.retrieve_doctrinal_context(f"{req.query} {req.inteligencia}", top_k=2)
+    echelon_str = str(req.echelon).upper() if req.echelon else "BATALLON"
     prompt = f"""Eres SIMCOP AI, Asistente Táctico y de Estado Mayor del Ejército Nacional de Colombia.
 Analiza con rigor militar estos parámetros del Sistema SIMCOP:
 
+PERSPECTIVA Y ESCALÓN DE MANDO: {echelon_str}
 Consulta: {req.query}
 Unidades Amigas: {req.unidades_amigas}
-Inteligencia: {req.inteligencia}
+Personal y TOE (SIGEP S-1): {req.sigep_data or 'Personal orgánico convencional'}
+Logística y Poder de Fuego (SILOG S-4): {req.silog_data or 'Logística de campaña estándar'}
+Red de Artillería y Apoyo de Fuegos (S-3): {req.artillery_data or 'Sin piezas pesadas en radio directo'}
+Red Hidrográfica y Caños (Gemelo Digital Fluvial): {req.hydrography or 'Drenaje por caños y quebradas locales'}
 Contexto Geoespacial y Gemelo Digital 3D: {req.geoContext}
+Inteligencia Disponible: {req.inteligencia}
 Antecedentes Históricos y Factores de Inestabilidad: {req.historico or 'Sin registros previos en el cuadrante'}
 Doctrina Militar Recuperada: {rag_context}
 Capa Enemiga Activa: {req.enemyLayerActive}
 
 REGLAS DOCTRINALES OBLIGATORIAS:
-1. DISTINCIÓN INVIOLABLE PUESTO DE MANDO (HQ/C2) VS UNIDAD DE MANIOBRA:
+1. ENFOQUE ESTRICTO POR ESCALÓN DE MANDO ({echelon_str}):
+   - Si es PELOTÓN / COMPAÑÍA: Análisis táctico de combate cercano (escuadras, binomios, técnica de avance por saltos vigilados, campos de tiro rasante, consumo de cargadores en minutos, amenaza de minas antipersonal AEI/IED en caminos veredales, drones BMA y evacuación médica TCCC / MEDEVAC).
+   - Si es BATALLÓN: Maniobra y despliegue coordinado de Compañías (esfuerzo principal y secundario), base de fuegos de morteros 81/120mm, líneas de fase y sostenimiento logístico Clase I/V para 48-72h.
+   - Si es BRIGADA: Puesto de Mando (HQ/C2) en base fija/Cantón Militar. Sincronización inter-armas de Batallones (BIP, BIM, BASPC, Artillería 105/155mm, Ingenieros), apoyo aéreo (Aviación del Ejército / CAS FAC), seguridad de ejes viales nacionales (ej. Vía Panamericana Ruta 25) y asuntos civiles S-5 (Gobernación / Alertas SAT).
+   - Si es DIVISIÓN / COEJC: Teatro de operaciones conjunto, maniobra de Grandes Unidades, reservas de teatro y operaciones conjuntas (Ejército, FAC, Armada).
+
+2. PROHIBICIÓN RADICAL DE ANÁLISIS REDUCCIONISTA DEL TERRENO:
+   - ESTÁ TERMINANTEMENTE PROHIBIDO limitar el análisis a comentar únicamente la cota más alta o hacer un simple resumen topográfico.
+   - El análisis militar es OBLIGATORIAMENTE MULTIDOMINIO: debes sintetizar Personal (SIGEP) + Logística y Munición (SILOG) + Artillería + Gemelo Digital completo (ríos, caños, vados, pendientes y líneas de vista) + Amenaza hostil (IEDs, GAOs, BMA) + Misión táctica según el escalón ({echelon_str}).
+
+3. DISTINCIÓN INVIOLABLE PUESTO DE MANDO (HQ/C2) VS UNIDAD DE MANIOBRA:
    - Si la unidad analizada es una Brigada o División (ej. Vigésima Novena Brigada - BR29), es un PUESTO DE MANDO Y CONTROL (C2 / Estado Mayor) radicado en una base fija o Cantón Militar (ej. Cantón Militar Popayán).
    - ESTÁ TERMINANTEMENTE PROHIBIDO proponer que un Puesto de Mando de Brigada realice 'infiltración por desenfilada', 'patrullaje de escuadra' o 'movimiento por vaguadas'. Su función es la dirección C2 de sus batallones orgánicos, coordinación de fuegos (artillería, CAS), comunicaciones y sostenimiento.
    - Las unidades amigas adyacentes a < 2 km (ej. Batallón de Infantería No. 7 'José Hilario López', ASTRO / ASPC) son TROPAS PROPIAS ALIADAS DE GUARNICIÓN, SEGURIDAD PERIMÉTRICA Y APOYO LOGÍSTICO. ESTÁ ESTRICTAMENTE PROHIBIDO catalogarlas como 'amenazas indirectas'.
-2. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, COTAS Y LÍNEA DE VISTA):
-   - PROHIBIDO mencionar únicamente una cota aislada o emitir frases genéricas sin precisión militar.
-   - Debes desglosar el relieve con base en la matriz topográfica del Gemelo Digital provista:
-     * Cita la cota de la posición (msnm) y compárala cuantitativamente con las COTAS DOMINANTES identificadas (altitud, desnivel en metros y azimut).
-     * Evalúa la Línea de Vista (LOS) e intervisibilidad: si el puesto o unidad está dominado visualmente desde alturas circundantes y qué sectores ofrecen desenfilada o ángulos muertos contra fuegos indirectos hostiles (morteros/drones).
-     * Ejes viales y corredores de movilidad reales del municipio verídico provisto en la telemetría (para Popayán: Vía Panamericana Ruta 25, ejes de penetración cordillerana; jamás ríos o municipios costeros remotos como el Río Saija o Timbiquí).
-3. REGLA DE INTEGRIDAD: Desarrolla el análisis en su totalidad (Observación y Campos de Tiro, Cubierta y Protección, Obstáculos, Puntos Críticos, Avenidas de Aproximación y Conclusión de Mando), asegurando que todas las oraciones y párrafos queden completamente estructurados y cerrados sin truncamiento. Citar fuentes al final si usas OSINT."""
+
+4. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, CAÑOS Y RÍOS):
+   - Desglosa tanto la altimetría 3D como la hidrografía:
+     * Cita la cota de posición y compárala con las alturas dominantes identificadas con su azimut y desnivel.
+     * Evalúa líneas de vista (LOS) e intervisibilidad (sectores con observación directa vs zonas ciegas/desenfiladas contra fuegos directos/indirectos).
+     * Analiza ríos, caños y quebradas del sector: profundidad, vados transitables a pie/vehículo, o barreras naturales que canalizan el paso de tropas y requieren pontoneros.
+     * Cita ejes viales reales del municipio (para Popayán: Vía Panamericana Ruta 25; jamás ríos o municipios costeros como Río Saija o Timbiquí).
+
+5. REGLA DE INTEGRIDAD: Desarrolla el análisis en su totalidad (1. Diagnóstico de Amenaza y Terreno; 2. Balance de Personal SIGEP y Logística SILOG; 3. Observación y Campos de Tiro; 4. Cubierta, Protección y Desenfilada; 5. Obstáculos Naturales Fluviales; 6. Puntos Críticos y Ejes Viales; 7. Conclusión y Decisión de Mando para el Escalón {echelon_str}), asegurando que todas las oraciones y párrafos queden completamente estructurados y cerrados sin truncamiento."""
     return {"analysis": run_inference(prompt, expect_json=False).strip()}
 
 # 7. Simulación BMA

@@ -5,13 +5,16 @@ import { renderTacticalMarkdown } from '../utils/markdownUtils';
 import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
 import type { Feature as GeoJSONFeature, Polygon as GeoJSONPolygon } from 'geojson';
-import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, SelectedEntity, NominatimResult, GeoLocation, PICCDrawConfig, PlantillaType as PlantillaTypeEnum, PICCToolDefinition, COAPlan, OsintEvent, AfterActionReport } from '../types';
-import { MapEntityType, PlantillaType } from '../types';
+import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, SelectedEntity, NominatimResult, GeoLocation, PICCDrawConfig, PlantillaType as PlantillaTypeEnum, PICCToolDefinition, COAPlan, OsintEvent, AfterActionReport, ArtilleryPiece } from '../types';
+import { MapEntityType, PlantillaType, UserRole } from '../types';
 import { getGeminiAnalysis, generateCOAPlan, getDoctrinalAssistantResponse, simulateCOAOutcome, useAITask, updateTaskState, AoiGeoContext } from '../utils/geminiService';
 import { weatherService } from '../services/weatherService';
 import { decimalToDMS } from '../utils/coordinateUtils';
 import { coaPlanService } from '../services/coaPlanService';
 import { historicalIntelligenceService } from '../services/historicalIntelligenceService';
+import { sigepIntegrationService } from '../services/sigepIntegrationService';
+import { silogIntegrationService } from '../services/silogIntegrationService';
+import type { StaffEchelon } from '../services/staffAgentService';
 import { PICCWorkflowAssistant } from './PICCWorkflowAssistant';
 import { COLOMBIA_RIVER_NETWORKS } from '../constants/colombiaHydrography';
 
@@ -182,7 +185,8 @@ interface AnalysisViewProps {
   onSelectEntityOnMap?: (entity: SelectedEntity | null) => void;
   activeTemplateContext: PlantillaTypeEnum | null;
   setActiveTemplateContext: (template: PlantillaTypeEnum | null) => void;
-  currentUser?: { id?: string; username?: string; assignedUnitId?: string | null };
+  currentUser?: { id?: string; username?: string; assignedUnitId?: string | null; role?: any };
+  artilleryPieces?: ArtilleryPiece[];
   eventBus: EventEmitter;
 }
 
@@ -268,6 +272,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   activeTemplateContext,
   setActiveTemplateContext,
   currentUser,
+  artilleryPieces = [],
   eventBus,
 }) => {
   const [storeState, setStoreState] = useState(() => analysisStore.state);
@@ -277,6 +282,16 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       setStoreState(analysisStore.state);
     });
   }, []);
+
+  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
+    const role = currentUser?.role;
+    if (role === UserRole.COMANDANTE_PELOTON) return 'PELOTON';
+    if (role === UserRole.COMANDANTE_COMPANIA) return 'COMPANIA';
+    if (role === UserRole.COMANDANTE_BATALLON) return 'BATALLON';
+    if (role === UserRole.COMANDANTE_BRIGADA) return 'BRIGADA';
+    if (role === UserRole.COMANDANTE_DIVISION || role === UserRole.COMANDANTE_EJERCITO) return 'DIVISION';
+    return 'BATALLON';
+  });
 
   const [currentGeoContext, setCurrentGeoContext] = useState<AoiGeoContext | undefined>(undefined);
 
@@ -607,9 +622,42 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
 
       }
 
-      setLoadingMessage("Compilando antecedentes históricos y encolando tarea en el servidor de IA...");
+      setLoadingMessage("Compilando telemetría de Personal (SIGEP) y Logística (SILOG)...");
+      let sigepSummary = null;
+      let silogSummary = null;
+      try {
+        const targetUnit = referencedUnit || (units.length > 0 ? units[0] : null);
+        if (targetUnit) {
+          const [sigepRes, silogRes] = await Promise.all([
+            sigepIntegrationService.getUnitPersonnelSummary({
+              unit: targetUnit,
+              soldiers: targetUnit.personnelList,
+              aars: afterActionReports
+            }),
+            silogIntegrationService.getPlatoonCombatCapability(targetUnit.id)
+          ]);
+          sigepSummary = sigepRes;
+          silogSummary = silogRes;
+        }
+      } catch (e) {
+        console.warn('[AnalysisView] Fallo obteniendo telemetría SIGEP/SILOG:', e);
+      }
+
+      setLoadingMessage(`Generando análisis multidominio para escalón ${selectedEchelon}...`);
       const histContext = await resolveHistoricalContext(geoContext);
-      const result = await getGeminiAnalysis(query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, geoContext, histContext);
+      const result = await getGeminiAnalysis(
+        query,
+        units,
+        intelligenceReports,
+        useGoogleSearch,
+        enemyInfluenceLayerActive,
+        geoContext,
+        histContext,
+        selectedEchelon,
+        sigepSummary,
+        silogSummary,
+        artilleryPieces
+      );
       setAnalysisResult(result);
     } catch (err: any) {
       setError(err.message || "Ocurrió un error inesperado durante el análisis.");
@@ -617,7 +665,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
       setIsLoading(false);
       setLoadingMessage(null);
     }
-  }, [query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, finalizedAoiGeoJson, deactivateOtherTools, unitHistoryLog, afterActionReports, osintEvents]);
+  }, [query, units, intelligenceReports, useGoogleSearch, enemyInfluenceLayerActive, finalizedAoiGeoJson, deactivateOtherTools, unitHistoryLog, afterActionReports, osintEvents, selectedEchelon, artilleryPieces]);
 
   const handleSubmitCOA = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -631,9 +679,38 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     eventBus.publish('clearCOALayer');
 
     try {
+      // Compilar telemetría para COA
+      let sigepSummary = null;
+      let silogSummary = null;
+      try {
+        const targetUnit = units.length > 0 ? units[0] : null;
+        if (targetUnit) {
+          const [sigepRes, silogRes] = await Promise.all([
+            sigepIntegrationService.getUnitPersonnelSummary({
+              unit: targetUnit,
+              soldiers: targetUnit.personnelList,
+              aars: afterActionReports
+            }),
+            silogIntegrationService.getPlatoonCombatCapability(targetUnit.id)
+          ]);
+          sigepSummary = sigepRes;
+          silogSummary = silogRes;
+        }
+      } catch (e) {}
+
       // Generate COA with AI (informing terrain, river obstacles, historical threats, and SAT alerts)
       const histContext = await resolveHistoricalContext(currentGeoContext || undefined);
-      const result = await generateCOAPlan(coaObjective, units, intelligenceReports, currentGeoContext || undefined, histContext);
+      const result = await generateCOAPlan(
+        coaObjective,
+        units,
+        intelligenceReports,
+        currentGeoContext || undefined,
+        histContext,
+        selectedEchelon,
+        sigepSummary,
+        silogSummary,
+        artilleryPieces
+      );
 
       // Save to database
       try {
@@ -2128,6 +2205,40 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           Análisis Asistido por IA
         </h3>
         <form onSubmit={handleSubmitAnalysis} className="space-y-3">
+          {/* Selector de Perspectiva y Escalón de Mando */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-gray-900/90 rounded-lg border border-cyan-800/40">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                🎖️ Perspectiva de Mando:
+              </span>
+              <span className="text-[11px] text-gray-400 font-medium hidden sm:inline">
+                (Adapta el análisis a la doctrina de este escalón)
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: 'PELOTON' as StaffEchelon, label: 'Pelotón', desc: 'Combate Cercano / Escuadras / Fuego Inmediato' },
+                { id: 'BATALLON' as StaffEchelon, label: 'Batallón', desc: 'Maniobra de Compañías / Morteros / Fases' },
+                { id: 'BRIGADA' as StaffEchelon, label: 'Brigada', desc: 'Puesto de Mando C2 / Sincronización Inter-Armas' },
+                { id: 'DIVISION' as StaffEchelon, label: 'División / COEJC', desc: 'Teatro de Operaciones / Estratégico Conjunto' },
+              ].map(esc => (
+                <button
+                  key={esc.id}
+                  type="button"
+                  onClick={() => setSelectedEchelon(esc.id)}
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all active:scale-95 ${
+                    selectedEchelon === esc.id
+                      ? 'bg-cyan-600 text-white shadow-md ring-1 ring-cyan-300'
+                      : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-750'
+                  }`}
+                  title={esc.desc}
+                >
+                  {esc.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label htmlFor="analysisQuery" className="block text-xs font-medium text-gray-300 mb-1">
               Consulta analítica:

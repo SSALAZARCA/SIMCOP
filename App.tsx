@@ -853,6 +853,7 @@ const App: React.FC = () => {
     osintEvents,
     afterActionReports,
     unitHistoryLog,
+    artilleryPieces,
     distanceToolActive,
     setDistanceToolActive,
     aoiDrawingModeActive,
