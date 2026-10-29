@@ -6,7 +6,7 @@ import * as turf from '@turf/turf';
 import { point as turfPoint, polygon as turfPolygonFunction } from '@turf/helpers';
 import type { Feature as GeoJSONFeature, Polygon as GeoJSONPolygon } from 'geojson';
 import type { MilitaryUnit, IntelligenceReport, GeminiAnalysisResult, SelectedEntity, NominatimResult, GeoLocation, PICCDrawConfig, PlantillaType as PlantillaTypeEnum, PICCToolDefinition, COAPlan, OsintEvent, AfterActionReport, ArtilleryPiece } from '../types';
-import { MapEntityType, PlantillaType, UserRole } from '../types';
+import { MapEntityType, PlantillaType, UserRole, UserRoleLabels } from '../types';
 import { getGeminiAnalysis, generateCOAPlan, getDoctrinalAssistantResponse, simulateCOAOutcome, useAITask, updateTaskState, AoiGeoContext } from '../utils/geminiService';
 import { weatherService } from '../services/weatherService';
 import { decimalToDMS } from '../utils/coordinateUtils';
@@ -434,16 +434,72 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     let geoContext: AoiGeoContext | undefined = undefined;
     let targetAoiGeoJson = finalizedAoiGeoJson;
 
-    // Detectar si la consulta o el contexto analítico se enfoca en una unidad militar específica
-    const lowerQuery = query.toLowerCase();
-    const referencedUnit = units?.find(u => {
-      const uName = u.name.toLowerCase();
-      if (lowerQuery.includes(uName)) return true;
-      if ((uName.includes('vigesimonovena') || uName.includes('29')) && 
-          (lowerQuery.includes('vigesimonovena') || lowerQuery.includes('vigésima novena') || lowerQuery.includes('br29') || lowerQuery.includes('brigada 29') || lowerQuery.includes('brigada'))) return true;
-      if (uName.includes('hilario') && lowerQuery.includes('hilario')) return true;
-      return false;
-    });
+    // Detección universal de unidad referenciada en la consulta o seleccionada en el mapa
+    const normalizeTactical = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const cleanQuery = normalizeTactical(query);
+
+    let referencedUnit: MilitaryUnit | undefined = undefined;
+    if (units && units.length > 0) {
+      // 1. Probar por nombre exacto o coincidencia léxica
+      referencedUnit = units.find(u => {
+        const uClean = normalizeTactical(u.name);
+        return cleanQuery.includes(uClean);
+      });
+
+      // 2. Probar por patrones doctrinarios y siglas militares comunes
+      if (!referencedUnit) {
+        referencedUnit = units.find(u => {
+          const uClean = normalizeTactical(u.name);
+          // Divisiones: "tercera division", "division 3", "div 3", etc.
+          if (u.type === 'DIVISION') {
+            if (cleanQuery.includes('tercera division') || cleanQuery.includes('division 3') || cleanQuery.includes('3ra division') || cleanQuery.includes('div 3')) return uClean.includes('tercera') || uClean.includes('3');
+            if (cleanQuery.includes('primera division') || cleanQuery.includes('division 1')) return uClean.includes('primera') || uClean.includes('1');
+            if (cleanQuery.includes('segunda division') || cleanQuery.includes('division 2')) return uClean.includes('segunda') || uClean.includes('2');
+          }
+          // Brigadas: "29 brigada", "brigada 29", "br29", "vigesima novena", "23 brigada", etc.
+          if (u.type === 'BRIGADE') {
+            if ((cleanQuery.includes('29') || cleanQuery.includes('vigesima novena') || cleanQuery.includes('br29')) && (uClean.includes('29') || uClean.includes('vigesimonovena') || uClean.includes('vigesima'))) return true;
+            if ((cleanQuery.includes('23') || cleanQuery.includes('vigesima tercera') || cleanQuery.includes('br23')) && (uClean.includes('23') || uClean.includes('vigesimotercera') || uClean.includes('vigesima'))) return true;
+            if ((cleanQuery.includes('tercera brigada') || cleanQuery.includes('brigada 3') || cleanQuery.includes('br3')) && (uClean.includes('tercera') || uClean.includes('3'))) return true;
+          }
+          // Batallones: "batallon 7", "bip 7", "hilario lopez", "artilleria 29", "bapom 4", etc.
+          if (u.type === 'BATTALION') {
+            if ((cleanQuery.includes('7') || cleanQuery.includes('hilario') || cleanQuery.includes('bip 7') || cleanQuery.includes('bip7')) && (uClean.includes('7') || uClean.includes('hilario'))) return true;
+            if ((cleanQuery.includes('artilleria') || cleanQuery.includes('bar29') || cleanQuery.includes('artilleria 29')) && uClean.includes('artilleria')) return true;
+            if ((cleanQuery.includes('caballeria') || cleanQuery.includes('caballeria 3')) && uClean.includes('caballeria')) return true;
+            if ((cleanQuery.includes('alta montana') || cleanQuery.includes('bapom')) && uClean.includes('montana')) return true;
+          }
+          // Compañías: "compania bravo", "cia bravo", "compania alfa"
+          if (u.type === 'COMPANY') {
+            if ((cleanQuery.includes('bravo') || cleanQuery.includes('cia b')) && uClean.includes('bravo')) return true;
+            if ((cleanQuery.includes('alfa') || cleanQuery.includes('cia a')) && uClean.includes('alfa')) return true;
+            if ((cleanQuery.includes('charlie') || cleanQuery.includes('cia c')) && uClean.includes('charlie')) return true;
+          }
+          // Pelotones: "astro 1", "peloton 1", "peloton 2"
+          if (u.type === 'PLATOON') {
+            if (cleanQuery.includes('astro') && uClean.includes('astro')) return true;
+            if ((cleanQuery.includes('peloton 1') || cleanQuery.includes('primer peloton')) && (uClean.includes('1') || uClean.includes('primero'))) return true;
+            if ((cleanQuery.includes('peloton 2') || cleanQuery.includes('segundo peloton')) && (uClean.includes('2') || uClean.includes('segundo'))) return true;
+          }
+          return false;
+        });
+      }
+
+      // 3. Fallback a la unidad asignada al usuario
+      if (!referencedUnit && currentUser?.assignedUnitId) {
+        referencedUnit = units.find(u => u.id === currentUser.assignedUnitId);
+      }
+    }
+
+    // Escalón efectivo: Si un comandante superior consulta sobre una unidad subordinada, el análisis se enfoca en esa unidad
+    let effectiveEchelon: StaffEchelon = selectedEchelon;
+    if (referencedUnit) {
+      if (referencedUnit.type === 'DIVISION') effectiveEchelon = 'DIVISION';
+      else if (referencedUnit.type === 'BRIGADE') effectiveEchelon = 'BRIGADA';
+      else if (referencedUnit.type === 'BATTALION') effectiveEchelon = 'BATALLON';
+      else if (referencedUnit.type === 'COMPANY') effectiveEchelon = 'COMPANIA';
+      else if (referencedUnit.type === 'PLATOON') effectiveEchelon = 'PELOTON';
+    }
 
     if (referencedUnit && referencedUnit.location) {
       let isInside = false;
@@ -454,8 +510,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           isInside = false;
         }
       }
-      // Si la unidad objetivo NO está dentro del AOI actual (ej. un AOI previo de Timbiquí),
-      // forzar que el AOI se centre exactamente sobre la posición verídica de la unidad (ej. Popayán)!
+      // Si la unidad objetivo NO está dentro del AOI actual, centrar el AOI en la unidad referenciada
       if (!isInside) {
         if (referencedUnit.areaOfOperations) {
           try {
@@ -655,7 +710,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         console.warn('[AnalysisView] Fallo obteniendo telemetría SIGEP/SILOG:', e);
       }
 
-      setLoadingMessage(`Generando análisis multidominio para escalón ${selectedEchelon}...`);
+      const commandingTitle = currentUser?.role ? UserRoleLabels[currentUser.role] : 'Comandante Militar';
+      const targetUnitDisplayName = referencedUnit ? `${referencedUnit.name} (${referencedUnit.type})` : undefined;
+
+      setLoadingMessage(`Generando análisis enfocado para ${targetUnitDisplayName || `escalón ${effectiveEchelon}`}...`);
       const histContext = await resolveHistoricalContext(geoContext);
       const result = await getGeminiAnalysis(
         query,
@@ -665,10 +723,12 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
         enemyInfluenceLayerActive,
         geoContext,
         histContext,
-        selectedEchelon,
+        effectiveEchelon,
         sigepSummary,
         silogSummary,
-        artilleryPieces
+        artilleryPieces,
+        commandingTitle,
+        targetUnitDisplayName
       );
       setAnalysisResult(result);
     } catch (err: any) {
