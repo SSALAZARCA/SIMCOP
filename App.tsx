@@ -1350,6 +1350,7 @@ const App: React.FC = () => {
         units={units}
         intelligenceReports={intelligenceReports}
         artilleryPieces={artilleryPieces}
+        currentUser={currentUser}
         unitHistoryLog={unitHistoryLog}
         afterActionReports={afterActionReports}
         osintEvents={osintEvents}

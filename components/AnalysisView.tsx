@@ -283,15 +283,27 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
     });
   }, []);
 
-  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
-    const role = currentUser?.role;
+  const getEchelonFromRole = (role?: UserRole): StaffEchelon => {
     if (role === UserRole.COMANDANTE_PELOTON) return 'PELOTON';
     if (role === UserRole.COMANDANTE_COMPANIA) return 'COMPANIA';
     if (role === UserRole.COMANDANTE_BATALLON) return 'BATALLON';
     if (role === UserRole.COMANDANTE_BRIGADA) return 'BRIGADA';
-    if (role === UserRole.COMANDANTE_DIVISION || role === UserRole.COMANDANTE_EJERCITO) return 'DIVISION';
+    if (role === UserRole.COMANDANTE_DIVISION) return 'DIVISION';
+    if (role === UserRole.COMANDANTE_EJERCITO) return 'COEJC';
     return 'BATALLON';
+  };
+
+  const isAdmin = currentUser?.role === UserRole.ADMINISTRATOR;
+
+  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
+    return getEchelonFromRole(currentUser?.role);
   });
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setSelectedEchelon(getEchelonFromRole(currentUser?.role));
+    }
+  }, [currentUser?.role, isAdmin]);
 
   const [currentGeoContext, setCurrentGeoContext] = useState<AoiGeoContext | undefined>(undefined);
 
@@ -2205,38 +2217,58 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
           Análisis Asistido por IA
         </h3>
         <form onSubmit={handleSubmitAnalysis} className="space-y-3">
-          {/* Selector de Perspectiva y Escalón de Mando */}
+          {/* Nivel de Mando / Selector de Escalón (Solo Administrador) */}
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-gray-900/90 rounded-lg border border-cyan-800/40">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1">
-                🎖️ Perspectiva de Mando:
+                🎖️ {isAdmin ? 'Auditoría de Escalón (Admin):' : 'Escalón Asignado:'}
               </span>
               <span className="text-[11px] text-gray-400 font-medium hidden sm:inline">
-                (Adapta el análisis a la doctrina de este escalón)
+                {isAdmin ? '(Selección exclusiva de superusuario para simular cualquier nivel)' : '(Análisis adaptado automáticamente a su cargo y unidad)'}
               </span>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {[
-                { id: 'PELOTON' as StaffEchelon, label: 'Pelotón', desc: 'Combate Cercano / Escuadras / Fuego Inmediato' },
-                { id: 'BATALLON' as StaffEchelon, label: 'Batallón', desc: 'Maniobra de Compañías / Morteros / Fases' },
-                { id: 'BRIGADA' as StaffEchelon, label: 'Brigada', desc: 'Puesto de Mando C2 / Sincronización Inter-Armas' },
-                { id: 'DIVISION' as StaffEchelon, label: 'División / COEJC', desc: 'Teatro de Operaciones / Estratégico Conjunto' },
-              ].map(esc => (
-                <button
-                  key={esc.id}
-                  type="button"
-                  onClick={() => setSelectedEchelon(esc.id)}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all active:scale-95 ${
-                    selectedEchelon === esc.id
-                      ? 'bg-cyan-600 text-white shadow-md ring-1 ring-cyan-300'
-                      : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-750'
-                  }`}
-                  title={esc.desc}
-                >
-                  {esc.label}
-                </button>
-              ))}
-            </div>
+
+            {isAdmin ? (
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: 'PELOTON' as StaffEchelon, label: 'Pelotón', desc: 'Combate Cercano / Eje de Avance / Amenazas Locales' },
+                  { id: 'COMPANIA' as StaffEchelon, label: 'Compañía', desc: 'Coordinación de Pelotones / Maniobra / Alertas C-UAS' },
+                  { id: 'BATALLON' as StaffEchelon, label: 'Batallón', desc: 'Integración de Compañías / Morteros / Sostenimiento' },
+                  { id: 'BRIGADA' as StaffEchelon, label: 'Brigada', desc: 'Puesto de Mando C2 / Ejes Viales / Alertas SAT' },
+                  { id: 'DIVISION' as StaffEchelon, label: 'División', desc: 'Teatro de Operaciones / Reservas / Maniobra de Brigadas' },
+                  { id: 'COEJC' as StaffEchelon, label: 'Ejército (COEJC)', desc: 'Estratégico Nacional / Todas las Divisiones / GAOs' },
+                ].map(esc => (
+                  <button
+                    key={esc.id}
+                    type="button"
+                    onClick={() => setSelectedEchelon(esc.id)}
+                    className={`px-2 py-1 rounded text-xs font-bold transition-all active:scale-95 ${
+                      selectedEchelon === esc.id
+                        ? 'bg-cyan-600 text-white shadow-md ring-1 ring-cyan-300'
+                        : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-750'
+                    }`}
+                    title={esc.desc}
+                  >
+                    {esc.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 rounded text-xs font-black tracking-wide flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                  {selectedEchelon === 'PELOTON' && 'Pelotón (Táctico Local)'}
+                  {selectedEchelon === 'COMPANIA' && 'Compañía (Táctico de Conjunto)'}
+                  {selectedEchelon === 'BATALLON' && 'Batallón (Táctico-Operacional)'}
+                  {selectedEchelon === 'BRIGADA' && 'Brigada (Operacional Regional)'}
+                  {selectedEchelon === 'DIVISION' && 'División (Teatro Operacional)'}
+                  {selectedEchelon === 'COEJC' && 'Comando del Ejército (Estratégico Nacional)'}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono hidden md:inline">
+                  [Bloqueado por Cargo Militar]
+                </span>
+              </div>
+            )}
           </div>
 
           <div>

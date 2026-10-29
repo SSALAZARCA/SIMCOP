@@ -6,7 +6,9 @@ import {
   UnitHistoryEvent, 
   AfterActionReport, 
   OsintEvent,
-  GeoLocation 
+  GeoLocation,
+  User,
+  UserRole
 } from '../types';
 import { staffAgentService, StaffBriefing, StaffCOA, StaffEchelon } from '../services/staffAgentService';
 import { sovereignOsintService } from '../services/sovereignOsintService';
@@ -22,6 +24,7 @@ interface StaffBriefingModalProps {
   units: MilitaryUnit[];
   intelligenceReports: IntelligenceReport[];
   artilleryPieces: ArtilleryPiece[];
+  currentUser?: User | null;
   unitHistoryLog?: UnitHistoryEvent[];
   afterActionReports?: AfterActionReport[];
   osintEvents?: OsintEvent[];
@@ -35,19 +38,40 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
   units,
   intelligenceReports,
   artilleryPieces,
+  currentUser,
   unitHistoryLog = [],
   afterActionReports = [],
   osintEvents = [],
   onApproveCoa
 }) => {
-  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
+  const isAdmin = currentUser?.role === UserRole.ADMINISTRATOR;
+
+  const getEchelonForUnitOrRole = (): StaffEchelon => {
+    if (currentUser?.role && currentUser.role !== UserRole.ADMINISTRATOR) {
+      if (currentUser.role === UserRole.COMANDANTE_PELOTON) return 'PELOTON';
+      if (currentUser.role === UserRole.COMANDANTE_COMPANIA) return 'COMPANIA';
+      if (currentUser.role === UserRole.COMANDANTE_BATALLON) return 'BATALLON';
+      if (currentUser.role === UserRole.COMANDANTE_BRIGADA) return 'BRIGADA';
+      if (currentUser.role === UserRole.COMANDANTE_DIVISION) return 'DIVISION';
+      if (currentUser.role === UserRole.COMANDANTE_EJERCITO) return 'COEJC';
+    }
     if (activeUnit?.type === 'DIVISION') return 'DIVISION';
     if (activeUnit?.type === 'BRIGADE') return 'BRIGADA';
     if (activeUnit?.type === 'BATTALION') return 'BATALLON';
     if (activeUnit?.type === 'COMPANY') return 'COMPANIA';
     if (activeUnit?.type === 'PLATOON') return 'PELOTON';
     return 'BATALLON';
+  };
+
+  const [selectedEchelon, setSelectedEchelon] = useState<StaffEchelon>(() => {
+    return getEchelonForUnitOrRole();
   });
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setSelectedEchelon(getEchelonForUnitOrRole());
+    }
+  }, [activeUnit?.id, currentUser?.role, isAdmin]);
   const [activeTab, setActiveTab] = useState<'C2' | 'S2' | 'S3' | 'S4' | 'S1_S5' | 'OSINT'>('C2');
   const [briefing, setBriefing] = useState<StaffBriefing | null>(null);
   const [sigepData, setSigepData] = useState<SigepUnitPersonnelSummary | null>(null);
@@ -154,21 +178,38 @@ export const StaffBriefingModal: React.FC<StaffBriefingModalProps> = ({
             </div>
           </div>
 
-          {/* Selector de Escalón Doctrinal en la Estructura de Fuerza */}
+          {/* Selector de Escalón Doctrinal en la Estructura de Fuerza (Exclusivo Superusuario) */}
           <div className="flex items-center gap-2">
-            <label className="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Escalón de Mando:</label>
-            <select
-              value={selectedEchelon}
-              onChange={(e) => setSelectedEchelon(e.target.value as StaffEchelon)}
-              className="bg-slate-950 border border-cyan-500/50 text-cyan-300 text-xs rounded-lg px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
-            >
-              <option value="COEJC">COEJC (Estratégico Nacional)</option>
-              <option value="DIVISION">División (Operacional de Teatro)</option>
-              <option value="BRIGADA">Brigada (Táctico-Operacional / C2)</option>
-              <option value="BATALLON">Batallón (Táctico Superior / Maniobra)</option>
-              <option value="COMPANIA">Compañía (Maniobra Táctica)</option>
-              <option value="PELOTON">Pelotón (Combate Cercano / Táctico Inmediato)</option>
-            </select>
+            {isAdmin ? (
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Auditoría Escalón (Admin):</label>
+                <select
+                  value={selectedEchelon}
+                  onChange={(e) => setSelectedEchelon(e.target.value as StaffEchelon)}
+                  className="bg-slate-950 border border-cyan-500/50 text-cyan-300 text-xs rounded-lg px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  <option value="COEJC">COEJC (Estratégico Nacional)</option>
+                  <option value="DIVISION">División (Operacional de Teatro)</option>
+                  <option value="BRIGADA">Brigada (Táctico-Operacional / C2)</option>
+                  <option value="BATALLON">Batallón (Táctico Superior / Maniobra)</option>
+                  <option value="COMPANIA">Compañía (Maniobra Táctica)</option>
+                  <option value="PELOTON">Pelotón (Combate Cercano / Táctico Inmediato)</option>
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Escalón Orgánico:</span>
+                <span className="px-3 py-1 bg-cyan-950/90 border border-cyan-500/60 text-cyan-300 text-xs font-black rounded-lg shadow-sm flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                  {selectedEchelon === 'PELOTON' && 'Pelotón (Táctico Inmediato)'}
+                  {selectedEchelon === 'COMPANIA' && 'Compañía (Maniobra Táctica)'}
+                  {selectedEchelon === 'BATALLON' && 'Batallón (Táctico-Operacional)'}
+                  {selectedEchelon === 'BRIGADA' && 'Brigada (Operacional Regional)'}
+                  {selectedEchelon === 'DIVISION' && 'División (Teatro Operacional)'}
+                  {selectedEchelon === 'COEJC' && 'COEJC (Estratégico Nacional)'}
+                </span>
+              </div>
+            )}
 
             <button
               onClick={onClose}

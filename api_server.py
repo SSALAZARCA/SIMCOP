@@ -486,7 +486,8 @@ class SimcopLLMAdapter:
         """Inferencia real con llama.cpp — Gemma 4 / Qwen2.5 / Llama3.2 GGUF."""
         system_prompt = (
             "Eres SIMCOP AI, el asistente táctico de operaciones y doctrina militar del Ejército de Colombia. "
-            "Respondes en español con rigurosa doctrina militar (OCOPA: Observación, Cubierta, Obstáculos, Puntos Clave, Avenidas de Aproximación). "
+            "Tu análisis debe estructurarse rigurosamente según el escalón de mando solicitado (Pelotón: táctico local y combate cercano; Compañía: coordinación de pelotones; Batallón: integración de compañías, fuegos pesados y sostenimiento; Brigada: C2, entorno regional y ejes viales; División: teatro conjunto; Ejército: estratégico nacional). "
+            "Integra obligatoriamente inteligencia completa, estructura de la amenaza (GAO/GDO), capacidades de personal y logística sin encasillarte en plantillas rígidas de terreno como OCOPA. "
             + ("Responde ÚNICAMENTE en formato JSON válido según el esquema solicitado, sin etiquetas markdown adicionales." if expect_json else "")
         )
         if "gemma" in MODEL_PATH.lower():
@@ -1333,14 +1334,14 @@ class OCOPATerrainAnalyzer:
         ]
 
         return {
-            "doctrina": "MFRE 1-02.2 / MTE 2-01.3 (OCOPA Ejército Nacional)",
+            "doctrina": "MFRE 1-02.2 / MTE 2-01.3 / CEDOE (Apreciación Táctica del Terreno y Gemelo Digital 3D)",
             "observacion_campos_tiro": observacion,
             "cubierta_abrigo": cubierta,
             "obstaculos": obstaculos,
             "puntos_criticos": puntos_criticos,
             "avenidas_aproximacion": avenidas,
             "sintesis_comandante": (
-                f"El análisis OCOPA sobre el relieve de Cesium y cartografía IGAC descarta la vaguada baja por riesgo de canalización y crecidas. "
+                f"La apreciación táctica sobre el relieve tridimensional y cartografía oficial descarta la vaguada baja por riesgo de canalización y crecidas súbitas. "
                 f"Se recomienda maniobra envolvente por contrapendiente asegurando la cresta militar a {cresta_militar} msnm como Terreno Clave."
             )
         }
@@ -1366,7 +1367,7 @@ def generate_coa(req: COARequest):
     hist_info = f"\nANTECEDENTES HISTÓRICOS Y FACTORES DE INESTABILIDAD:\n{req.historico_amenaza}" if req.historico_amenaza else ""
     
     prompt = f"""Eres SIMCOP AI, Oficial de Operaciones G3 del Ejército de Colombia.
-Genera un plan de operaciones COA estrictamente en formato JSON integrando doctrina OCOPA y el gemelo digital Cesium/IGAC:
+Genera un plan de operaciones COA estrictamente en formato JSON integrando apreciación táctica del terreno, inteligencia completa y gemelo digital Cesium/IGAC:
 Objetivo: {req.objetivo}
 Unidades Amigas: {req.unidades_amigas}
 Enemigo: {req.inteligencia_enemiga}
@@ -1375,7 +1376,7 @@ Enemigo: {req.inteligencia_enemiga}
 DOCTRINA RECUPERADA POR EMBEDDINGGEMMA 2 (RAG MRL 256d):
 {rag_context}
 
-ANÁLISIS OCOPA DEL TERRENO:
+APRECIACIÓN TÁCTICA DEL TERRENO Y GEMELO DIGITAL:
 - Observación: {ocopa['observacion_campos_tiro']['evaluacion']}
 - Cubierta: {ocopa['cubierta_abrigo']['evaluacion']}
 - Obstáculos: {ocopa['obstaculos']['evaluacion']}
@@ -1385,13 +1386,13 @@ REGLAS DE GRAFICACIÓN (ESTÁNDARES OTAN / APP-6 / MIL-STD-2525):
 1. Los "graphics" deben ser ricos y detallados para su renderizado directo en la malla 3D de Cesium.
 2. Si el type es PHASE_LINE, BOUNDARY o AXIS_OF_ADVANCE, DEBES proveer mínimo 2 a 3 objetos en el arreglo "locations" para formar la línea.
 3. El "label" debe usar estandarización militar OTAN (Ej: "PL RED", "OBJ LION", "AA VIPER", "EA HOT", "AXIS SMASH").
-4. El plan DEBE incorporar las medidas tácticas en desenfilada y contrapendiente identificadas en el análisis OCOPA.
+4. El plan DEBE incorporar las medidas tácticas en desenfilada y contrapendiente identificadas en el terreno.
 
 DEBES devolver Únicamente un objeto JSON exacto, sin explicaciones ni etiquetas Markdown.
 Estructura obligatoria:
 {{
   "planName": "String (Nombre de la Operación)",
-  "conceptOfOperations": "String (Concepto táctico general con justificación OCOPA)",
+  "conceptOfOperations": "String (Concepto táctico general de la maniobra)",
   "ocopaSummary": "String (Síntesis de análisis de terreno)",
   "thinkingTrace": "String (Razonamiento táctico de Gemma 4)",
   "phases": [

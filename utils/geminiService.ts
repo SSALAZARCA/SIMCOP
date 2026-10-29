@@ -764,11 +764,56 @@ const formatUnitsForPrompt = (units: MilitaryUnit[], intelReports: IntelligenceR
 
 const formatIntelForPrompt = (intelReports: IntelligenceReport[]): string => {
   if (intelReports.length === 0) return "No hay informes de inteligencia disponibles actualmente.";
-  return intelReports.slice(0, 15).map(r => {
-    const eventTime = new Date(r.eventTimestamp).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
-    const keywordsString = r.keywords.length > 0 ? `Palabras Clave: [${r.keywords.map(escapeTemplateLiteralContent).join(', ')}]. ` : '';
-    return `- Intel: "${escapeTemplateLiteralContent(r.title)}" (Tipo: ${escapeTemplateLiteralContent(r.type)}, Fuente: ${escapeTemplateLiteralContent(r.sourceDetails)}). Ubic: ${decimalToDMS(r.location)}. Hora Evento: ${eventTime}. Fiabilidad: ${escapeTemplateLiteralContent(r.reliability)}, Credibilidad: ${escapeTemplateLiteralContent(r.credibility)}. ${keywordsString}Resumen: ${escapeTemplateLiteralContent(r.details.substring(0, 100))}...`
+  return intelReports.slice(0, 25).map((r, idx) => {
+    const eventTime = new Date(r.eventTimestamp).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Bogota' });
+    const keywordsString = r.keywords && r.keywords.length > 0 ? `Palabras Clave: [${r.keywords.map(escapeTemplateLiteralContent).join(', ')}]. ` : '';
+    const fullDetails = escapeTemplateLiteralContent(r.details ? r.details.trim() : 'Sin detalles adicionales');
+    return `- Informe #${idx + 1} "${escapeTemplateLiteralContent(r.title)}" [${r.type} | Fiabilidad: ${r.reliability || 'B'}, Credibilidad: ${r.credibility || '2'}] Ubicación: ${decimalToDMS(r.location)} (${eventTime}). ${keywordsString}\n  CONTENIDO ÍNTEGRO DEL INFORME: "${fullDetails}"`;
   }).join('\n');
+};
+
+export const formatIntelForEchelon = (
+  intelReports: IntelligenceReport[],
+  echelon?: string,
+  referenceLocation?: GeoLocation,
+  maxReports = 25
+): string => {
+  if (!intelReports || intelReports.length === 0) return "No hay informes de inteligencia cargados actualmente en el sistema.";
+  
+  const ech = (echelon || 'BATALLON').toUpperCase();
+  let filtered = [...intelReports];
+  
+  if (referenceLocation && (ech === 'PELOTON' || ech === 'COMPANIA' || ech === 'BATALLON')) {
+    const maxRadiusKm = ech === 'PELOTON' ? 6.0 : (ech === 'COMPANIA' ? 18.0 : 55.0);
+    const refLat = (referenceLocation as any).lat ?? (referenceLocation as any).latitude ?? 0;
+    const refLon = (referenceLocation as any).lon ?? (referenceLocation as any).longitude ?? 0;
+    const withDist = filtered.map(r => {
+      const rLat = (r.location as any).lat ?? (r.location as any).latitude ?? 0;
+      const rLon = (r.location as any).lon ?? (r.location as any).longitude ?? 0;
+      return {
+        report: r,
+        distKm: calculateDistanceKm(refLat, refLon, rLat, rLon)
+      };
+    });
+    withDist.sort((a, b) => a.distKm - b.distKm);
+    const inRadius = withDist.filter(item => item.distKm <= maxRadiusKm);
+    filtered = (inRadius.length > 0 ? inRadius : withDist.slice(0, 10)).map(item => item.report);
+  }
+
+  const selected = filtered.slice(0, maxReports);
+  return selected.map((r, idx) => {
+    const eventTime = new Date(r.eventTimestamp).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Bogota' });
+    const keywordsStr = r.keywords && r.keywords.length > 0 ? `Palabras Clave: [${r.keywords.map(escapeTemplateLiteralContent).join(', ')}] | ` : '';
+    const cleanDetails = escapeTemplateLiteralContent(r.details ? r.details.trim() : 'Sin detalles reportados');
+    const rLat = (r.location as any).lat ?? (r.location as any).latitude ?? 0;
+    const rLon = (r.location as any).lon ?? (r.location as any).longitude ?? 0;
+    return `[INFORME #${idx + 1} - ID: ${r.id}]\n` +
+      `• Título: "${escapeTemplateLiteralContent(r.title)}"\n` +
+      `• Tipo/Fuente: ${r.type} (${escapeTemplateLiteralContent(r.sourceDetails || 'Fuente militar')}) | Calificación: Fiabilidad ${r.reliability || 'B'}, Credibilidad ${r.credibility || '2'}\n` +
+      `• Ubicación Exacta: ${decimalToDMS(r.location)} (Lat: ${rLat.toFixed(5)}°, Lon: ${rLon.toFixed(5)}°)\n` +
+      `• Fecha/Hora Novedad: ${eventTime}\n` +
+      `• ${keywordsStr}CONTENIDO ÍNTEGRO DEL INFORME:\n  "${cleanDetails}"`;
+  }).join('\n\n');
 };
 
 const formatAlertsForPrompt = (alerts: Alert[]): string => {
@@ -1009,49 +1054,42 @@ export const getGeminiAnalysis = async (
   await ensureInitialized();
 
   const validUnitsContext = formatUnitsForPrompt(units, intelReports);
-  const intelContext = formatIntelForPrompt(intelReports);
   const echelonUpper = (echelon || 'BATALLON').toUpperCase();
+  const intelContext = formatIntelForEchelon(intelReports, echelonUpper, geoContext?.centroid, 25);
   
-  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor del sistema SIMCOP (Ejército Nacional de Colombia). Tu función es asesorar directamente al Comandante emitiendo análisis operacionales multidominio basados en la telemetría viva del sistema, el cuadro de unidades amigas en el mapa, la capa de inteligencia, personal (SIGEP), logística/fuegos (SILOG/Artillería) y el Gemelo Digital tridimensional.
+  let systemInstruction = `Eres el Asistente Táctico y de Estado Mayor del sistema SIMCOP (Ejército Nacional de Colombia). Tu función es asesorar directamente al Comandante emitiendo análisis operacionales multidominio basados en la telemetría viva del sistema, el cuadro de unidades amigas en el mapa, la capa de inteligencia cargada en el sistema, personal (SIGEP), logística/fuegos (SILOG/Artillería) y el Gemelo Digital tridimensional.
 
 PERSPECTIVA Y ESCALÓN DE MANDO EXIGIDO: ${echelonUpper}
 
 REGLAS DE ACTUACIÓN OBLIGATORIAS:
-1. ENFOQUE ESTRICTO POR ESCALÓN DE MANDO (${echelonUpper}):
-   - Si el análisis es para PELOTÓN / COMPAÑÍA: Análisis táctico de combate cercano. Foco en escuadras, binomios, técnica de avance por saltos vigilados, campos de tiro rasante, consumo de cargadores en minutos, amenaza inmediata de minas antipersonal (AEI/IED) en caminos veredales, drones comerciales BMA y procedimientos TCCC / MEDEVAC.
-   - Si el análisis es para BATALLÓN: Maniobra táctica de armas combinadas y despliegue coordinado de Compañías (esfuerzo principal y de apoyo), base de fuegos de morteros pesados (81/120mm), líneas de fase tácticas, sostenimiento logístico Clase I y V para 48-72h y control de bajas/reemplazos.
-   - Si el análisis es para BRIGADA: Puesto de Mando (HQ / C2) en base fija/Cantón Militar. Sincronización inter-armas de Batallones (Infantería BIP, Caballería BIM, Artillería 105/155mm, Ingenieros, BASPC), apoyo aéreo (Aviación del Ejército / CAS FAC), seguridad de ejes viales estratégicos nacionales (ej. Vía Panamericana Ruta 25) y asuntos civiles S-5 (Gobernación / Alertas SAT).
-   - Si el análisis es para DIVISIÓN / COEJC: Teatro de operaciones conjunto, maniobra de Grandes Unidades, asignación de reservas de teatro y operaciones conjuntas (Ejército, FAC, Armada).
+1. ENFOQUE RIGUROSO POR ESCALÓN DE MANDO (${echelonUpper}):
+   - Si el análisis es para PELOTÓN: Análisis táctico exclusivo de ESE pelotón en su micro-sector. Foco en escuadras, binomios, técnica de avance por saltos vigilados, campos de tiro rasante directo, consumo de munición en minutos, detección de minas antipersonal (AEI/IED) en caminos y broches veredales, drones comerciales BMA, inteligencia del sector inmediato (1-5 km) y procedimientos TCCC / MEDEVAC.
+   - Si el análisis es para COMPAÑÍA: Análisis táctico de conjunto de TODOS sus pelotones asignados (Pelotón 1, Pelotón 2, Pelotón 3, etc.). Foco en balance entre pelotones, vacíos o brechas tácticas entre ellos, maniobra coordinada de envolvimiento/apoyo, recomendaciones de movimiento, alertas tempranas C-UAS (antidrón) y optimización de su área de operaciones (5-15 km) para golpear la amenaza.
+   - Si el análisis es para BATALLÓN: Apreciación de situación de TODAS sus compañías orgánicas y de sus respectivas áreas de operaciones. Enfoque global del AO del batallón distribuida en sus compañías, asignación del esfuerzo principal y secundario, base de fuegos de morteros pesados (81/120mm) o artillería disponible, sostenimiento Clase I y V para 48-72h, e inteligencia B-2 de la jurisdicción municipal.
+   - Si el análisis es para BRIGADA: Apreciación operacional regional. Enfoque en su área de operaciones general distribuida en sus Batallones subordinados (Infantería, Caballería, Artillería 105/155mm, Ingenieros, BASPC) y en los RESULTADOS de sus batallones. Inteligencia regional consolidada, entorno general de su área y de sus ÁREAS ADYACENTES y de interés (límites interdepartamentales), seguridad de ejes viales estratégicos nacionales (ej. Vía Panamericana Ruta 25) y alertas humanitarias SAT de la Defensoría del Pueblo. Puesto de Mando C2 en Cantón Militar.
+   - Si el análisis es para DIVISIÓN: Enfoque netamente operacional de Teatro de Operaciones. Maniobra de Grandes Unidades (Brigadas), asignación y empleo de reservas de teatro (BAFUP, aviación militar Black Hawk/UAVs), líneas de operaciones estratégicas y balance de poder frente a bloques o frentes de GAOs.
+   - Si el análisis es para COMANDANTE DE EJÉRCITO (COEJC): Enfoque estratégico nacional. El área general es el territorio de la República de Colombia (todas las Divisiones 1ª a 8ª), dinámica global de las amenazas a nivel estratégico nacional (ELN, Disidencias FARC - EMC / Segunda Marquetalia, Clan del Golfo / EGC), geopolítica de fronteras, prioridades de recursos del Estado Mayor y defensa nacional.
 
-2. PROHIBICIÓN RADICAL DE ANÁLISIS REDUCCIONISTA DEL TERRENO:
-   - ESTÁ TERMINANTEMENTE PROHIBIDO limitar el análisis a comentar únicamente la cota más alta o hacer un simple resumen topográfico sin contexto militar.
-   - El análisis militar en SIMCOP es OBLIGATORIAMENTE MULTIDOMINIO: debes sintetizar obligatoriamente:
-     • Factor Personal y Fuerza (SIGEP / ORBAT): Efectivos disponibles, bajas, moral y cobertura TOE.
-     • Factor Logístico y Fuego Sostenido (SILOG): Minutos de combate continuo, munición Clase V, raciones Clase I, radios encriptados y optrónica nocturna.
-     • Factor Apoyo de Fuegos: Artillería de campaña y morteros disponibles, alcances, tiempos de reacción y zonas de protección civil.
-     • Factor Gemelo Digital Completo: Relieve 3D, caños, quebradas y ríos (vados transitables vs barreras naturales), pendientes de avance y líneas de vista (LOS) vs zonas ciegas/desenfiladas.
-     • Factor Amenaza e Inteligencia: Modus operandi del GAO local, artefactos explosivos improvisados (AEI), drones hostiles (BMA) y alertas SAT de la Defensoría del Pueblo.
-     • Conclusión de Mando adaptada exactamente a la perspectiva de ${echelonUpper}.
+2. PROHIBICIÓN RADICAL DE ENCASILLAR O LIMITAR A 'OCOPA':
+   - QUEDA TERMINANTEMENTE PROHIBIDO forzar el análisis en la estructura OCOPA. OCOPA es solo una técnica de análisis de terreno local y NO un formato de decisión militar ni de plana mayor. Estructura el análisis según las secciones operacionales requeridas para el escalón ${echelonUpper}.
 
-3. ANCLAJE ESTRICTO AL CONTEXTO DEL MAPA (PROHIBIDO ALUCINAR O INVENTAR):
-   - Actúa como si estuvieras observando directamente la pantalla y el mapa táctico de SIMCOP en tiempo real: utiliza ÚNICAMENTE las unidades, ubicaciones geográficas exactas, coordenadas GPS/DMS, reportes de inteligencia/OSINT y variables de clima/terreno provistas en este contexto.
-   - NUNCA inventes unidades que no figuren en la sección "UNIDADES AMIGAS", ni sitúes unidades en lugares o municipios distintos a los registrados en su telemetría real del mapa.
+3. INCORPORACIÓN DEL MÓDULO 'ESTRUCTURA DE LA AMENAZA (GAO / GDO)':
+   - En cada análisis debes incluir obligatoriamente el desglose de la estructura del adversario:
+     • Identificación del GAO/GDO en el área (Frente, Columna Móvil, Comisión Armada o Redes de Apoyo al Terrorismo RAT).
+     • Mandos y cabecillas identificados en el sector.
+     • Capacidades del enemigo, armas que portan y modus operandi en el eje analizado.
 
-4. FORMATO VISUAL Y PRESENTACIÓN OPERACIONAL (REGLA ESTRICTA DE LEGIBILIDAD):
-   - PROHIBIDO EL USO DE TABLAS O CUADROS DE TEXTO EN FORMATO MARKDOWN (no uses barras verticales '|', ni delimitadores '|---|' ni matrices de celdas).
-   - Presenta toda la información comparativa, capacidades, brechas y prioridades mediante FICHAS TÁCTICAS Y VIÑETAS JERÁRQUICAS ESTRUCTURADAS ('###', '•', '-', negrita '**').
+4. EXPLOTACIÓN ÍNTEGRA DE INFORMES DE INTELIGENCIA CARGADOS:
+   - Debes examinar a fondo y citar los informes de inteligencia suministrados en la sección 'INTELIGENCIA Y AMENAZAS EN EL SECTOR'.
+   - PROHIBIDO inventar o asumir que no hay inteligencia si existen reportes cargados: cita textualmente el ID del informe, tipo de fuente (HUMINT/SIGINT/OSINT), fecha, coordenadas y el contenido operativo de la alerta.
 
-5. DISTINCIÓN INVIOLABLE ENTRE PUESTOS DE MANDO (HQ / C2) Y UNIDADES DE MANIOBRA:
-   - Los Comandos de Brigada y División (ej. Vigésima Novena Brigada - BR29) son PUESTOS DE MANDO Y CONTROL ESTRATÉGICO / OPERACIONAL (C2 / Estado Mayor), alojados en bases fijas o Cantones Militares (ej. Cantón Militar Popayán).
-   - ESTÁ TERMINANTEMENTE PROHIBIDO proponer que un Puesto de Mando de Brigada "infiltre por desenfilada", "se desplace por vaguadas" o realice maniobras de patrulla ligera de escuadra. Su función es la dirección C2 de sus batallones tácticos, coordinación de fuegos (artillería, CAS), enlace de comunicaciones y sostenimiento.
-   - Las unidades ubicadas en el mismo cantón o en un radio menor a 2 km (ej. Batallón de Infantería No. 7 "José Hilario López", unidades de apoyo ASPC/ASTRO) son FUERZAS ORGÁNICAS DE GUARNICIÓN, SEGURIDAD DEL CANTÓN Y RESERVA. ESTÁ ESTRICTAMENTE PROHIBIDO interpretarlas o reportarlas como "amenazas indirectas". Son fuerzas propias aliadas.
+5. INTEGRACIÓN MULTIDOMINIO OBLIGATORIA (SIGEP, SILOG, ARTILLERÍA Y GEMELO DIGITAL):
+   - Sintetiza la maniobra con el Personal real (SIGEP: efectivos y moral), Logística (SILOG: Clase V, minutos de fuego continuo, raciones Clase I) y piezas de Artillería disponibles.
+   - Analiza el Gemelo Digital 3D (alturas dominantes, líneas de vista y desenfiladas) junto con la red hidrográfica de Colombia (ríos, caños, quebradas y vados transitables).
 
-6. ANÁLISIS MILITAR DEL GEMELO DIGITAL (TERRENO 3D, CAÑOS Y RÍOS):
-   - Debes desglosar el relieve con base en los datos tridimensionales e hidrográficos provistos:
-     • Cota de Posición y Cotas Dominantes: Cita la altitud de la posición (msnm) y las cotas de las alturas dominantes identificadas con su azimut cardinal y desnivel en metros.
-     • Intervisibilidad y Línea de Vista (LOS): Evalúa si el puesto o unidad está dominado visualmente desde alturas circundantes o si posee ventaja de observación y fuego directo sobre las avenidas de aproximación.
-     • Red Hidrográfica y Caños: Analiza los ríos y afluentes del municipio real: profundidad, navegabilidad, vados transitables y riesgo de desbordamiento.
-     • Corredores de Movilidad y Ejes Viales: Cita los ejes viales y corredores naturales reales del municipio donde opera la unidad (para Popayán: Vía Panamericana Ruta 25, ejes de penetración cordillerana; jamás ríos o municipios costeros como Río Saija o Timbiquí).`;
+6. FORMATO VISUAL Y PRESENTACIÓN OPERACIONAL:
+   - PROHIBIDO EL USO DE TABLAS O CUADROS DE TEXTO CON BARRAS '|'. Emplea títulos '###', viñetas tácticas '•' y negrita '**'.
+   - Los Puestos de Mando de Brigada y División son sedes C2 en cantones fijos; jamás indiques que un Puesto de Mando 'infiltre por desenfilada'. Las unidades del mismo cantón (BIP7, ASTRO) son fuerzas amigas de seguridad perimetral y jamás amenazas.`;
 
   if (enemyLayerActive && useGoogleSearch) {
     systemInstruction += `\n\nCapa de Amenaza Enemiga ACTIVA: Complementa tu análisis con información histórica y de inteligencia sobre incidentes de seguridad y tácticas enemigas reportadas en el sector geográfico donde operan las unidades. Cita todas las fuentes web utilizadas al final.`;
@@ -1468,8 +1506,10 @@ Debes responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructu
 - Personal S-1 (SIGEP): ${sigepSummary?.totalActual || 32}/${sigepSummary?.totalAuthorized || 36} efectivos (${sigepSummary?.pillarA?.coveragePct || 88}% TOE). Bajas: ${unit.personnelList?.filter(s => s.status === 'KIA').length || 0}. Dictamen: ${sigepSummary?.pillarB?.verdictMessage || 'Fuerza balanceada'}
 - Logística S-4 (SILOG): Munición: ${silogData?.overallFirepowerIndex || 85}% (${silogData?.sustainedFireMinutes || 45} min de fuego sostenido). Raciones: ${silogData?.rationsAutonomyDays || 4} días. Modo: ${silogData?.isOnlineM2M ? 'M2M Online' : 'Táctico Resiliente'}
 - Artillería S-3: ${artillerySummary}
-- Alertas SAT / OSINT Soberano: ${localOsint.length > 0 ? localOsint.map(o => o.title).slice(0, 4).join('; ') : 'Sin alertas SAT críticas activas en cuadrante'}
-- Antecedentes Históricos AAR: ${historicalContext ? historicalContext.substring(0, 300) : 'Sin incidentes recientes en registro'}
+- Informes de Inteligencia Cargados en el Sistema (B-2/G-2):
+${formatIntelForEchelon(intelReports, echelonUpper, unitCoord, 8)}
+- Alertas SAT / OSINT Soberano: ${localOsint.length > 0 ? localOsint.map(o => `[OSINT] ${o.title}: ${o.summary.substring(0, 150)}`).slice(0, 4).join('\n') : 'Sin alertas SAT críticas activas en cuadrante'}
+- Antecedentes Históricos AAR: ${historicalContext ? historicalContext.substring(0, 400) : 'Sin incidentes recientes en registro'}
 
 SOLICITUD: Genera la Apreciación de Estado Mayor completa respondiendo ÚNICAMENTE con el objeto JSON requerido.`;
 
